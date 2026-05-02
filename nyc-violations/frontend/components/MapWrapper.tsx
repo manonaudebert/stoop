@@ -25,8 +25,9 @@ export default function MapWrapper() {
   const [selected,       setSelected]       = useState<SelectedBuilding | null>(null)
   const [flyTarget,      setFlyTarget]      = useState<FlyTarget | null>(null)
   const [visibleTiers,   setVisibleTiers]   = useState<Set<string>>(() => new Set(LEGEND.map(l => l.tier)))
-  const [showNtaBorders, setShowNtaBorders] = useState(false)
-  const [selectedNtas,   setSelectedNtas]   = useState<Set<string>>(new Set())
+  const [showNtaBorders,   setShowNtaBorders]   = useState(false)
+  const [legendCollapsed,  setLegendCollapsed]  = useState(false)
+  const [selectedNtas,     setSelectedNtas]     = useState<Set<string>>(new Set())
   const [ntaList,        setNtaList]        = useState<NtaItem[]>([])
   const [ntaSearch,      setNtaSearch]      = useState('')
 
@@ -149,6 +150,31 @@ export default function MapWrapper() {
 
       {/* Legend */}
       <div style={{ background: '#111111', borderRadius: 8, padding: '12px 14px', width: 200 }}>
+
+        {/* Mobile collapse toggle — hidden on sm+ */}
+        <div
+          className="flex sm:hidden"
+          onClick={() => setLegendCollapsed(v => !v)}
+          style={{
+            alignItems: 'center', justifyContent: 'space-between',
+            cursor: 'pointer', userSelect: 'none',
+            marginBottom: legendCollapsed ? 0 : 10,
+          }}
+        >
+          <span style={{ fontSize: 10, fontWeight: 500, color: '#D1C9C5', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            Legend
+          </span>
+          <svg
+            width="12" height="12" viewBox="0 0 12 12" fill="none"
+            style={{ transform: legendCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}
+          >
+            <path d="M2 4.5l4 4 4-4" stroke="#D1C9C5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+
+        {/* Legend body — always visible on sm+, collapsible on mobile */}
+        <div className={legendCollapsed ? 'hidden sm:block' : ''}>
+
         {/* Risk level header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <p style={{ fontSize: 10, fontWeight: 500, color: '#D1C9C5', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>
@@ -241,6 +267,8 @@ export default function MapWrapper() {
             </div>
           </div>
         )}
+        </div>
+        {/* Legend body end */}
       </div>
       {/* Legend end */}
 

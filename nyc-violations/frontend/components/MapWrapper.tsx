@@ -34,10 +34,15 @@ export default function MapWrapper() {
   const selectedNtasArray = useMemo(() => [...selectedNtas], [selectedNtas])
 
   const filteredNtaList = useMemo(() => {
-    if (!ntaSearch) return ntaList
-    const q = ntaSearch.toLowerCase()
-    return ntaList.filter(n => n.name.toLowerCase().includes(q))
-  }, [ntaList, ntaSearch])
+    const base = ntaSearch
+      ? ntaList.filter(n => n.name.toLowerCase().includes(ntaSearch.toLowerCase()))
+      : ntaList
+    if (selectedNtas.size === 0) return base
+    return [
+      ...base.filter(n =>  selectedNtas.has(n.code)),
+      ...base.filter(n => !selectedNtas.has(n.code)),
+    ]
+  }, [ntaList, ntaSearch, selectedNtas])
 
   // Clear NTA filter when borders are hidden
   useEffect(() => {
@@ -114,29 +119,39 @@ export default function MapWrapper() {
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
         <div
-          style={{ background: '#0601B4', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 16 }}
+          style={{ background: '#0601B4', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12 }}
           className="pointer-events-auto"
         >
           <h1 style={{ fontSize: 14, fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.01em', margin: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
             NYC Building Complaints
           </h1>
-          <div style={{ flex: 1, maxWidth: 560 }}>
-            <SearchBar onSelect={handleSearchSelect} />
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '0 1 460px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SearchBar onSelect={handleSearchSelect} />
+            </div>
+            <Link
+              href="/leaderboard"
+              className="hidden sm:inline"
+              style={{ fontSize: 13, fontWeight: 500, color: '#B5B3F5', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              Leaderboard
+            </Link>
           </div>
-          <Link href="/leaderboard" style={{ fontSize: 13, fontWeight: 500, color: '#B5B3F5', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            Leaderboard
-          </Link>
         </div>
       </div>
 
-      {/* Legend — upper left, below header */}
+      {/* Left column — legend + building panel */}
       <div
         className="absolute left-4 z-10"
-        style={{ top: 74, background: '#111111', borderRadius: 8, padding: '12px 14px', width: 200 }}
+        style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
       >
+
+      {/* Legend */}
+      <div style={{ background: '#111111', borderRadius: 8, padding: '12px 14px', width: 200 }}>
         {/* Risk level header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 500, color: '#6B6B65', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>
+          <p style={{ fontSize: 10, fontWeight: 500, color: '#D1C9C5', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>
             Risk level
           </p>
           {visibleTiers.size < LEGEND.length && (
@@ -158,7 +173,7 @@ export default function MapWrapper() {
               style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, cursor: 'pointer', userSelect: 'none' }}
             >
               <Checkbox active={active} color={color} />
-              <span style={{ fontSize: 12, color: active ? '#FFFFFF' : '#555555', flex: 1, transition: 'color 0.1s' }}>
+              <span style={{ fontSize: 12, color: active ? '#FFFFFF' : '#D1C9C5', flex: 1, transition: 'color 0.1s' }}>
                 {label}
               </span>
             </div>
@@ -170,8 +185,8 @@ export default function MapWrapper() {
           style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
         >
           <Checkbox active={showNtaBorders} color="#6B75F5" />
-          <span style={{ fontSize: 12, color: showNtaBorders ? '#FFFFFF' : '#555555', transition: 'color 0.1s' }}>
-            NTA borders
+          <span style={{ fontSize: 12, color: showNtaBorders ? '#FFFFFF' : '#D1C9C5', transition: 'color 0.1s' }}>
+            Neighborhoods (NTAs)
           </span>
         </div>
 
@@ -179,7 +194,7 @@ export default function MapWrapper() {
         {showNtaBorders && ntaList.length > 0 && (
           <div style={{ marginTop: 10, borderTop: '0.5px solid #2A2A2A', paddingTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-              <p style={{ fontSize: 10, fontWeight: 500, color: '#6B6B65', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>
+              <p style={{ fontSize: 10, fontWeight: 500, color: '#D1C9C5', letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0 }}>
                 Filter by NTA
               </p>
               {selectedNtas.size > 0 && (
@@ -227,10 +242,15 @@ export default function MapWrapper() {
           </div>
         )}
       </div>
+      {/* Legend end */}
 
       {selected && (
         <BuildingSidebar building={selected} onClose={() => setSelected(null)} />
       )}
+
+      </div>
+      {/* Left column end */}
+
     </div>
   )
 }

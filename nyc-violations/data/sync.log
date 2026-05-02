@@ -1,0 +1,22 @@
+2026-04-27 16:17:00,212  INFO  Last sync: 2026-04-21  →  querying since 2026-04-18 (-3 day buffer)
+2026-04-27 16:17:00,212  INFO  Fetching complaints with date_entered >= 2026-04-18
+2026-04-27 16:17:00,589  INFO  HTTP Request: GET https://data.cityofnewyork.us/resource/eabe-havv.json?%24where=date_entered%20%3E%3D%20%272026-04-18T00%3A00%3A00.000%27&%24limit=10000&%24offset=0&%24order=date_entered%20ASC "HTTP/1.1 200 OK"
+2026-04-27 16:17:00,590  INFO  Total fetched: 0 records
+2026-04-27 16:17:00,593  INFO  No new records — skipping upsert.
+2026-04-27 16:17:00,594  INFO  Done. State saved: 2026-04-27
+2026-04-27 16:33:07,568  INFO  Last sync: 2026-04-27  →  querying since 2026-04-24 (-3 day buffer)
+2026-04-27 16:33:07,568  INFO  Fetching complaints with date_entered >= 2026-04-24
+2026-04-27 16:33:07,781  INFO  HTTP Request: GET https://data.cityofnewyork.us/resource/eabe-havv.json?%24where=to_floating_timestamp%28date_entered%2C%20%27MM%2Fdd%2Fyyyy%27%29%20%3E%3D%20%272026-04-24T00%3A00%3A00.000%27&%24limit=10000&%24offset=0&%24order=date_entered%20ASC "HTTP/1.1 400 Bad Request"
+2026-04-27 16:33:36,030  INFO  Last sync: 2026-04-21  →  querying since 2026-04-18 (-3 day buffer)
+2026-04-27 16:33:36,030  INFO  Fetching complaints with date_entered >= 2026-04-18
+2026-04-27 16:33:36,264  INFO  HTTP Request: GET https://data.cityofnewyork.us/resource/eabe-havv.json?%24where=to_floating_timestamp%28date_entered%2C%20%27MM%2Fdd%2Fyyyy%27%29%20%3E%3D%20%272026-04-18T00%3A00%3A00.000%27&%24limit=10000&%24offset=0&%24order=date_entered%20ASC "HTTP/1.1 400 Bad Request"
+2026-04-27 16:39:58,092  INFO  Last sync: 2026-04-21  →  querying since 2026-04-18 (-3 day buffer)
+2026-04-27 16:39:58,092  INFO  Fetching complaints for 10 dates (2026-04-18 → 2026-04-27)
+2026-04-27 16:40:01,002  INFO  HTTP Request: GET https://data.cityofnewyork.us/resource/eabe-havv.json?%24where=date_entered%20IN%20%28%2704%2F18%2F2026%27%2C%20%2704%2F19%2F2026%27%2C%20%2704%2F20%2F2026%27%2C%20%2704%2F21%2F2026%27%2C%20%2704%2F22%2F2026%27%2C%20%2704%2F23%2F2026%27%2C%20%2704%2F24%2F2026%27%2C%20%2704%2F25%2F2026%27%2C%20%2704%2F26%2F2026%27%2C%20%2704%2F27%2F2026%27%29&%24limit=10000&%24offset=0&%24order=date_entered%20ASC "HTTP/1.1 200 OK"
+2026-04-27 16:40:01,061  INFO    … 3147 records fetched
+2026-04-27 16:40:01,061  INFO  Total fetched: 3147 records
+2026-04-27 16:40:01,090  INFO  Upserting 3147 records…
+2026-04-27 16:40:04,995  INFO  Upserted 3147 records.
+2026-04-27 16:40:04,996  INFO  Refreshing building_summary materialized view…
+2026-04-27 16:40:25,614  INFO  building_summary refreshed — 520890 buildings.
+2026-04-27 16:40:25,659  INFO  Done. State saved: 2026-04-27

@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-brand:   #0601B4;
+  --color-ink:     #111111;
+  --color-paper:   #FAFAF7;
+  --color-surface: #FFFFFF;
+  --color-border:  #E5E3DA;
+  --color-muted:   #6B6B65;
+}
+
+:root {
+  --background: #FAFAF7;
+  --foreground: #111111;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, sans-serif;
+}
+
+.mapboxgl-popup-content {
+  background: #111111 !important;
+  border-radius: 4px !important;
+  padding: 8px 10px !important;
+  box-shadow: none !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: #111111 !important;
+  border-bottom-color: #111111 !important;
+}
+
+.leaderboard-row:hover {
+  background: #FAFAF7 !important;
+}

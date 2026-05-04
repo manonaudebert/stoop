@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import BuildingGate from '@/components/BuildingGate'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
@@ -211,6 +212,7 @@ export default async function BuildingPage({
     return (
       <div style={{ minHeight: '100vh', background: '#FAFAF7' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
+        <BuildingGate bin={bin}>
         <div style={{ background: emptyTier.bg, padding: '2.5rem 3rem' }}>
           <h1 style={{ fontSize: 48, fontWeight: 500, color: emptyTier.color, letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0 }}>
             {toTitleCase(building.address ?? '')}
@@ -242,6 +244,7 @@ export default async function BuildingPage({
             View on HPD Online →
           </a>
         </main>
+        </BuildingGate>
       </div>
     )
   }
@@ -260,6 +263,7 @@ export default async function BuildingPage({
     <div style={{ minHeight: '100vh', background: '#FAFAF7' }}>
 
       <BuildingNavBar backHref={backHref} backLabel={backLabel} />
+      <BuildingGate bin={bin}>
 
       {/* Hero — full-width colored band */}
       <div style={{ background: tier.bg, padding: '2.5rem 3rem' }}>
@@ -492,6 +496,7 @@ export default async function BuildingPage({
           )}
         </div>
       </main>
+      </BuildingGate>
     </div>
   )
 }

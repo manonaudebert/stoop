@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import SearchBar from './SearchBar'
 import type { BuildingSummary } from '@/lib/types'
 
 type Props = { backHref: string; backLabel: string }
 
 export default function BuildingNavBar({ backHref, backLabel }: Props) {
-  const router = useRouter()
+  const router  = useRouter()
+  const { data: session } = useSession()
 
   function handleSelect(b: BuildingSummary) {
     router.push(`/building/${b.bin}`)
@@ -34,13 +36,19 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
         <Link
           href="/leaderboard"
           className="hidden sm:inline"
-          style={{
-            fontSize: 13, fontWeight: 500, color: '#B5B3F5', textDecoration: 'none',
-            whiteSpace: 'nowrap', flexShrink: 0,
-          }}
+          style={{ fontSize: 13, fontWeight: 500, color: '#B5B3F5', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
         >
           Leaderboard
         </Link>
+        {session && (
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="hidden sm:inline"
+            style={{ fontSize: 13, fontWeight: 500, color: '#B5B3F5', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, padding: 0 }}
+          >
+            Sign out
+          </button>
+        )}
       </div>
     </header>
   )

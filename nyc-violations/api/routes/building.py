@@ -1,9 +1,10 @@
 import re
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from database import get_db
+from limiter import limiter
 from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
 from services.scoring import compute_score
 from cache import cache_get, cache_set
@@ -118,7 +119,9 @@ def _search_patterns(query: str) -> list[str]:
 
 
 @router.get("/search", response_model=list[BuildingSummaryResponse])
+@limiter.limit("30/minute")
 async def search_buildings(
+    request: Request,
     q: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
 ):

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from database import get_db
+from limiter import limiter
 from cache import cache_get, cache_set
 
 router = APIRouter(prefix="/map", tags=["map"])
@@ -49,7 +50,9 @@ _BBOX_SQL = text("""
 
 
 @router.get("/clusters")
+@limiter.limit("120/minute")
 async def get_clusters(
+    request: Request,
     west: float = Query(...),
     south: float = Query(...),
     east: float = Query(...),

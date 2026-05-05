@@ -11,7 +11,7 @@ BATCH_SIZE = 50_000
 
 
 def _asyncpg_url(url: str) -> str:
-    return url.split('?')[0].replace('postgresql://', 'postgresql://', 1)
+    return url.split('?')[0]
 
 
 async def load():
@@ -25,16 +25,17 @@ async def load():
         ssl='require',
         statement_cache_size=0,
     )
-    await conn.execute("TRUNCATE complaints RESTART IDENTITY CASCADE")
 
     loaded = 0
-    with tqdm(total=total, unit='rows') as bar:
-        for start in range(0, total, BATCH_SIZE):
-            batch = df.iloc[start:start + BATCH_SIZE].where(pd.notnull(df.iloc[start:start + BATCH_SIZE]), None)
-            records = [tuple(row) for row in batch.itertuples(index=False, name=None)]
-            await conn.copy_records_to_table('complaints', records=records, columns=DB_COLUMNS)
-            loaded += len(records)
-            bar.update(len(records))
+    async with conn.transaction():
+        await conn.execute("TRUNCATE complaints RESTART IDENTITY CASCADE")
+        with tqdm(total=total, unit='rows') as bar:
+            for start in range(0, total, BATCH_SIZE):
+                batch = df.iloc[start:start + BATCH_SIZE].where(pd.notnull(df.iloc[start:start + BATCH_SIZE]), None)
+                records = [tuple(row) for row in batch.itertuples(index=False, name=None)]
+                await conn.copy_records_to_table('complaints', records=records, columns=DB_COLUMNS)
+                loaded += len(records)
+                bar.update(len(records))
 
     await conn.close()
     print(f"Done — {loaded:,} rows inserted.")

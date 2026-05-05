@@ -39,4 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-nyc-violations/.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+
+# data files (large, not for version control)
+nyc-violations/data/raw/
+nyc-violations/data/clean/
+nyc-violations/data/sync.log
+nyc-violations/data/.last_sync
+
+# ide
+.claude/

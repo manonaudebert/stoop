@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
+from cachetools import LRUCache
 
-_store: dict = {}
+_store: LRUCache = LRUCache(maxsize=2000)
 
 
 def cache_get(key: str):

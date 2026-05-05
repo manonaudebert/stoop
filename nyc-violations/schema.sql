@@ -1,3 +1,11 @@
+-- User accounts for auth
+CREATE TABLE IF NOT EXISTS users (
+    id            TEXT PRIMARY KEY,
+    email         TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Static lookup: complaint disposition codes from NYC Open Data (6v9u-ndjg)
 CREATE TABLE IF NOT EXISTS complaint_disposition_codes (
     code        TEXT PRIMARY KEY,
@@ -20,7 +28,8 @@ CREATE TABLE IF NOT EXISTS buildings (
     borough           TEXT,
     construction_year TEXT,
     nta_code          TEXT,
-    nta_name          TEXT
+    nta_name          TEXT,
+    nta_type          INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_buildings_nta ON buildings(nta_code);

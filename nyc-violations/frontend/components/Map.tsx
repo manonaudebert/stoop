@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { SelectedBuilding } from './BuildingSidebar'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const API = '/api/proxy'
 
 // Cluster color: worst risk level among the buildings in the cluster
 const clusterColor: mapboxgl.Expression = [
@@ -135,6 +135,10 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const zoom = map.getZoom()
     const url = `${API}/map/clusters?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
     const res = await fetch(url)
+    if (!res.ok) {
+      console.error('Failed to load map data:', res.status)
+      return
+    }
     const geojson = await res.json()
     rawDataRef.current = geojson
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined

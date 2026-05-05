@@ -55,9 +55,23 @@ export default function ComplaintTimeline({
   const twoYearsStr = toMonthStr(twoYearsAgo)
   const fiveYearsStr = toMonthStr(fiveYearsAgo)
 
-  // Filter to last 5 years unless full history is requested
-  const visibleData = showFull ? data : data.filter(d => d.month >= fiveYearsStr)
-  const hasOlderData = data.some(d => d.month < fiveYearsStr)
+  // If no complaints exist in the last 5 years, anchor the window to the last complaint date
+  const hasRecentData = data.some(d => d.month >= fiveYearsStr && d.count > 0)
+  const windowStartStr = (() => {
+    if (hasRecentData || !lastDate) return fiveYearsStr
+    const [y, m] = lastDate.split('-').map(Number)
+    return toMonthStr(new Date(y - 5, m - 1, 1))
+  })()
+  const windowLabel = (() => {
+    if (hasRecentData || !lastDate) return 'Last 5 years'
+    const endYear = lastDate.slice(0, 4)
+    const startYear = String(Number(endYear) - 5)
+    return `${startYear}–${endYear}`
+  })()
+
+  // Filter to window unless full history is requested
+  const visibleData = showFull ? data : data.filter(d => d.month >= windowStartStr)
+  const hasOlderData = data.some(d => d.month < windowStartStr)
 
   const enriched: EnrichedPoint[] = visibleData.map(d => {
     const dt = new Date(d.month + '-01')
@@ -102,7 +116,7 @@ export default function ComplaintTimeline({
               padding: 0, letterSpacing: '0.02em', flexShrink: 0,
             }}
           >
-            {showFull ? 'Last 5 years' : 'Full history'}
+            {showFull ? windowLabel : 'Full history'}
           </button>
         )}
       </div>

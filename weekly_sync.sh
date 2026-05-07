@@ -11,7 +11,7 @@
 # ── cron alternative ─────────────────────────────────────────────────────────
 # Add to crontab (run every Sunday at 2 AM):
 #   crontab -e
-#   0 2 * * 0 /Users/manonaudebert/Documents/nycd/weekly_sync.sh
+#   0 2 * * 0 /path/to/nycb/weekly_sync.sh
 
 set -euo pipefail
 

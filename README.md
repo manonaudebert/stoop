@@ -25,7 +25,7 @@ A web app that helps NYC renters research building complaint and violation histo
 ```
 nycb/
 ├── nyc-violations/
-│   ├── .env                    # DATABASE_URL (Neon connection string)
+│   ├── .env                    # DATABASE_URL (copy from .env.example — not in repo)
 │   ├── schema.sql              # Full database schema
 │   │
 │   ├── ingest/                 # Python data pipeline
@@ -94,9 +94,12 @@ NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
 ### First-time data load
 
 ```bash
-cd nyc-violations/ingest
-pip install -r requirements.txt
+cd nyc-violations
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r ingest/requirements.txt
 
+cd ingest
 python seed_categories.py          # seed complaint category lookup
 python seed_disposition_codes.py   # seed disposition code lookup
 python fetch_buildings.py          # load building centroids
@@ -111,6 +114,8 @@ python aggregate.py                # refresh materialized views
 
 ```bash
 cd nyc-violations/api
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```

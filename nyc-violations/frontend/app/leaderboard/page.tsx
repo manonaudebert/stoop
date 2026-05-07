@@ -1,28 +1,9 @@
 import Link from 'next/link'
 import { getLeaderboard } from '@/lib/api'
+import { scoreToTier } from '@/lib/riskTier'
 import type { BuildingSummary } from '@/lib/types'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
-
-type RiskTier = { bg: string; text: string }
-
-function getRiskTier(score: number | null): RiskTier {
-  if (score == null) return { bg: '#F5F3EA', text: '#6B6B65' }
-  if (score >= 95)   return { bg: '#D4F5CB', text: '#1F4012' }
-  if (score >= 86)   return { bg: '#A8E5A0', text: '#1F4012' }
-  if (score >= 70)   return { bg: '#FFD930', text: '#5C4A0A' }
-  if (score >= 45)   return { bg: '#F5A047', text: '#5C3A0A' }
-  return               { bg: '#EF4637', text: '#FFFFFF' }
-}
-
-function getTierDot(score: number | null): string {
-  if (score == null) return '#D4D1C3'
-  if (score >= 95)   return '#D4F5CB'
-  if (score >= 86)   return '#A8E5A0'
-  if (score >= 70)   return '#FFD930'
-  if (score >= 45)   return '#F5A047'
-  return '#EF4637'
-}
 
 function BuildingRow({
   rank,
@@ -33,8 +14,8 @@ function BuildingRow({
   building: BuildingSummary
   maxComplaints: number
 }) {
-  const tier = getRiskTier(building.score)
-  const dot = getTierDot(building.score)
+  const tier = scoreToTier(building.score)
+  const dot = scoreToTier(building.score).bg
   const barPct = maxComplaints > 0 ? (building.total_complaints / maxComplaints) * 100 : 0
 
   return (

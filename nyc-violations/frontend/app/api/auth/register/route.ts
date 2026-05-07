@@ -5,6 +5,7 @@ export async function POST(req: Request) {
   let email: string, password: string
   try {
     ;({ email, password } = await req.json())
+    email = (email ?? '').trim().toLowerCase()
   } catch {
     return Response.json({ error: 'Invalid request' }, { status: 400 })
   }

@@ -8,6 +8,7 @@ Paginates at 50k rows per request (~22 pages for 1.1M buildings).
 import asyncio
 import httpx
 import asyncpg
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from tqdm import tqdm
 from config import DATABASE_URL, BUILDINGS_API, BIN_BOROUGH_MAP
 
@@ -36,29 +37,38 @@ def _borough_from_bin(bin_str: str) -> str | None:
     return None
 
 
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    stop=stop_after_attempt(4),
+    reraise=True,
+)
+async def _fetch_raw(client: httpx.AsyncClient, params: dict) -> httpx.Response:
+    r = await client.get(BUILDINGS_API, params=params, timeout=60)
+    r.raise_for_status()
+    return r
+
+
 async def fetch_page_centroid(client: httpx.AsyncClient, offset: int) -> list[dict]:
-    """Try ST_Centroid first; return raw the_geom rows as fallback."""
+    """Try ST_Centroid first; fall back to raw the_geom on Socrata geo errors."""
     try:
-        r = await client.get(BUILDINGS_API, params={
+        r = await _fetch_raw(client, {
             "$select": "bin, ST_Y(ST_Centroid(the_geom)) as latitude, ST_X(ST_Centroid(the_geom)) as longitude, construction_year",
             "$limit": PAGE_SIZE,
             "$offset": offset,
             "$where": "bin IS NOT NULL",
-        }, timeout=60)
-        r.raise_for_status()
+        })
         data = r.json()
-        # If Socrata returned an error object instead of a list, fall back
         if isinstance(data, dict):
-            raise ValueError("Socrata returned error, falling back")
+            raise ValueError("Socrata returned error object instead of list")
         return data
-    except Exception:
-        r = await client.get(BUILDINGS_API, params={
+    except (ValueError, httpx.HTTPStatusError):
+        r = await _fetch_raw(client, {
             "$select": "bin, the_geom, construction_year",
             "$limit": PAGE_SIZE,
             "$offset": offset,
             "$where": "bin IS NOT NULL",
-        }, timeout=60)
-        r.raise_for_status()
+        })
         rows = []
         for item in r.json():
             lat, lon = _centroid_from_geom(item.get('the_geom') or {})

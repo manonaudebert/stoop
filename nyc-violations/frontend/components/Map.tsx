@@ -141,6 +141,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     }
     const geojson = await res.json()
     rawDataRef.current = geojson
+    if (!mapRef.current) return  // unmounted while fetch was in flight
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
     if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current)
   }, [])

@@ -17,6 +17,7 @@ from pathlib import Path
 import asyncpg
 import httpx
 import pandas as pd
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import BIN_BOROUGH_MAP, COMPLAINTS_API, DATABASE_URL, DB_COLUMNS, SOCRATA_APP_TOKEN
 
@@ -89,20 +90,29 @@ def fetch_since(since: date) -> pd.DataFrame:
     offset = 0
     log.info("Fetching complaints for %d dates (%s → %s)", lookback_days + 1, since, today)
 
+    @retry(
+        retry=retry_if_exception_type(httpx.HTTPStatusError),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(4),
+        reraise=True,
+    )
+    def _get_page(client: httpx.Client, offset: int) -> list[dict]:
+        r = client.get(
+            COMPLAINTS_API,
+            params={
+                "$where": where,
+                "$limit": PAGE_SIZE,
+                "$offset": offset,
+                "$order": "date_entered ASC",
+            },
+        )
+        r.raise_for_status()
+        return r.json()
+
     headers = {"X-App-Token": SOCRATA_APP_TOKEN} if SOCRATA_APP_TOKEN else {}
     with httpx.Client(timeout=120, headers=headers) as client:
         while True:
-            r = client.get(
-                COMPLAINTS_API,
-                params={
-                    "$where": where,
-                    "$limit": PAGE_SIZE,
-                    "$offset": offset,
-                    "$order": "date_entered ASC",
-                },
-            )
-            r.raise_for_status()
-            page: list[dict] = r.json()
+            page: list[dict] = _get_page(client, offset)
             if not page:
                 break
             rows.extend(page)

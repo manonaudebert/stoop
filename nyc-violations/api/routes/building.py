@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
-from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
+from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse, ScoreDetail, PriorityTierDetail
 from services.scoring import compute_score
 from cache import cache_get, cache_set
 
@@ -227,11 +227,11 @@ async def get_building(
     complaints = [_complaint_row_to_response(r) for r in rows]
 
     d = dict(summary._mapping)
-    d["score"] = score_result.score
+    score_numeric = float(summary.score_numeric) if summary.score_numeric is not None else 0.0
+    d["score"] = score_numeric
 
-    from schemas import ScoreDetail, PriorityTierDetail
     score_detail = ScoreDetail(
-        score=score_result.score,
+        score=score_numeric,
         by_priority={
             p: PriorityTierDetail(
                 count=tier.count,

@@ -6,21 +6,8 @@ import BuildingGate from '@/components/BuildingGate'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
+import { riskLevelToTier } from '@/lib/riskTier'
 import type { Complaint } from '@/lib/types'
-
-const RISK_TIER: Record<string, { bg: string; color: string }> = {
-  'Very low':          { bg: '#D4F5CB', color: '#111111' },
-  'Low':               { bg: '#A8E5A0', color: '#111111' },
-  'Moderate':          { bg: '#FFD930', color: '#111111' },
-  'High':              { bg: '#F5A047', color: '#111111' },
-  'Very high':         { bg: '#EF4637', color: '#FFFFFF' },
-  'Insufficient data': { bg: '#D4F5CB', color: '#111111' },
-  'Not comparable':    { bg: '#D4D1C3', color: '#111111' },
-}
-
-function getTier(riskLevel: string | null) {
-  return RISK_TIER[riskLevel ?? 'Insufficient data'] ?? RISK_TIER['Insufficient data']
-}
 
 type IndicatorColor = 'green' | 'yellow' | 'orange' | 'red'
 
@@ -202,22 +189,22 @@ export default async function BuildingPage({
   // Fetch separately — failure doesn't break the page
   neighborhood = await getNeighborhood(bin)
 
-  const tier = getTier(building.risk_level)
+  const tier = riskLevelToTier(building.risk_level)
   const backHref  = from === 'leaderboard' ? '/leaderboard' : '/'
   const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
 
   // Empty state
   if (building.total_complaints === 0) {
-    const emptyTier = getTier('Very low')
+    const emptyTier = riskLevelToTier('Very low')
     return (
       <div style={{ minHeight: '100vh', background: '#FAFAF7' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
         <BuildingGate bin={bin}>
         <div style={{ background: emptyTier.bg, padding: '2.5rem 3rem' }}>
-          <h1 style={{ fontSize: 48, fontWeight: 500, color: emptyTier.color, letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0 }}>
+          <h1 style={{ fontSize: 48, fontWeight: 500, color: emptyTier.text, letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0 }}>
             {toTitleCase(building.address ?? '')}
           </h1>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: emptyTier.color, opacity: 0.7, marginTop: 10 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: emptyTier.text, opacity: 0.7, marginTop: 10 }}>
             {building.borough} · ZIP {building.zip_code}
             {' · '}BIN {building.bin}
             {building.construction_year && ` · Built ${building.construction_year}`}
@@ -274,18 +261,18 @@ export default async function BuildingPage({
           {/* Left: address + meta */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{
-              fontSize: 48, fontWeight: 500, color: tier.color,
+              fontSize: 48, fontWeight: 500, color: tier.text,
               letterSpacing: '-0.02em', lineHeight: 1.15, margin: 0,
             }}>
               {toTitleCase(building.address ?? '')}
             </h1>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: tier.color, opacity: 0.7, marginTop: 10 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: tier.text, opacity: 0.7, marginTop: 10 }}>
               {building.borough} · ZIP {building.zip_code}
               {' · '}BIN {building.bin}
               {neighborhood?.nta_name && ` · ${neighborhood.nta_name}`}
             </p>
             {(building.first_complaint_date || building.construction_year) && (
-              <p style={{ fontSize: 12, color: tier.color, opacity: 0.6, marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: tier.text, opacity: 0.6, marginTop: 4 }}>
                 {building.first_complaint_date && <>On record since {formatDate(building.first_complaint_date)}</>}
                 {building.first_complaint_date && building.construction_year && ' · '}
                 {building.construction_year && <>Built {building.construction_year}</>}
@@ -306,7 +293,7 @@ export default async function BuildingPage({
                   standingColor(building.neighborhood_percentile),
                 )
             return (
-              <p style={{ fontSize: 16, color: tier.color, opacity: 0.85, maxWidth: 340, lineHeight: 1.6, flexShrink: 0 }}>
+              <p style={{ fontSize: 16, color: tier.text, opacity: 0.85, maxWidth: 340, lineHeight: 1.6, flexShrink: 0 }}>
                 {copy}
               </p>
             )

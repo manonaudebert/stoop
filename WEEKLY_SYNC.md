@@ -12,6 +12,17 @@ Incrementally pulls new DOB complaints from the NYC Open Data API, upserts them 
 6. Writes today's date back to `.last_sync`
 7. Appends a timestamped log entry to `nyc-violations/data/sync.log`
 
+## First-time setup
+
+The ingest scripts use a separate venv from the API. Create it once from the repo root:
+
+```bash
+cd nyc-violations
+python -m venv .venv
+source .venv/bin/activate
+pip install -r ingest/requirements.txt
+```
+
 ## Run manually
 
 ```bash
@@ -45,9 +56,9 @@ Cron output is appended to `nyc-violations/data/sync_cron.log`.
 ```bash
 crontab -e
 ```
-Add:
+Add (adjust path to match where you cloned the repo):
 ```
-0 2 * * 0 /Users/manonaudebert/Documents/nycd/weekly_sync.sh
+0 2 * * 0 /path/to/nycb/weekly_sync.sh
 ```
 
 ## Files
@@ -55,6 +66,7 @@ Add:
 | File | Purpose |
 |------|---------|
 | `nyc-violations/ingest/sync.py` | Main sync script |
+| `nyc-violations/.venv/` | Python venv for ingest scripts (created during setup) |
 | `weekly_sync.sh` | Shell wrapper (activates venv, runs script) |
 | `weekly_sync.plist` | macOS launchd job definition |
 | `nyc-violations/data/.last_sync` | Tracks last successful run date (auto-created) |

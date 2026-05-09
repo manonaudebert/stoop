@@ -10,6 +10,9 @@ COMPLAINTS_CSV    = "https://data.cityofnewyork.us/api/views/eabe-havv/rows.csv?
 COMPLAINTS_API    = "https://data.cityofnewyork.us/resource/eabe-havv.json"
 BUILDINGS_API     = "https://data.cityofnewyork.us/resource/5zhs-2jue.json"
 
+HPD_VIOLATIONS_CSV_URL = "https://data.cityofnewyork.us/api/views/wvxf-dwi5/rows.csv?accessType=DOWNLOAD"
+HPD_VIOLATIONS_API     = "https://data.cityofnewyork.us/resource/wvxf-dwi5.json"
+
 # CSV header → DB column name
 COMPLAINTS_COLUMN_MAP = {
     "Complaint Number":  "complaint_number",
@@ -252,3 +255,65 @@ COMPLAINT_CATEGORIES = {
     # Alphanumeric 8x
     "8A": ("Construction Safety Compliance (CSC) Action",                                  "B"),
 }
+
+# ── HPD Housing Maintenance Code Violations (wvxf-dwi5) ──────────────────────
+
+# CSV header → DB column name
+HPD_COLUMN_MAP = {
+    "ViolationID":       "violation_id",
+    "BIN":               "bin",
+    "Borough":           "borough",
+    "HouseNumber":       "house_number",
+    "StreetName":        "street_name",
+    "Postcode":          "zip_code",
+    "Apartment":         "apartment",
+    "Class":             "violation_class",
+    "InspectionDate":    "inspection_date",
+    "ApprovedDate":      "approved_date",
+    "CertifiedDate":     "certified_date",
+    "NOVDescription":    "nov_description",
+    "NOVIssuedDate":     "nov_issued_date",
+    "CurrentStatus":     "current_status",
+    "CurrentStatusDate": "current_status_date",
+    "ViolationStatus":   "violation_status",
+    "RentImpairing":     "rent_impairing",
+    "OrderNumber":       "order_number",
+    "Latitude":          "latitude",
+    "Longitude":         "longitude",
+    "CommunityBoard":    "community_board",
+    "BBL":               "bbl",
+}
+
+# Socrata JSON API field name → DB column name (API returns lowercase)
+HPD_JSON_COLUMN_MAP = {
+    "violationid":       "violation_id",
+    "bin":               "bin",
+    "borough":           "borough",
+    "housenumber":       "house_number",
+    "streetname":        "street_name",
+    "postcode":          "zip_code",
+    "apartment":         "apartment",
+    "class":             "violation_class",
+    "inspectiondate":    "inspection_date",
+    "approveddate":      "approved_date",
+    "certifieddate":     "certified_date",
+    "novdescription":    "nov_description",
+    "novissueddate":     "nov_issued_date",
+    "currentstatus":     "current_status",
+    "currentstatusdate": "current_status_date",
+    "violationstatus":   "violation_status",
+    "rentimpairing":     "rent_impairing",
+    "ordernumber":       "order_number",
+    "latitude":          "latitude",
+    "longitude":         "longitude",
+    "communityboard":    "community_board",
+    "bbl":               "bbl",
+}
+
+HPD_DB_COLUMNS = [
+    "violation_id", "bin", "borough", "house_number", "street_name", "zip_code",
+    "apartment", "violation_class", "inspection_date", "approved_date", "certified_date",
+    "nov_description", "nov_issued_date", "current_status", "current_status_date",
+    "violation_status", "rent_impairing", "order_number", "latitude", "longitude",
+    "community_board", "bbl",
+]

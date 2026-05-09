@@ -1,73 +1,9 @@
--- User accounts for auth
-CREATE TABLE IF NOT EXISTS users (
-    id            TEXT PRIMARY KEY,
-    email         TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at    TIMESTAMPTZ DEFAULT NOW()
-);
+-- Migration: add hpd_violations table and update building_summary + nta_stats
+-- Run once against an existing database that was set up with the original schema.sql.
+--
+--   psql $DATABASE_URL -f nyc-violations/migrate_add_hpd.sql
 
--- Static lookup: complaint disposition codes from NYC Open Data (6v9u-ndjg)
-CREATE TABLE IF NOT EXISTS complaint_disposition_codes (
-    code        TEXT PRIMARY KEY,
-    description TEXT NOT NULL
-);
-
--- Static lookup: complaint category codes from DOB PDF
-CREATE TABLE IF NOT EXISTS complaint_categories (
-    code        TEXT PRIMARY KEY,
-    description TEXT NOT NULL,
-    priority    TEXT NOT NULL CHECK (priority IN ('A', 'B', 'C', 'D'))
-);
-
--- Building centroids from NYC building footprints dataset (5zhs-2jue)
--- BIN first digit = borough: 1=Manhattan 2=Bronx 3=Brooklyn 4=Queens 5=Staten Island
-CREATE TABLE IF NOT EXISTS buildings (
-    bin               TEXT PRIMARY KEY,
-    latitude          DOUBLE PRECISION,
-    longitude         DOUBLE PRECISION,
-    borough           TEXT,
-    construction_year TEXT,
-    nta_code          TEXT,
-    nta_name          TEXT,
-    nta_type          INTEGER
-);
-
-CREATE INDEX IF NOT EXISTS idx_buildings_nta ON buildings(nta_code);
-
-CREATE INDEX IF NOT EXISTS idx_buildings_borough ON buildings(borough);
-
--- Main complaints table (DOB Complaints Received — eabe-havv)
-CREATE TABLE IF NOT EXISTS complaints (
-    id                 BIGSERIAL PRIMARY KEY,
-    complaint_number   TEXT UNIQUE NOT NULL,
-    status             TEXT,
-    date_entered       DATE,
-    house_number       TEXT,
-    house_street       TEXT,
-    address            TEXT GENERATED ALWAYS AS
-                           (COALESCE(house_number,'') || ' ' || COALESCE(house_street,''))
-                           STORED,
-    zip_code           TEXT,
-    bin                TEXT,
-    community_board    TEXT,
-    special_district   TEXT,
-    complaint_category TEXT,
-    unit               TEXT,
-    disposition_date   DATE,
-    disposition_code   TEXT,
-    inspection_date    DATE,
-    borough            TEXT,
-    created_at         TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_complaints_bin           ON complaints(bin);
-CREATE INDEX IF NOT EXISTS idx_complaints_zip           ON complaints(zip_code);
-CREATE INDEX IF NOT EXISTS idx_complaints_borough       ON complaints(borough);
-CREATE INDEX IF NOT EXISTS idx_complaints_date_entered  ON complaints(date_entered);
-CREATE INDEX IF NOT EXISTS idx_complaints_status        ON complaints(status);
-CREATE INDEX IF NOT EXISTS idx_complaints_category      ON complaints(complaint_category);
-
--- Static lookup: HPD order number codes from data dictionary
+-- 1. Create lookup table for HPD order number codes (idempotent)
 CREATE TABLE IF NOT EXISTS hpd_order_numbers (
     order_number      TEXT PRIMARY KEY,
     full_description  TEXT,
@@ -76,8 +12,7 @@ CREATE TABLE IF NOT EXISTS hpd_order_numbers (
     md_pd             TEXT
 );
 
--- HPD Housing Maintenance Code Violations (wvxf-dwi5)
--- Class: A=Emergency, B=Hazardous, C=Non-hazardous, I=Informational
+-- 2. Create hpd_violations (idempotent)
 CREATE TABLE IF NOT EXISTS hpd_violations (
     violation_id         TEXT PRIMARY KEY,
     bin                  TEXT,
@@ -104,14 +39,18 @@ CREATE TABLE IF NOT EXISTS hpd_violations (
     created_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_hpd_bin             ON hpd_violations(bin);
-CREATE INDEX IF NOT EXISTS idx_hpd_nov_issued      ON hpd_violations(nov_issued_date);
-CREATE INDEX IF NOT EXISTS idx_hpd_status_date     ON hpd_violations(current_status_date);
+CREATE INDEX IF NOT EXISTS idx_hpd_bin              ON hpd_violations(bin);
+CREATE INDEX IF NOT EXISTS idx_hpd_nov_issued       ON hpd_violations(nov_issued_date);
+CREATE INDEX IF NOT EXISTS idx_hpd_status_date      ON hpd_violations(current_status_date);
 CREATE INDEX IF NOT EXISTS idx_hpd_violation_status ON hpd_violations(violation_status);
-CREATE INDEX IF NOT EXISTS idx_hpd_class           ON hpd_violations(violation_class);
+CREATE INDEX IF NOT EXISTS idx_hpd_class            ON hpd_violations(violation_class);
 
--- Per-building summary for fast map rendering and building detail pages
-CREATE MATERIALIZED VIEW IF NOT EXISTS building_summary AS
+-- 3. Drop dependent materialized views (nta_stats joins building_summary)
+DROP MATERIALIZED VIEW IF EXISTS nta_stats;
+DROP MATERIALIZED VIEW IF EXISTS building_summary;
+
+-- 4. Recreate building_summary with HPD columns
+CREATE MATERIALIZED VIEW building_summary AS
 WITH hpd_agg AS (
     SELECT
         bin,
@@ -149,7 +88,6 @@ base AS (
             WHERE c.date_entered >= CURRENT_DATE - INTERVAL '5 years'
               AND c.date_entered <  CURRENT_DATE - INTERVAL '2 years'
         )                                                                       AS prior_complaint_count,
-        -- Weighted deduction score (basis for neighborhood_percentile ranking)
         ROUND((100.0 * EXP(-COALESCE(SUM(
             CASE COALESCE(cc.priority, 'C')
                 WHEN 'A' THEN 15.0
@@ -163,7 +101,6 @@ base AS (
                 ELSE                                                           0.25
             END
         ), 0.0) / 40.0))::numeric, 1)                                          AS score_numeric,
-        -- Serious rate: priority A+B per year, floored at 1 year
         COUNT(*) FILTER (WHERE cc.priority IN ('A','B'))::numeric
             / GREATEST(
                 (CURRENT_DATE - MIN(c.date_entered))::float / 365.25,
@@ -187,7 +124,6 @@ with_trend AS (
         END AS trend_direction
     FROM base
 ),
--- Percentiles computed only among residential peers (nta_type = 0)
 residential_percentiles AS (
     SELECT
         bin,
@@ -246,15 +182,15 @@ SELECT
     END AS risk_level
 FROM final;
 
-CREATE UNIQUE INDEX IF NOT EXISTS building_summary_bin_idx      ON building_summary(bin);
-CREATE INDEX IF NOT EXISTS building_summary_borough_idx         ON building_summary(borough);
-CREATE INDEX IF NOT EXISTS building_summary_zip_idx             ON building_summary(zip_code);
-CREATE INDEX IF NOT EXISTS building_summary_total_idx           ON building_summary(total_complaints DESC);
-CREATE INDEX IF NOT EXISTS building_summary_open_idx            ON building_summary(open_complaints DESC);
-CREATE INDEX IF NOT EXISTS building_summary_priority_a_idx      ON building_summary(priority_a_complaints DESC);
+CREATE UNIQUE INDEX building_summary_bin_idx      ON building_summary(bin);
+CREATE INDEX building_summary_borough_idx         ON building_summary(borough);
+CREATE INDEX building_summary_zip_idx             ON building_summary(zip_code);
+CREATE INDEX building_summary_total_idx           ON building_summary(total_complaints DESC);
+CREATE INDEX building_summary_open_idx            ON building_summary(open_complaints DESC);
+CREATE INDEX building_summary_priority_a_idx      ON building_summary(priority_a_complaints DESC);
 
--- NTA-level aggregates for neighborhood context
-CREATE MATERIALIZED VIEW IF NOT EXISTS nta_stats AS
+-- 5. Recreate nta_stats (unchanged definition)
+CREATE MATERIALIZED VIEW nta_stats AS
 SELECT
     b.nta_code,
     b.nta_name,
@@ -269,4 +205,4 @@ JOIN buildings b ON bs.bin = b.bin
 WHERE b.nta_code IS NOT NULL AND bs.score_numeric IS NOT NULL
 GROUP BY b.nta_code, b.nta_name, b.nta_type;
 
-CREATE UNIQUE INDEX IF NOT EXISTS nta_stats_code_idx ON nta_stats(nta_code);
+CREATE UNIQUE INDEX nta_stats_code_idx ON nta_stats(nta_code);

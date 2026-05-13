@@ -5,17 +5,17 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { SelectedBuilding } from './BuildingSidebar'
 
-const API = '/api/proxy'
+const DEFAULT_CLUSTERS_URL = '/api/proxy/map/clusters'
 
 // Cluster color: worst risk level among the buildings in the cluster
 const clusterColor: mapboxgl.Expression = [
   'step', ['coalesce', ['get', 'worst_risk'], -1],
-  '#D4D1C3',     // < 0  — insufficient data only
-  0, '#D4F5CB',  // >= 0 — very low
-  1, '#A8E5A0',  // >= 1 — low
-  2, '#FFD930',  // >= 2 — moderate
-  3, '#F5A047',  // >= 3 — high
-  4, '#EF4637',  // >= 4 — very high
+  '#C5E0C8',     // < 0  — not comparable / insufficient data → same as very low
+  0, '#C5E0C8',  // >= 0 — very low
+  1, '#84A98C',  // >= 1 — low
+  2, '#E4A11B',  // >= 2 — moderate
+  3, '#BC4B33',  // >= 3 — high
+  4, '#7F1D1D',  // >= 4 — very high
 ]
 
 const NO_MATCH = ['==', ['get', 'bin'], ''] as mapboxgl.FilterSpecification
@@ -26,8 +26,8 @@ const RISK_TO_TIER: Record<string, string> = {
   'Moderate':          'moderate',
   'High':              'high',
   'Very high':         'very-high',
-  'Insufficient data': 'very-low',   // grouped with Very low
-  'Not comparable':    'not-comparable',
+  'Insufficient data': 'very-low',
+  'Not comparable':    'very-low',
 }
 
 function featureTier(riskLevel: string | null | undefined): string {
@@ -65,9 +65,10 @@ type Props = {
   selectedNtas: string[]
   onNtaSelect: (nta: NtaSelection | null) => void
   onNtaListLoad: (ntas: NtaSelection[]) => void
+  clustersUrl?: string
 }
 
-export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad }: Props) {
+export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const onSelectRef = useRef(onBuildingSelect)
@@ -133,7 +134,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const b = map.getBounds()
     if (!b) return
     const zoom = map.getZoom()
-    const url = `${API}/map/clusters?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
+    const url = `${clustersUrl}?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
     const res = await fetch(url)
     if (!res.ok) {
       console.error('Failed to load map data:', res.status)
@@ -180,14 +181,14 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         type: 'fill',
         source: 'nta-boundaries',
         layout: { visibility: showNtaBorders ? 'visible' : 'none' },
-        paint: { 'fill-color': '#0601B4', 'fill-opacity': 0.04 },
+        paint: { 'fill-color': '#111111', 'fill-opacity': 0.03 },
       })
       map.addLayer({
         id: 'nta-line',
         type: 'line',
         source: 'nta-boundaries',
         layout: { visibility: showNtaBorders ? 'visible' : 'none' },
-        paint: { 'line-color': '#0601B4', 'line-width': 1, 'line-opacity': 0.25 },
+        paint: { 'line-color': '#525252', 'line-width': 1, 'line-opacity': 0.3 },
       })
       map.addLayer({
         id: 'nta-label',
@@ -202,8 +203,8 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
           'text-max-width': 8,
         },
         paint: {
-          'text-color': '#0601B4',
-          'text-opacity': 0.55,
+          'text-color': '#525252',
+          'text-opacity': 0.6,
           'text-halo-color': '#FFFFFF',
           'text-halo-width': 1.5,
         },
@@ -274,7 +275,16 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         source: 'buildings',
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-color': ['coalesce', ['get', 'risk_color'], '#D4D1C3'],
+          'circle-color': ['match', ['coalesce', ['get', 'risk_level'], ''],
+            'Very low',          '#C5E0C8',
+            'Insufficient data', '#C5E0C8',
+            'Not comparable',    '#C5E0C8',
+            'Low',               '#84A98C',
+            'Moderate',          '#E4A11B',
+            'High',              '#BC4B33',
+            'Very high',         '#7F1D1D',
+            '#C5E0C8',
+          ],
           'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'total_complaints'], 1], 1, 5, 100, 8, 500, 11],
           'circle-stroke-width': 1.5,
           'circle-stroke-color': 'rgba(0, 0, 0, 0.18)',
@@ -287,12 +297,12 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         source: 'buildings',
         filter: NO_MATCH,
         paint: {
-          'circle-radius': 16,
-          'circle-color': '#0601B4',
-          'circle-opacity': 0.15,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#0601B4',
-          'circle-stroke-opacity': 0.8,
+          'circle-radius': 18,
+          'circle-color': '#7F1D1D',
+          'circle-opacity': 0,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#7F1D1D',
+          'circle-stroke-opacity': 0.4,
         },
       })
 
@@ -303,7 +313,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         filter: NO_MATCH,
         paint: {
           'circle-radius': 8,
-          'circle-color': '#0601B4',
+          'circle-color': '#1989d4',
           'circle-stroke-width': 2.5,
           'circle-stroke-color': '#FFFFFF',
         },

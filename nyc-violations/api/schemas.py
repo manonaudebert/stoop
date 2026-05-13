@@ -95,3 +95,115 @@ class NeighborhoodResponse(BaseModel):
     p75_score: float | None
     nta_percentile: float | None   # 0–100: pct of NTA buildings this building scores better than
     peer_scores: list[float]       # sampled scores for dot plot (≤200)
+
+
+# ── HPD violations ────────────────────────────────────────────────────────────
+
+class HpdViolationResponse(BaseModel):
+    violation_id: str
+    bin: str | None
+    apartment: str | None
+    violation_class: str | None
+    nov_issued_date: date | None
+    current_status: str | None
+    current_status_date: date | None
+    violation_status: str | None
+    rent_impairing: str | None
+    nov_description: str | None
+    order_number: str | None
+    order_category: str | None          # from hpd_order_numbers lookup
+    order_short_description: str | None # short_description with leading "N - " stripped
+    inspection_date: date | None
+    approved_date: date | None
+    certified_date: date | None
+
+    model_config = {"from_attributes": True}
+
+
+class HpdBuildingSummaryResponse(BaseModel):
+    bin: str
+    address: str | None
+    zip_code: str | None
+    borough: str | None
+    latitude: float | None
+    longitude: float | None
+    nta_code: str | None
+    nta_name: str | None
+    total_violations: int
+    open_violations: int
+    class_a_violations: int
+    class_b_violations: int
+    rent_impairing_count: int
+    latest_violation_date: date | None
+    hpd_risk_tier: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class HpdBuildingDetailResponse(HpdBuildingSummaryResponse):
+    violations: list[HpdViolationResponse]
+    total_count: int
+    page: int
+    page_size: int
+
+
+class ViolationClassBreakdownItem(BaseModel):
+    violation_class: str
+    category: str | None
+    count: int
+    open_count: int
+
+
+# ── HPD complaints ────────────────────────────────────────────────────────────
+
+class HpdComplaintResponse(BaseModel):
+    problem_id: str
+    complaint_id: str | None
+    bin: str | None
+    apartment: str | None
+    unit_type: str | None
+    space_type: str | None
+    type: str | None
+    major_category: str | None
+    minor_category: str | None
+    complaint_status: str | None
+    complaint_status_date: date | None
+    problem_status: str | None
+    problem_status_date: date | None
+    status_description: str | None
+    received_date: date | None
+
+    model_config = {"from_attributes": True}
+
+
+class HpdComplaintBuildingSummaryResponse(BaseModel):
+    bin: str
+    address: str | None
+    zip_code: str | None
+    borough: str | None
+    latitude: float | None
+    longitude: float | None
+    nta_code: str | None
+    nta_name: str | None
+    total_complaints: int
+    open_complaints: int
+    open_emergency_complaints: int
+    heat_complaints: int
+    latest_complaint_date: date | None
+    complaint_risk_tier: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class HpdComplaintBuildingDetailResponse(HpdComplaintBuildingSummaryResponse):
+    complaints: list[HpdComplaintResponse]
+    total_count: int
+    page: int
+    page_size: int
+
+
+class ComplaintCategoryBreakdownItem(BaseModel):
+    type: str | None          # EMERGENCY / NON EMERGENCY
+    major_category: str
+    count: int
+    open_count: int

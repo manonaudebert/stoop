@@ -1,4 +1,4 @@
-import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData } from './types'
+import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem } from './types'
 
 export class ApiError extends Error {
   constructor(public status: number, path: string) {
@@ -60,4 +60,56 @@ export async function getNeighborhood(bin: string): Promise<NeighborhoodData | n
 export async function getLeaderboard(borough?: string): Promise<BuildingSummary[]> {
   const params = borough ? `?borough=${encodeURIComponent(borough)}` : ''
   return get(`/building/leaderboard${params}`)
+}
+
+// ── HPD violations ────────────────────────────────────────────────────────────
+
+export async function searchHpdBuildings(q: string): Promise<HpdBuildingSummary[]> {
+  return get(`/hpd/building/search?q=${encodeURIComponent(q)}`)
+}
+
+export async function getHpdBuilding(
+  bin: string,
+  page = 1,
+  violation_class?: string,
+  status?: string,
+): Promise<HpdBuildingDetail> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (violation_class) params.set('violation_class', violation_class)
+  if (status) params.set('status', status)
+  return get(`/hpd/building/${bin}?${params}`)
+}
+
+export async function getHpdTimeline(bin: string): Promise<TimelinePoint[]> {
+  return get(`/hpd/building/${bin}/timeline`)
+}
+
+export async function getHpdBreakdown(bin: string): Promise<ViolationClassBreakdownItem[]> {
+  return get(`/hpd/building/${bin}/breakdown`)
+}
+
+// ── HPD complaints ────────────────────────────────────────────────────────────
+
+export async function searchHpdComplaintBuildings(q: string): Promise<HpdComplaintBuildingSummary[]> {
+  return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`)
+}
+
+export async function getHpdComplaintBuilding(
+  bin: string,
+  page = 1,
+  major_category?: string,
+  status?: string,
+): Promise<HpdComplaintBuildingDetail> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (major_category) params.set('major_category', major_category)
+  if (status) params.set('status', status)
+  return get(`/hpd-complaints/building/${bin}?${params}`)
+}
+
+export async function getHpdComplaintTimeline(bin: string): Promise<TimelinePoint[]> {
+  return get(`/hpd-complaints/building/${bin}/timeline`)
+}
+
+export async function getHpdComplaintBreakdown(bin: string): Promise<ComplaintCategoryBreakdownItem[]> {
+  return get(`/hpd-complaints/building/${bin}/breakdown`)
 }

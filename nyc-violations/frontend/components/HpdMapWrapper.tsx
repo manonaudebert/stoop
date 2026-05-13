@@ -4,31 +4,32 @@ import dynamic from 'next/dynamic'
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import SearchBar from './SearchBar'
-import BuildingSidebar, { type SelectedBuilding } from './BuildingSidebar'
-import type { BuildingSummary } from '@/lib/types'
+import HpdBuildingSidebar, { type HpdSelectedBuilding } from './HpdBuildingSidebar'
+import type { HpdBuildingSummary } from '@/lib/types'
 
 const Map = dynamic(() => import('./Map'), { ssr: false })
 
+const HPD_CLUSTERS_URL = '/api/proxy/hpd/map/clusters'
+
 const LEGEND = [
-  { tier: 'very-low',  color: '#C5E0C8', label: 'Very low'  },
-  { tier: 'low',       color: '#84A98C', label: 'Low'       },
-  { tier: 'moderate',  color: '#E4A11B', label: 'Moderate'  },
-  { tier: 'high',      color: '#BC4B33', label: 'High'      },
-  { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
+  { tier: 'very-high', color: '#EF4637', label: 'Emergency'     },
+  { tier: 'high',      color: '#F5A047', label: 'Hazardous'     },
+  { tier: 'moderate',  color: '#FFD930', label: 'Non-hazardous' },
+  { tier: 'low',       color: '#A8E5A0', label: 'Resolved'      },
 ]
 
 type FlyTarget = { lng: number; lat: number; id: number }
 type NtaItem   = { code: string; name: string }
 
-export default function MapWrapper() {
-  const [selected,         setSelected]         = useState<SelectedBuilding | null>(null)
-  const [flyTarget,        setFlyTarget]        = useState<FlyTarget | null>(null)
-  const [visibleTiers,     setVisibleTiers]     = useState<Set<string>>(() => new Set(LEGEND.map(l => l.tier)))
-  const [showNtaBorders,   setShowNtaBorders]   = useState(false)
-  const [legendCollapsed,  setLegendCollapsed]  = useState(false)
-  const [selectedNtas,     setSelectedNtas]     = useState<Set<string>>(new Set())
-  const [ntaList,          setNtaList]          = useState<NtaItem[]>([])
-  const [ntaSearch,        setNtaSearch]        = useState('')
+export default function HpdMapWrapper() {
+  const [selected,        setSelected]        = useState<HpdSelectedBuilding | null>(null)
+  const [flyTarget,       setFlyTarget]       = useState<FlyTarget | null>(null)
+  const [visibleTiers,    setVisibleTiers]    = useState<Set<string>>(() => new Set(LEGEND.map(l => l.tier)))
+  const [showNtaBorders,  setShowNtaBorders]  = useState(false)
+  const [legendCollapsed, setLegendCollapsed] = useState(false)
+  const [selectedNtas,    setSelectedNtas]    = useState<Set<string>>(new Set())
+  const [ntaList,         setNtaList]         = useState<NtaItem[]>([])
+  const [ntaSearch,       setNtaSearch]       = useState('')
 
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])
   const selectedNtasArray = useMemo(() => [...selectedNtas], [selectedNtas])
@@ -48,20 +49,41 @@ export default function MapWrapper() {
     if (!showNtaBorders) { setSelectedNtas(new Set()); setNtaSearch('') }
   }, [showNtaBorders])
 
-  function handleSearchSelect(b: BuildingSummary) {
+  function handleSearchSelect(b: HpdBuildingSummary) {
     setSelected({
       bin: b.bin,
       address: b.address,
       borough: b.borough,
       zip_code: b.zip_code,
-      total_complaints: b.total_complaints,
-      open_complaints: b.open_complaints,
-      priority_a_complaints: b.priority_a_complaints,
-      risk_level: b.risk_level ?? null,
+      hpd_risk_tier: b.hpd_risk_tier ?? null,
+      total_complaints: b.total_violations,
+      open_complaints: b.open_violations,
+      priority_a_complaints: b.class_a_violations,
+      class_b_violations: b.class_b_violations,
+      rent_impairing_count: b.rent_impairing_count,
     })
     if (b.latitude != null && b.longitude != null) {
       setFlyTarget(prev => ({ lat: b.latitude!, lng: b.longitude!, id: (prev?.id ?? 0) + 1 }))
     }
+  }
+
+  // Map.tsx emits SelectedBuilding shape; we extend it with HPD extras stored
+  // in the GeoJSON properties by the HPD clusters endpoint.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleMapSelect(raw: any) {
+    if (!raw) { setSelected(null); return }
+    setSelected({
+      bin: raw.bin,
+      address: raw.address ?? null,
+      borough: raw.borough ?? null,
+      zip_code: raw.zip_code ?? null,
+      hpd_risk_tier: raw.hpd_risk_tier ?? null,
+      total_complaints: raw.total_complaints ?? 0,
+      open_complaints: raw.open_complaints ?? 0,
+      priority_a_complaints: raw.priority_a_complaints ?? 0,
+      class_b_violations: raw.class_b_violations ?? 0,
+      rent_impairing_count: raw.rent_impairing_count ?? 0,
+    })
   }
 
   function toggleTier(tier: string) {
@@ -80,10 +102,6 @@ export default function MapWrapper() {
       else next.add(code)
       return next
     })
-  }
-
-  function handleNtaMapSelect(nta: NtaItem | null) {
-    if (nta) toggleNta(nta.code)
   }
 
   const Checkbox = ({ active, color }: { active: boolean; color: string }) => (
@@ -105,14 +123,15 @@ export default function MapWrapper() {
   return (
     <div className="relative w-full h-full">
       <Map
-        onBuildingSelect={setSelected}
+        onBuildingSelect={handleMapSelect as Parameters<typeof Map>[0]['onBuildingSelect']}
         flyTarget={flyTarget}
         selectedBin={selected?.bin ?? null}
         visibleTiers={visibleTiersArray}
         showNtaBorders={showNtaBorders}
         selectedNtas={selectedNtasArray}
-        onNtaSelect={handleNtaMapSelect}
+        onNtaSelect={nta => nta && toggleNta(nta.code)}
         onNtaListLoad={setNtaList}
+        clustersUrl={HPD_CLUSTERS_URL}
       />
 
       {/* Nav bar */}
@@ -125,15 +144,18 @@ export default function MapWrapper() {
             Tenement
           </span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', flexShrink: 0 }}>
-            NYC building complaints
+            HPD violations
           </span>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: '0 1 460px' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <SearchBar onSelect={handleSearchSelect} />
+              <SearchBar
+                onSelect={handleSearchSelect as Parameters<typeof SearchBar>[0]['onSelect']}
+                searchUrl="/api/proxy/hpd/building/search"
+              />
             </div>
             <Link
-              href="/hpd"
+              href="/hpd-complaints"
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
@@ -141,10 +163,10 @@ export default function MapWrapper() {
                 whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
-              HPD violations
+              HPD complaints
             </Link>
             <Link
-              href="/leaderboard"
+              href="/"
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
@@ -152,7 +174,7 @@ export default function MapWrapper() {
                 whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
-              Leaderboard
+              DOB complaints
             </Link>
           </div>
         </div>
@@ -163,37 +185,26 @@ export default function MapWrapper() {
         className="absolute left-4 z-10"
         style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
       >
-
         {/* Legend */}
         <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #A3A3A3' }}>
 
-          {/* Mobile collapse toggle */}
           <div
             className="flex sm:hidden"
             onClick={() => setLegendCollapsed(v => !v)}
-            style={{
-              alignItems: 'center', justifyContent: 'space-between',
-              cursor: 'pointer', userSelect: 'none',
-              marginBottom: legendCollapsed ? 0 : 10,
-            }}
+            style={{ alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', marginBottom: legendCollapsed ? 0 : 10 }}
           >
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
               Legend
             </span>
-            <svg
-              width="12" height="12" viewBox="0 0 12 12" fill="none"
-              style={{ transform: legendCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}
-            >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: legendCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
               <path d="M2 4.5l4 4 4-4" stroke="#737373" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
 
           <div className={legendCollapsed ? 'hidden sm:block' : ''}>
-
-            {/* Risk level */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-                Risk level
+                Violation severity
               </p>
               {visibleTiers.size < LEGEND.length && (
                 <button
@@ -223,7 +234,6 @@ export default function MapWrapper() {
 
             <div style={{ height: '0.5px', background: '#E5E5E5', margin: '10px 0' }} />
 
-            {/* NTA toggle */}
             <div
               onClick={() => setShowNtaBorders(v => !v)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
@@ -234,7 +244,6 @@ export default function MapWrapper() {
               </span>
             </div>
 
-            {/* NTA filter list */}
             {showNtaBorders && ntaList.length > 0 && (
               <div style={{ marginTop: 10, borderTop: '0.5px solid #E5E5E5', paddingTop: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
@@ -250,11 +259,7 @@ export default function MapWrapper() {
                     </button>
                   )}
                 </div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6,
-                  padding: '5px 8px', marginBottom: 6,
-                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                   </svg>
@@ -262,11 +267,7 @@ export default function MapWrapper() {
                     value={ntaSearch}
                     onChange={e => setNtaSearch(e.target.value)}
                     placeholder="Search…"
-                    style={{
-                      flex: 1, border: 'none', outline: 'none',
-                      background: 'transparent', color: '#111111',
-                      fontSize: 11, fontFamily: 'var(--font-sans)',
-                    }}
+                    style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#111111', fontSize: 11, fontFamily: 'var(--font-sans)' }}
                   />
                 </div>
                 <div style={{ maxHeight: 180, overflowY: 'auto' }}>
@@ -278,9 +279,7 @@ export default function MapWrapper() {
                         onClick={() => toggleNta(nta.code)}
                         style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5, cursor: 'pointer', userSelect: 'none' }}
                       >
-                        <div style={{ marginTop: 1, flexShrink: 0 }}>
-                          <Checkbox active={active} color="#525252" />
-                        </div>
+                        <div style={{ marginTop: 1, flexShrink: 0 }}><Checkbox active={active} color="#525252" /></div>
                         <span style={{ fontSize: 11, color: active ? '#111111' : '#737373', lineHeight: 1.3, transition: 'color 0.1s' }}>
                           {nta.name}
                         </span>
@@ -293,14 +292,12 @@ export default function MapWrapper() {
                 </div>
               </div>
             )}
-
           </div>
         </div>
 
         {selected && (
-          <BuildingSidebar building={selected} onClose={() => setSelected(null)} />
+          <HpdBuildingSidebar building={selected} onClose={() => setSelected(null)} />
         )}
-
       </div>
     </div>
   )

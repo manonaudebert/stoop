@@ -317,3 +317,72 @@ HPD_DB_COLUMNS = [
     "violation_status", "rent_impairing", "order_number", "latitude", "longitude",
     "community_board", "bbl",
 ]
+
+# ── HPD Housing Maintenance Code Complaints (ygpa-z7cr) ──────────────────────
+
+HPD_COMPLAINTS_CSV_URL = "https://data.cityofnewyork.us/api/views/ygpa-z7cr/rows.csv?accessType=DOWNLOAD"
+HPD_COMPLAINTS_API     = "https://data.cityofnewyork.us/resource/ygpa-z7cr.json"
+
+# CSV header → DB column name (Socrata CSV uses PascalCase headers)
+HPD_COMPLAINTS_COLUMN_MAP = {
+    "ProblemID":           "problem_id",
+    "ComplaintID":         "complaint_id",
+    "BIN":                 "bin",
+    "Borough":             "borough",
+    "HouseNumber":         "house_number",
+    "StreetName":          "street_name",
+    "PostCode":            "zip_code",
+    "Apartment":           "apartment",
+    "UnitType":            "unit_type",
+    "SpaceType":           "space_type",
+    "Type":                "type",
+    "MajorCategory":       "major_category",
+    "MinorCategory":       "minor_category",
+    "ProblemCode":         "problem_code",
+    "ComplaintStatus":     "complaint_status",
+    "ComplaintStatusDate": "complaint_status_date",
+    "ProblemStatus":       "problem_status",
+    "ProblemStatusDate":   "problem_status_date",
+    "StatusDescription":   "status_description",
+    "ReceivedDate":        "received_date",
+    "Latitude":            "latitude",
+    "Longitude":           "longitude",
+    "CommunityBoard":      "community_board",
+    "BBL":                 "bbl",
+}
+
+# Socrata JSON API field name → DB column name (API returns snake_case)
+HPD_COMPLAINTS_JSON_COLUMN_MAP = {
+    "problem_id":           "problem_id",
+    "complaint_id":         "complaint_id",
+    "bin":                  "bin",
+    "borough":              "borough",
+    "house_number":         "house_number",
+    "street_name":          "street_name",
+    "post_code":            "zip_code",       # only rename needed
+    "apartment":            "apartment",
+    "unit_type":            "unit_type",
+    "space_type":           "space_type",
+    "type":                 "type",
+    "major_category":       "major_category",
+    "minor_category":       "minor_category",
+    "problem_code":         "problem_code",
+    "complaint_status":     "complaint_status",
+    "complaint_status_date":"complaint_status_date",
+    "problem_status":       "problem_status",
+    "problem_status_date":  "problem_status_date",
+    "status_description":   "status_description",
+    "received_date":        "received_date",
+    "latitude":             "latitude",
+    "longitude":            "longitude",
+    "community_board":      "community_board",
+    "bbl":                  "bbl",
+}
+
+HPD_COMPLAINTS_DB_COLUMNS = [
+    "problem_id", "complaint_id", "bin", "borough", "house_number", "street_name",
+    "zip_code", "apartment", "unit_type", "space_type", "type", "major_category",
+    "minor_category", "problem_code", "complaint_status", "complaint_status_date",
+    "problem_status", "problem_status_date", "status_description", "received_date",
+    "latitude", "longitude", "community_board", "bbl",
+]

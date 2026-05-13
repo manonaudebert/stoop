@@ -32,5 +32,6 @@ fi
 cd "$INGEST_DIR"
 python sync.py
 python sync_hpd.py
+python sync_hpd_complaints.py
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S')  Sync complete ==="

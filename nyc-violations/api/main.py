@@ -11,6 +11,8 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from limiter import limiter
 from routes.building import router as building_router
+from routes.hpd import router as hpd_router
+from routes.hpd_complaints import router as hpd_complaints_router
 from routes.map import router as map_router
 
 logging.basicConfig(
@@ -52,6 +54,8 @@ async def verify_internal_key(request: Request, call_next):
 
 
 app.include_router(building_router)
+app.include_router(hpd_router)
+app.include_router(hpd_complaints_router)
 app.include_router(map_router)
 
 

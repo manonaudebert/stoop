@@ -1,0 +1,1708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tenement — Porcelain Design System v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Surface */
+    --surface-primary: #FFFFFF;
+    --surface-secondary: #FAFAFA;
+    --surface-tertiary: #F5F5F5;
+    --surface-map: #EAE8E3;
+
+    /* Ink */
+    --ink-primary: #111111;
+    --ink-secondary: #525252;
+    --ink-tertiary: #737373;
+    --ink-quaternary: #A3A3A3;
+    --ink-border: #E5E5E5;
+    --ink-border-strong: #A3A3A3;
+
+    /* Brand */
+    --brand-oxblood: #7F1D1D;
+    --brand-oxblood-soft: #FAF1F0;
+
+    /* Data */
+    --data-quiet: #84A98C;
+    --data-average: #E4A11B;
+    --data-loud: #7F1D1D;
+
+    /* Type */
+    --font-serif: 'Fraunces', 'Times New Roman', serif;
+    --font-sans: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+    /* Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--ink-primary);
+    background: var(--surface-secondary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* ============ LAYOUT ============ */
+  .doc {
+    max-width: 1180px;
+    margin: 0 auto;
+    background: var(--surface-primary);
+    min-height: 100vh;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 32px;
+    background: var(--ink-primary);
+    color: var(--surface-primary);
+    border-bottom: 0.5px solid var(--ink-primary);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .nav-brand .name {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+  .nav-brand .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-quaternary);
+  }
+  .nav-toc {
+    display: flex;
+    gap: 18px;
+  }
+  .nav-toc a {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quaternary);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  .nav-toc a:hover { color: var(--surface-primary); }
+
+  /* ============ COVER ============ */
+  .cover {
+    padding: 80px 48px 64px;
+    border-bottom: 0.5px solid var(--ink-border);
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      linear-gradient(to right, var(--ink-border) 0.5px, transparent 0.5px),
+      linear-gradient(to bottom, var(--ink-border) 0.5px, transparent 0.5px);
+    background-size: 32px 32px;
+    opacity: 0.5;
+    mask-image: linear-gradient(to bottom, black, transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-inner { position: relative; z-index: 1; max-width: 720px; }
+  .cover .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .cover .meta .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+  .cover .meta .version {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-quaternary);
+  }
+  .cover h1 {
+    font-family: var(--font-serif);
+    font-size: 72px;
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    color: var(--ink-primary);
+    margin-bottom: 20px;
+  }
+  .cover h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--brand-oxblood);
+  }
+  .cover .lede {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--ink-primary);
+    margin-bottom: 14px;
+    max-width: 580px;
+  }
+  .cover .deck {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+    max-width: 540px;
+  }
+
+  /* ============ SECTIONS ============ */
+  section {
+    padding: 56px 48px;
+    border-bottom: 0.5px solid var(--ink-border);
+  }
+  .section-head {
+    margin-bottom: 32px;
+    max-width: 640px;
+  }
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+    margin-bottom: 6px;
+  }
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin-bottom: 10px;
+  }
+  .section-deck {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+  }
+
+  .subhead {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+    margin-bottom: 14px;
+  }
+
+  /* ============ COLOR ============ */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .swatch {
+    display: flex;
+    flex-direction: column;
+  }
+  .swatch-chip {
+    height: 76px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid transparent;
+  }
+  .swatch.bordered .swatch-chip { border-color: var(--ink-border); }
+  .swatch-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-primary);
+    margin-top: 8px;
+  }
+  .swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    margin-top: 1px;
+  }
+
+  .rule-callout {
+    padding: 14px 18px;
+    background: var(--surface-secondary);
+    border-left: 2px solid var(--brand-oxblood);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-size: 13px;
+    color: var(--ink-secondary);
+    line-height: 1.6;
+  }
+  .rule-callout strong { color: var(--ink-primary); font-weight: 500; }
+
+  /* ============ TYPOGRAPHY ============ */
+  .type-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 24px;
+    padding: 18px 0;
+    border-bottom: 0.5px dashed var(--ink-border);
+    align-items: baseline;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .type-meta .name {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+  .type-meta .spec {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-quaternary);
+  }
+  .t-display {
+    font-family: var(--font-serif);
+    font-size: 40px;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink-primary);
+  }
+  .t-heading {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--ink-primary);
+    max-width: 520px;
+  }
+  .t-body {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-primary);
+    max-width: 520px;
+  }
+  .t-caption {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink-secondary);
+  }
+  .t-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-secondary);
+  }
+  .t-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+  .t-kpi {
+    font-family: var(--font-mono);
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============ LAYOUT (spacing/radius) ============ */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .spacing-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 6px 0;
+  }
+  .spacing-bar { background: var(--ink-primary); height: 14px; }
+  .spacing-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-primary);
+    min-width: 40px;
+  }
+  .spacing-desc {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+  }
+  .radius-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+  }
+  .radius-chip {
+    width: 36px;
+    height: 36px;
+    background: var(--surface-secondary);
+    border: 0.5px solid var(--ink-border);
+  }
+  .radius-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .radius-info .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-primary);
+  }
+  .radius-info .desc {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+  }
+
+  /* ============ COMPONENTS ============ */
+  .component-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .btn {
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .btn-primary {
+    background: var(--ink-primary);
+    color: var(--surface-primary);
+    border: 0.5px solid var(--ink-primary);
+  }
+  .btn-primary:hover { background: #000; }
+  .btn-secondary {
+    background: var(--surface-primary);
+    color: var(--ink-primary);
+    border: 0.5px solid var(--ink-border-strong);
+  }
+  .btn-secondary:hover { border-color: var(--ink-primary); }
+  .btn-link {
+    background: transparent;
+    color: var(--brand-oxblood);
+    border: none;
+    padding: 9px 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-link svg { width: 14px; height: 14px; }
+  .btn-toggle {
+    background: transparent;
+    color: var(--ink-secondary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-md);
+    padding: 7px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .btn-toggle.active {
+    background: var(--ink-primary);
+    color: var(--surface-primary);
+    border-color: var(--ink-primary);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-secondary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-md);
+    padding: 5px 10px;
+    font-size: 12px;
+    color: var(--ink-primary);
+  }
+  .chip-close {
+    width: 12px; height: 12px;
+    color: var(--ink-secondary);
+  }
+
+  .input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border-strong);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    max-width: 360px;
+  }
+  .input svg { width: 14px; height: 14px; color: var(--ink-secondary); }
+  .input input {
+    border: none;
+    outline: none;
+    flex: 1;
+    font-size: 13px;
+    color: var(--ink-primary);
+    background: transparent;
+    font-family: inherit;
+  }
+  .input input::placeholder { color: var(--ink-tertiary); }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .kpi {
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+  .kpi-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-median {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    margin-top: 6px;
+  }
+
+  /* viz primitives */
+  .viz-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .viz-card {
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+  .viz-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .viz-card-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+  .viz-card-aside {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+  }
+
+  /* icons */
+  .icon-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: center;
+    color: var(--ink-primary);
+  }
+  .icon-row svg { width: 20px; height: 20px; }
+
+  .marker-row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .marker-cell {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .marker-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-tertiary);
+  }
+
+  /* ============ VOICE ============ */
+  .voice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .voice-card {
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    background: var(--surface-secondary);
+  }
+  .voice-card .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .voice-card.do .label { color: var(--data-quiet); }
+  .voice-card.dont .label { color: var(--brand-oxblood); }
+  .voice-card .quote {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ink-primary);
+    font-style: italic;
+  }
+  .voice-card .why {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    margin-top: 12px;
+    line-height: 1.55;
+  }
+
+  /* ============ MAP PATTERN ============ */
+  .pattern {
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .app-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px;
+    background: var(--ink-primary);
+    color: var(--surface-primary);
+  }
+  .app-bar-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .app-bar-brand .name {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+  }
+  .app-bar-brand .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+  }
+  .app-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .app-bar .input {
+    background: #1F1F1F;
+    border-color: #333333;
+    min-width: 280px;
+  }
+  .app-bar .input input { color: var(--surface-primary); }
+  .app-bar .input input::placeholder { color: var(--ink-tertiary); }
+  .app-bar .input svg { color: var(--ink-tertiary); }
+  .app-bar a {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-quaternary);
+    text-decoration: none;
+  }
+  .app-bar a:hover { color: var(--surface-primary); }
+
+  .context-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 22px;
+    background: var(--surface-tertiary);
+    border-bottom: 0.5px solid var(--ink-border);
+  }
+  .context-strip .left {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .context-strip .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+  }
+  .context-strip .neighborhood {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-primary);
+  }
+  .context-strip .stat {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-secondary);
+  }
+  .context-strip .updated {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+  }
+
+  .map-shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    min-height: 540px;
+  }
+  .map-sidebar {
+    background: var(--surface-primary);
+    border-right: 0.5px solid var(--ink-border);
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ink-primary);
+    padding: 4px 0;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+  .legend-row .pct {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    margin-left: auto;
+  }
+  .filter-clear {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-tertiary);
+    cursor: pointer;
+  }
+
+  .map-canvas {
+    position: relative;
+    background: var(--surface-map);
+    overflow: hidden;
+  }
+  .map-canvas svg.basemap {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .map-overlay {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.96);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .map-zoom-hint { top: 16px; right: 16px; }
+  .map-zoom-hint span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-secondary);
+  }
+  .map-density-legend { bottom: 16px; right: 16px; padding: 10px 14px; }
+  .map-density-legend .label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-secondary);
+    margin-bottom: 6px;
+  }
+  .map-density-legend .ramp {
+    display: flex;
+    gap: 3px;
+  }
+  .map-density-legend .ramp span {
+    width: 16px;
+    height: 9px;
+    display: block;
+  }
+  .map-density-legend .axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+  .map-density-legend .axis span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-tertiary);
+  }
+
+  .selected-card {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    width: 296px;
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border-strong);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+  }
+  .selected-card .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .selected-card .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-oxblood);
+  }
+  .selected-card .x {
+    width: 14px; height: 14px;
+    color: var(--ink-tertiary);
+    cursor: pointer;
+  }
+  .selected-card .address {
+    font-family: var(--font-serif);
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .selected-card .meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-secondary);
+    margin-top: 4px;
+    margin-bottom: 14px;
+  }
+  .selected-card .claim {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink-primary);
+    padding-bottom: 14px;
+    border-bottom: 0.5px solid var(--ink-border);
+    margin-bottom: 14px;
+  }
+  .selected-card .claim strong { font-weight: 500; }
+  .selected-card .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .selected-card .stat-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+    margin-bottom: 3px;
+  }
+  .selected-card .stat-value {
+    font-family: var(--font-mono);
+    font-size: 19px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .selected-card .stat-median {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-tertiary);
+    margin-top: 3px;
+  }
+  .selected-card .trend-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+  }
+  .selected-card .trend-head .label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+  }
+  .selected-card .trend-head .peak {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--ink-secondary);
+  }
+  .selected-card .trend svg { display: block; width: 100%; height: auto; }
+  .selected-card .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 0.5px solid var(--ink-border);
+  }
+  .selected-card .footer .link {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--brand-oxblood);
+    cursor: pointer;
+  }
+  .selected-card .footer svg {
+    width: 14px; height: 14px;
+    color: var(--brand-oxblood);
+  }
+
+  /* ============ DETAIL PATTERN ============ */
+  .detail-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-quaternary);
+    text-decoration: none;
+  }
+  .detail-back svg { width: 12px; height: 12px; }
+
+  .detail-hero {
+    padding: 40px 32px 36px;
+    background: var(--surface-secondary);
+    border-bottom: 0.5px solid var(--ink-border);
+  }
+  .detail-hero .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-oxblood);
+  }
+  .detail-hero h2 {
+    font-family: var(--font-serif);
+    font-size: 44px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-top: 6px;
+  }
+  .detail-hero .meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-secondary);
+    margin-top: 8px;
+  }
+  .detail-hero .summary {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--ink-primary);
+    margin-top: 20px;
+    max-width: 620px;
+  }
+
+  .detail-body { padding: 28px 32px; }
+
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .insight {
+    background: var(--surface-primary);
+    border: 0.5px solid var(--ink-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+  }
+  .insight-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .insight-headline {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-primary);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .insight-sub {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+  .insight svg.viz { display: block; width: 100%; height: auto; }
+
+  /* ============ FOOTER ============ */
+  footer {
+    padding: 40px 48px;
+    background: var(--surface-tertiary);
+    color: var(--ink-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  footer .meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-tertiary);
+    margin-bottom: 8px;
+  }
+
+  /* responsive */
+  @media (max-width: 880px) {
+    .swatch-grid { grid-template-columns: repeat(2, 1fr); }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .viz-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .voice-grid { grid-template-columns: 1fr; }
+    .insight-grid { grid-template-columns: 1fr; }
+    .map-shell { grid-template-columns: 1fr; }
+    .map-sidebar { border-right: none; border-bottom: 0.5px solid var(--ink-border); }
+    .cover h1 { font-size: 48px; }
+    section { padding: 40px 24px; }
+    .cover { padding: 56px 24px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <span class="name">Tenement</span>
+    <span class="tag">Design System · Porcelain · v0.1</span>
+  </div>
+  <div class="nav-toc">
+    <a href="#color">Color</a>
+    <a href="#type">Type</a>
+    <a href="#layout">Layout</a>
+    <a href="#components">Components</a>
+    <a href="#voice">Voice</a>
+    <a href="#patterns">Patterns</a>
+  </div>
+</nav>
+
+<!-- COVER -->
+<header class="cover">
+  <div class="cover-inner">
+    <div class="meta">
+      <span class="label">Design System</span>
+      <span class="version">— Porcelain v0.1 · May 2026</span>
+    </div>
+    <h1>An <em>opinionated</em><br>civic data product.</h1>
+    <p class="lede">Tenement helps prospective and current tenants navigate NYC building complaints with clarity, comparison, and a point of view.</p>
+    <p class="deck">White surfaces. Ink type. Oxblood as the only color of consequence. Numbers are always comparative — every figure shows its neighborhood median, every claim cites its receipt. The interface should feel like a publication, not a dashboard.</p>
+  </div>
+</header>
+
+<!-- ============ 01 · COLOR ============ -->
+<section id="color">
+  <div class="section-head">
+    <div class="section-num">01 · Color</div>
+    <h2 class="section-title">Three groups, one accent</h2>
+    <p class="section-deck">Surfaces, ink, and data. Oxblood is the only chromatic UI color — used for selection, brand, and primary editorial moments. Data colors live on the map and in charts; they never appear in chrome.</p>
+  </div>
+
+  <div class="subhead">Surface</div>
+  <div class="swatch-grid">
+    <div class="swatch bordered"><div class="swatch-chip" style="background:#FFFFFF"></div><div class="swatch-name">surface/primary</div><div class="swatch-hex">#FFFFFF</div></div>
+    <div class="swatch bordered"><div class="swatch-chip" style="background:#FAFAFA"></div><div class="swatch-name">surface/secondary</div><div class="swatch-hex">#FAFAFA</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#F5F5F5"></div><div class="swatch-name">surface/tertiary</div><div class="swatch-hex">#F5F5F5</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#EAE8E3"></div><div class="swatch-name">surface/map-base</div><div class="swatch-hex">#EAE8E3</div></div>
+  </div>
+
+  <div class="subhead">Ink</div>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-chip" style="background:#111111"></div><div class="swatch-name">ink/primary</div><div class="swatch-hex">#111111</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#525252"></div><div class="swatch-name">ink/secondary</div><div class="swatch-hex">#525252</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#737373"></div><div class="swatch-name">ink/tertiary</div><div class="swatch-hex">#737373</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#E5E5E5"></div><div class="swatch-name">ink/border</div><div class="swatch-hex">#E5E5E5</div></div>
+  </div>
+
+  <div class="subhead">Brand &amp; data</div>
+  <div class="swatch-grid">
+    <div class="swatch"><div class="swatch-chip" style="background:#7F1D1D"></div><div class="swatch-name">brand/oxblood</div><div class="swatch-hex">#7F1D1D</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#84A98C"></div><div class="swatch-name">data/quiet</div><div class="swatch-hex">#84A98C</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#E4A11B"></div><div class="swatch-name">data/average</div><div class="swatch-hex">#E4A11B</div></div>
+    <div class="swatch"><div class="swatch-chip" style="background:#7F1D1D"></div><div class="swatch-name">data/loud</div><div class="swatch-hex">#7F1D1D</div></div>
+  </div>
+
+  <div class="rule-callout" style="margin-top: 22px;">
+    <strong>Rule.</strong> Outlier markers and outlier copy are always <span style="font-family:var(--font-mono)">ink/primary</span>, never red. Red is reserved for "loud" buildings in aggregate, the selected state, and primary editorial links. Black is louder than red here — a deliberate inversion of the dashboard cliché.
+  </div>
+</section>
+
+<!-- ============ 02 · TYPE ============ -->
+<section id="type">
+  <div class="section-head">
+    <div class="section-num">02 · Typography</div>
+    <h2 class="section-title">Three faces, one voice</h2>
+    <p class="section-deck">Fraunces (serif) for display, addresses, and editorial moments. Inter (sans) for body and UI. JetBrains Mono for metadata, KPIs, and data labels — anything where the data identity matters more than the prose.</p>
+  </div>
+
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Display</span><span class="spec">serif · 40 / 44 · 500</span></div>
+    <div class="t-display">446 West 26th Street</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Heading</span><span class="spec">serif · 24 / 30 · 500</span></div>
+    <div class="t-heading">Among the loudest buildings on the Upper East Side</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Lede</span><span class="spec">serif · 18 / 26 · 400 italic</span></div>
+    <div class="t-heading" style="font-size:18px; font-style:italic; font-weight:400; line-height:1.45;">Driven mostly by permit and scaffolding issues, though activity has cooled since 2023.</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Body</span><span class="spec">sans · 15 / 24 · 400</span></div>
+    <div class="t-body">More complaints than 92% of residential buildings in Upper East Side-Yorkville. The building has filed Priority A complaints in five of the last seven years, though the overall rate has declined since the 2022 peak.</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Caption</span><span class="spec">sans · 12 / 18 · 400</span></div>
+    <div class="t-caption">First filed Jun 9, 1994. Latest: May 27, 2025.</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Metadata</span><span class="spec">mono · 11 · 400</span></div>
+    <div class="t-meta">Manhattan · ZIP 10128 · BIN 1051349 · Upper East Side-Yorkville</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">Eyebrow</span><span class="spec">mono · 10 · 0.1em · upper</span></div>
+    <div class="t-eyebrow">Neighborhood standing</div>
+  </div>
+  <div class="type-row">
+    <div class="type-meta"><span class="name">KPI</span><span class="spec">mono · 32 · 500 · tabular</span></div>
+    <div class="t-kpi">39</div>
+  </div>
+</section>
+
+<!-- ============ 03 · LAYOUT ============ -->
+<section id="layout">
+  <div class="section-head">
+    <div class="section-num">03 · Layout</div>
+    <h2 class="section-title">Spacing &amp; radius</h2>
+    <p class="section-deck">A six-step spacing scale on a 4px base. Three radii. Borders are 0.5px hairlines that lift on hover. No drop shadows anywhere — depth comes from typography and density, not Z-axis tricks.</p>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="subhead">Spacing</div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:4px"></div><span class="spacing-label">4px</span><span class="spacing-desc">tight gaps, icon-to-label</span></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:8px"></div><span class="spacing-label">8px</span><span class="spacing-desc">label to value</span></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:12px"></div><span class="spacing-label">12px</span><span class="spacing-desc">card grid gap</span></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:16px"></div><span class="spacing-label">16px</span><span class="spacing-desc">card padding</span></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:24px"></div><span class="spacing-label">24px</span><span class="spacing-desc">section break</span></div>
+      <div class="spacing-row"><div class="spacing-bar" style="width:32px"></div><span class="spacing-label">32px</span><span class="spacing-desc">page padding</span></div>
+    </div>
+
+    <div>
+      <div class="subhead">Radius</div>
+      <div class="radius-row">
+        <div class="radius-chip" style="border-radius:4px"></div>
+        <div class="radius-info"><span class="label">4px · sm</span><span class="desc">chips, swatches, density legend</span></div>
+      </div>
+      <div class="radius-row">
+        <div class="radius-chip" style="border-radius:8px"></div>
+        <div class="radius-info"><span class="label">8px · md</span><span class="desc">inputs, buttons, KPI cards</span></div>
+      </div>
+      <div class="radius-row">
+        <div class="radius-chip" style="border-radius:12px"></div>
+        <div class="radius-info"><span class="label">12px · lg</span><span class="desc">major cards, floating panels</span></div>
+      </div>
+
+      <div class="subhead" style="margin-top: 24px;">Borders</div>
+      <p style="font-size: 13px; color: var(--ink-primary); line-height: 1.6;">All borders are <span style="font-family:var(--font-mono)">0.5px solid #E5E5E5</span>. Hover lifts to <span style="font-family:var(--font-mono)">#A3A3A3</span>. Selected state is <span style="font-family:var(--font-mono)">#7F1D1D</span> oxblood. <strong style="color:var(--ink-primary); font-weight:500;">No shadows, ever.</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 · COMPONENTS ============ -->
+<section id="components">
+  <div class="section-head">
+    <div class="section-num">04 · Components</div>
+    <h2 class="section-title">Components</h2>
+    <p class="section-deck">A small kit. Each component does one thing well and inherits the system's restraint.</p>
+  </div>
+
+  <div class="subhead">Buttons</div>
+  <div class="component-row" style="margin-bottom:24px;">
+    <button class="btn btn-primary">View full record</button>
+    <button class="btn btn-secondary">Cancel</button>
+    <button class="btn btn-link">View full record
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+    <button class="btn-toggle">2y</button>
+    <button class="btn-toggle active">5y</button>
+    <button class="btn-toggle">10y</button>
+    <button class="btn-toggle">All</button>
+  </div>
+  <p class="t-caption" style="margin-bottom:32px;">Primary is ink black, not oxblood. Oxblood is reserved for inline brand links and selected state, so the page only ever has one truly chromatic moment.</p>
+
+  <div class="subhead">Eyebrows &amp; chips</div>
+  <div class="component-row" style="margin-bottom:32px;">
+    <span class="t-eyebrow">Severity</span>
+    <span class="t-eyebrow" style="color:var(--brand-oxblood)">Selected</span>
+    <span class="chip">Upper West Side
+      <svg class="chip-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </span>
+    <span class="chip" style="background:var(--ink-primary); color:var(--surface-primary); border-color:var(--ink-primary); font-family:var(--font-mono); font-size:11px; letter-spacing:0.05em;">5y</span>
+  </div>
+
+  <div class="subhead">Search input</div>
+  <div class="input" style="margin-bottom:32px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input type="text" placeholder="Search by address or BIN" />
+  </div>
+
+  <div class="subhead">KPI cards</div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Total complaints</div><div class="kpi-value">39</div><div class="kpi-median">median: 11</div></div>
+    <div class="kpi"><div class="kpi-label">Active</div><div class="kpi-value">2</div><div class="kpi-median">median: 0</div></div>
+    <div class="kpi"><div class="kpi-label">Priority A</div><div class="kpi-value">7</div><div class="kpi-median">median: 1</div></div>
+    <div class="kpi"><div class="kpi-label">Priority A+B</div><div class="kpi-value">25</div><div class="kpi-median">median: 4</div></div>
+  </div>
+  <p class="t-caption" style="margin-top:12px; margin-bottom:32px;">Every KPI is paired with its neighborhood median. Numbers without comparison are forbidden.</p>
+
+  <div class="subhead">Inline visualization primitives</div>
+  <div class="viz-grid">
+    <div class="viz-card">
+      <div class="viz-card-head">
+        <span class="viz-card-title">Distribution</span>
+        <span class="viz-card-aside">Pri A+B</span>
+      </div>
+      <svg viewBox="0 0 220 60" style="width:100%; height:auto; display:block;">
+        <line x1="0" y1="44" x2="220" y2="44" stroke="#E5E5E5" stroke-width="0.5"/>
+        <g fill="#737373" opacity="0.55">
+          <circle cx="6" cy="42" r="1.6"/><circle cx="12" cy="40" r="1.6"/><circle cx="18" cy="38" r="1.6"/>
+          <circle cx="24" cy="34" r="1.6"/><circle cx="30" cy="32" r="1.6"/><circle cx="36" cy="28" r="1.6"/>
+          <circle cx="42" cy="32" r="1.6"/><circle cx="48" cy="36" r="1.6"/><circle cx="54" cy="34" r="1.6"/>
+          <circle cx="60" cy="38" r="1.6"/><circle cx="66" cy="36" r="1.6"/><circle cx="74" cy="40" r="1.6"/>
+          <circle cx="84" cy="38" r="1.6"/><circle cx="94" cy="40" r="1.6"/><circle cx="106" cy="42" r="1.6"/>
+          <circle cx="118" cy="40" r="1.6"/><circle cx="130" cy="42" r="1.6"/><circle cx="144" cy="42" r="1.6"/>
+          <circle cx="158" cy="42" r="1.6"/><circle cx="174" cy="42" r="1.6"/><circle cx="186" cy="42" r="1.6"/>
+        </g>
+        <line x1="198" y1="20" x2="198" y2="44" stroke="#7F1D1D" stroke-width="1.5"/>
+        <circle cx="198" cy="42" r="3.5" fill="#7F1D1D"/>
+        <text x="198" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#7F1D1D" font-weight="500">25</text>
+        <text x="2" y="56" font-family="JetBrains Mono" font-size="8" fill="#737373">0</text>
+        <text x="218" y="56" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="#737373">30+</text>
+      </svg>
+    </div>
+    <div class="viz-card">
+      <div class="viz-card-head">
+        <span class="viz-card-title">Sparkline</span>
+        <span class="viz-card-aside">5 yr</span>
+      </div>
+      <svg viewBox="0 0 220 60" style="width:100%; height:auto; display:block;">
+        <line x1="0" y1="48" x2="220" y2="48" stroke="#E5E5E5" stroke-width="0.5"/>
+        <path d="M 8,38 L 50,28 L 92,16 L 134,28 L 176,38 L 212,40 L 212,48 L 8,48 Z" fill="#111111" opacity="0.08"/>
+        <path d="M 8,38 L 50,28 L 92,16 L 134,28 L 176,38 L 212,40" fill="none" stroke="#111111" stroke-width="1.25" stroke-linejoin="round"/>
+        <circle cx="212" cy="40" r="3" fill="#111111"/>
+        <text x="92" y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#525252">peak: 9</text>
+      </svg>
+    </div>
+    <div class="viz-card">
+      <div class="viz-card-head">
+        <span class="viz-card-title">Percentile</span>
+        <span class="viz-card-aside">UES-Yorkville</span>
+      </div>
+      <svg viewBox="0 0 220 60" style="width:100%; height:auto; display:block;">
+        <rect x="0" y="26" width="44" height="6" fill="#84A98C" opacity="0.45"/>
+        <rect x="44" y="26" width="44" height="6" fill="#84A98C" opacity="0.7"/>
+        <rect x="88" y="26" width="44" height="6" fill="#E4A11B" opacity="0.6"/>
+        <rect x="132" y="26" width="44" height="6" fill="#E4A11B" opacity="0.85"/>
+        <rect x="176" y="26" width="44" height="6" fill="#7F1D1D" opacity="0.7"/>
+        <line x1="202" y1="18" x2="202" y2="40" stroke="#111111" stroke-width="1.5"/>
+        <circle cx="202" cy="29" r="4" fill="#FFFFFF" stroke="#111111" stroke-width="1.5"/>
+        <text x="202" y="13" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#111111" font-weight="500">92%</text>
+        <text x="2" y="50" font-family="JetBrains Mono" font-size="8" fill="#737373">quietest</text>
+        <text x="218" y="50" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="#737373">loudest</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="subhead" style="margin-top:32px;">Iconography &amp; map markers</div>
+  <div class="two-col">
+    <div>
+      <p class="t-caption" style="margin-bottom:14px;">UI icons are 1.5px stroke, 20px nominal. Tabler outline as the reference set.</p>
+      <div class="icon-row">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9l6 6 6-6"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      </div>
+    </div>
+    <div>
+      <p class="t-caption" style="margin-bottom:14px;">Map markers are categorical. Outlier and selected get distinct ring treatments — color is not the only differentiator.</p>
+      <div class="marker-row">
+        <div class="marker-cell">
+          <svg width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="6" fill="#84A98C"/></svg>
+          <span class="marker-label">quiet</span>
+        </div>
+        <div class="marker-cell">
+          <svg width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="6" fill="#E4A11B"/></svg>
+          <span class="marker-label">average</span>
+        </div>
+        <div class="marker-cell">
+          <svg width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="6" fill="#7F1D1D"/></svg>
+          <span class="marker-label">loud</span>
+        </div>
+        <div class="marker-cell">
+          <svg width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="9" fill="none" stroke="#111111" stroke-width="0.6" opacity="0.4"/><circle cx="18" cy="18" r="6" fill="#111111"/></svg>
+          <span class="marker-label">outlier</span>
+        </div>
+        <div class="marker-cell">
+          <svg width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="#7F1D1D" stroke-width="0.5" opacity="0.4"/><circle cx="18" cy="18" r="10" fill="none" stroke="#7F1D1D" stroke-width="0.8" opacity="0.6"/><circle cx="18" cy="18" r="7" fill="#7F1D1D"/><circle cx="18" cy="18" r="3" fill="#FFFFFF"/></svg>
+          <span class="marker-label">selected</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · VOICE ============ -->
+<section id="voice">
+  <div class="section-head">
+    <div class="section-num">05 · Voice</div>
+    <h2 class="section-title">Editorial voice</h2>
+    <p class="section-deck">Three rules: make a claim (don't hedge), cite the receipt (always comparative), and name the texture (what kind of complaints, what's the trend). Headlines do interpretive work. Subtext provides the data. Hedging language signals a dashboard; decisive language signals a publication.</p>
+  </div>
+
+  <div class="voice-grid">
+    <div class="voice-card do">
+      <div class="label">Do</div>
+      <div class="quote">"Among the loudest buildings on the Upper East Side — driven mostly by permit issues, though activity has cooled since 2023."</div>
+      <div class="why">Specific. Comparative. Names the cause. Acknowledges the nuance.</div>
+    </div>
+    <div class="voice-card dont">
+      <div class="label">Don't</div>
+      <div class="quote">"This building has significant complaint activity compared to its neighborhood — review the details below."</div>
+      <div class="why">Vague. Hedge-y. Defers to the user instead of making a claim.</div>
+    </div>
+  </div>
+
+  <div class="rule-callout" style="margin-top:24px;">
+    <strong>Headline pattern.</strong> <em>[Comparative claim] — [primary cause], though [nuance].</em> If you can't fill in the second clause from the data, the headline isn't ready.
+  </div>
+</section>
+
+<!-- ============ 06 · MAP PATTERN ============ -->
+<section id="patterns" style="background: var(--surface-secondary);">
+  <div class="section-head">
+    <div class="section-num">06 · Pattern</div>
+    <h2 class="section-title">Map page</h2>
+    <p class="section-deck">The system assembled at the index level. Sidebar holds the legend and neighborhood filter — no time-window or status filters in v0.1. Hex density at low zoom; individual markers when zoomed in.</p>
+  </div>
+
+  <div class="pattern">
+    <div class="app-bar">
+      <div class="app-bar-brand">
+        <span class="name">Tenement</span>
+        <span class="tag">NYC building complaints</span>
+      </div>
+      <div class="app-bar-actions">
+        <div class="input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search by address or BIN" />
+        </div>
+        <a href="#">Worst landlords</a>
+        <a href="#">About</a>
+      </div>
+    </div>
+
+    <div class="context-strip">
+      <div class="left">
+        <span class="label">Viewing</span>
+        <span class="neighborhood">Upper West Side (Central)</span>
+        <span class="stat">2,847 buildings · 18,420 complaints on record</span>
+      </div>
+      <span class="updated">Updated May 4, 2026</span>
+    </div>
+
+    <div class="map-shell">
+      <aside class="map-sidebar">
+        <div>
+          <div class="subhead" style="margin-bottom:12px;">Risk level</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#84A98C"></span><span>Quiet</span><span class="pct">42%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#E4A11B"></span><span>Average</span><span class="pct">37%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#7F1D1D"></span><span>Loud</span><span class="pct">17%</span></div>
+          <div class="legend-row"><span class="legend-dot" style="background:#111111; box-shadow: 0 0 0 1.5px #111 inset, 0 0 0 2px #FFF inset;"></span><span>Outlier</span><span class="pct">4%</span></div>
+        </div>
+
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <span class="subhead" style="margin-bottom:0;">Neighborhood</span>
+            <span class="filter-clear">clear</span>
+          </div>
+          <span class="chip" style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            Upper West Side
+            <svg class="chip-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </span>
+          <div class="input" style="max-width:none; padding:7px 10px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" placeholder="Add neighborhood…" style="font-size:12px;" />
+          </div>
+        </div>
+      </aside>
+
+      <div class="map-canvas">
+        <svg class="basemap" viewBox="0 0 600 540" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Upper West Side complaint density">
+          <rect x="490" y="0" width="110" height="540" fill="#D4D8CD"/>
+          <text x="545" y="270" text-anchor="middle" font-family="Fraunces" font-size="11" fill="#525252" letter-spacing="0.05em" font-style="italic" opacity="0.7">Central Park</text>
+          <rect x="0" y="0" width="50" height="540" fill="#D2D0CB"/>
+          <text x="25" y="270" text-anchor="middle" font-family="Fraunces" font-size="10" fill="#525252" letter-spacing="0.05em" font-style="italic" opacity="0.7" transform="rotate(-90, 25, 270)">Hudson River</text>
+
+          <g stroke="#C8C5BE" stroke-width="0.5" opacity="0.8">
+            <line x1="80" y1="0" x2="80" y2="540"/>
+            <line x1="170" y1="0" x2="170" y2="540"/>
+            <line x1="260" y1="0" x2="260" y2="540"/>
+            <line x1="350" y1="0" x2="350" y2="540"/>
+            <line x1="440" y1="0" x2="440" y2="540"/>
+            <line x1="50" y1="40" x2="490" y2="40"/>
+            <line x1="50" y1="100" x2="490" y2="100"/>
+            <line x1="50" y1="160" x2="490" y2="160"/>
+            <line x1="50" y1="220" x2="490" y2="220"/>
+            <line x1="50" y1="280" x2="490" y2="280"/>
+            <line x1="50" y1="340" x2="490" y2="340"/>
+            <line x1="50" y1="400" x2="490" y2="400"/>
+            <line x1="50" y1="460" x2="490" y2="460"/>
+          </g>
+
+          <g opacity="0.88">
+            <polygon points="100,30 130,30 145,55 130,80 100,80 85,55" fill="#7F1D1D" opacity="0.32"/>
+            <polygon points="160,30 190,30 205,55 190,80 160,80 145,55" fill="#7F1D1D" opacity="0.5"/>
+            <polygon points="220,30 250,30 265,55 250,80 220,80 205,55" fill="#7F1D1D" opacity="0.65"/>
+            <polygon points="280,30 310,30 325,55 310,80 280,80 265,55" fill="#7F1D1D" opacity="0.45"/>
+            <polygon points="340,30 370,30 385,55 370,80 340,80 325,55" fill="#7F1D1D" opacity="0.32"/>
+            <polygon points="400,30 430,30 445,55 430,80 400,80 385,55" fill="#E4A11B" opacity="0.45"/>
+            <polygon points="130,80 160,80 175,105 160,130 130,130 115,105" fill="#7F1D1D" opacity="0.5"/>
+            <polygon points="190,80 220,80 235,105 220,130 190,130 175,105" fill="#7F1D1D" opacity="0.7"/>
+            <polygon points="250,80 280,80 295,105 280,130 250,130 235,105" fill="#7F1D1D" opacity="0.75"/>
+            <polygon points="310,80 340,80 355,105 340,130 310,130 295,105" fill="#7F1D1D" opacity="0.55"/>
+            <polygon points="370,80 400,80 415,105 400,130 370,130 355,105" fill="#E4A11B" opacity="0.55"/>
+            <polygon points="100,130 130,130 145,155 130,180 100,180 85,155" fill="#E4A11B" opacity="0.55"/>
+            <polygon points="160,130 190,130 205,155 190,180 160,180 145,155" fill="#7F1D1D" opacity="0.6"/>
+            <polygon points="220,130 250,130 265,155 250,180 220,180 205,155" fill="#7F1D1D" opacity="0.6"/>
+            <polygon points="280,130 310,130 325,155 310,180 280,180 265,155" fill="#7F1D1D" opacity="0.5"/>
+            <polygon points="340,130 370,130 385,155 370,180 340,180 325,155" fill="#E4A11B" opacity="0.5"/>
+            <polygon points="400,130 430,130 445,155 430,180 400,180 385,155" fill="#E4A11B" opacity="0.4"/>
+            <polygon points="130,180 160,180 175,205 160,230 130,230 115,205" fill="#E4A11B" opacity="0.55"/>
+            <polygon points="190,180 220,180 235,205 220,230 190,230 175,205" fill="#E4A11B" opacity="0.65"/>
+            <polygon points="250,180 280,180 295,205 280,230 250,230 235,205" fill="#7F1D1D" opacity="0.45"/>
+            <polygon points="310,180 340,180 355,205 340,230 310,230 295,205" fill="#E4A11B" opacity="0.55"/>
+            <polygon points="370,180 400,180 415,205 400,230 370,230 355,205" fill="#E4A11B" opacity="0.4"/>
+            <polygon points="100,230 130,230 145,255 130,280 100,280 85,255" fill="#E4A11B" opacity="0.42"/>
+            <polygon points="160,230 190,230 205,255 190,280 160,280 145,255" fill="#E4A11B" opacity="0.6"/>
+            <polygon points="220,230 250,230 265,255 250,280 220,280 205,255" fill="#E4A11B" opacity="0.6"/>
+            <polygon points="280,230 310,230 325,255 310,280 280,280 265,255" fill="#E4A11B" opacity="0.5"/>
+            <polygon points="340,230 370,230 385,255 370,280 340,280 325,255" fill="#84A98C" opacity="0.5"/>
+            <polygon points="400,230 430,230 445,255 430,280 400,280 385,255" fill="#84A98C" opacity="0.6"/>
+            <polygon points="130,280 160,280 175,305 160,330 130,330 115,305" fill="#E4A11B" opacity="0.42"/>
+            <polygon points="190,280 220,280 235,305 220,330 190,330 175,305" fill="#84A98C" opacity="0.55"/>
+            <polygon points="250,280 280,280 295,305 280,330 250,330 235,305" fill="#84A98C" opacity="0.6"/>
+            <polygon points="310,280 340,280 355,305 340,330 310,330 295,305" fill="#84A98C" opacity="0.65"/>
+            <polygon points="370,280 400,280 415,305 400,330 370,330 355,305" fill="#84A98C" opacity="0.7"/>
+            <polygon points="100,330 130,330 145,355 130,380 100,380 85,355" fill="#84A98C" opacity="0.5"/>
+            <polygon points="160,330 190,330 205,355 190,380 160,380 145,355" fill="#84A98C" opacity="0.6"/>
+            <polygon points="220,330 250,330 265,355 250,380 220,380 205,355" fill="#84A98C" opacity="0.7"/>
+            <polygon points="280,330 310,330 325,355 310,380 280,380 265,355" fill="#84A98C" opacity="0.7"/>
+            <polygon points="340,330 370,330 385,355 370,380 340,380 325,355" fill="#84A98C" opacity="0.6"/>
+            <polygon points="400,330 430,330 445,355 430,380 400,380 385,355" fill="#84A98C" opacity="0.55"/>
+            <polygon points="130,380 160,380 175,405 160,430 130,430 115,405" fill="#84A98C" opacity="0.6"/>
+            <polygon points="190,380 220,380 235,405 220,430 190,430 175,405" fill="#84A98C" opacity="0.7"/>
+            <polygon points="250,380 280,380 295,405 280,430 250,430 235,405" fill="#84A98C" opacity="0.75"/>
+            <polygon points="310,380 340,380 355,405 340,430 310,430 295,405" fill="#84A98C" opacity="0.7"/>
+            <polygon points="370,380 400,380 415,405 400,430 370,430 355,405" fill="#84A98C" opacity="0.6"/>
+            <polygon points="100,430 130,430 145,455 130,480 100,480 85,455" fill="#84A98C" opacity="0.55"/>
+            <polygon points="160,430 190,430 205,455 190,480 160,480 145,455" fill="#84A98C" opacity="0.65"/>
+            <polygon points="220,430 250,430 265,455 250,480 220,480 205,455" fill="#84A98C" opacity="0.7"/>
+            <polygon points="280,430 310,430 325,455 310,480 280,480 265,455" fill="#84A98C" opacity="0.65"/>
+          </g>
+
+          <g>
+            <circle cx="180" cy="65" r="5.5" fill="#111111"/>
+            <circle cx="180" cy="65" r="9" fill="none" stroke="#111111" stroke-width="0.6" opacity="0.4"/>
+            <circle cx="265" cy="105" r="5.5" fill="#111111"/>
+            <circle cx="265" cy="105" r="9" fill="none" stroke="#111111" stroke-width="0.6" opacity="0.4"/>
+            <circle cx="320" cy="160" r="5.5" fill="#111111"/>
+            <circle cx="320" cy="160" r="9" fill="none" stroke="#111111" stroke-width="0.6" opacity="0.4"/>
+            <circle cx="220" cy="210" r="5.5" fill="#111111"/>
+            <circle cx="220" cy="210" r="9" fill="none" stroke="#111111" stroke-width="0.6" opacity="0.4"/>
+          </g>
+
+          <g>
+            <circle cx="290" cy="240" r="18" fill="none" stroke="#7F1D1D" stroke-width="0.5" opacity="0.4"/>
+            <circle cx="290" cy="240" r="12" fill="none" stroke="#7F1D1D" stroke-width="0.8" opacity="0.6"/>
+            <circle cx="290" cy="240" r="7" fill="#7F1D1D"/>
+            <circle cx="290" cy="240" r="3" fill="#FFFFFF"/>
+          </g>
+
+          <text x="490" y="38" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#525252">W 96th</text>
+          <text x="490" y="158" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#525252">W 86th</text>
+          <text x="490" y="278" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#525252">W 79th</text>
+          <text x="490" y="398" text-anchor="end" font-family="JetBrains Mono" font-size="9" fill="#525252">W 72nd</text>
+        </svg>
+
+        <div class="map-overlay map-zoom-hint">
+          <span>zoom in for individual buildings</span>
+        </div>
+
+        <div class="map-overlay map-density-legend">
+          <div class="label">Complaints per block</div>
+          <div class="ramp">
+            <span style="background:#84A98C; opacity:0.6;"></span>
+            <span style="background:#84A98C; opacity:0.85;"></span>
+            <span style="background:#E4A11B; opacity:0.6;"></span>
+            <span style="background:#E4A11B; opacity:0.85;"></span>
+            <span style="background:#7F1D1D; opacity:0.7;"></span>
+          </div>
+          <div class="axis">
+            <span>few</span>
+            <span>many</span>
+          </div>
+        </div>
+
+        <div class="selected-card">
+          <div class="head">
+            <span class="eyebrow">Selected</span>
+            <svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </div>
+          <div class="address">2446 Broadway</div>
+          <div class="meta">Manhattan · 10024 · BIN 1033556</div>
+          <div class="claim">More complaints than <strong>94% of buildings</strong> on the Upper West Side.</div>
+          <div class="stats">
+            <div>
+              <div class="stat-label">Total</div>
+              <div class="stat-value">89</div>
+              <div class="stat-median">median: 11</div>
+            </div>
+            <div>
+              <div class="stat-label">Open</div>
+              <div class="stat-value">1</div>
+              <div class="stat-median">median: 0</div>
+            </div>
+            <div>
+              <div class="stat-label">Pri A</div>
+              <div class="stat-value">20</div>
+              <div class="stat-median">median: 2</div>
+            </div>
+          </div>
+          <div class="trend">
+            <div class="trend-head">
+              <span class="label">5-year trend</span>
+              <span class="peak">peak '23</span>
+            </div>
+            <svg viewBox="0 0 248 32">
+              <path d="M 4,22 L 50,18 L 96,8 L 142,14 L 188,20 L 244,16 L 244,30 L 4,30 Z" fill="#111111" opacity="0.07"/>
+              <path d="M 4,22 L 50,18 L 96,8 L 142,14 L 188,20 L 244,16" fill="none" stroke="#111111" stroke-width="1" stroke-linejoin="round"/>
+              <circle cx="244" cy="16" r="2.5" fill="#111111"/>
+            </svg>
+          </div>
+          <div class="footer">
+            <span class="link">View full record</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 · DETAIL PATTERN ============ -->
+<section style="background: var(--surface-secondary);">
+  <div class="section-head">
+    <div class="section-num">07 · Pattern</div>
+    <h2 class="section-title">Building detail</h2>
+    <p class="section-deck">The system at the deep-dive level. Headline does interpretive work. Three insight cards each show a small inline visualization. KPIs always pair with neighborhood medians.</p>
+  </div>
+
+  <div class="pattern">
+    <div class="app-bar">
+      <div class="app-bar-brand">
+        <a href="#" class="detail-back" style="margin-right:14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          Map
+        </a>
+        <span class="name">Tenement</span>
+      </div>
+      <div class="app-bar-actions">
+        <div class="input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search by address or BIN" />
+        </div>
+        <a href="#">Worst landlords</a>
+      </div>
+    </div>
+
+    <div class="detail-hero">
+      <div class="eyebrow">Loud</div>
+      <h2>535 East 88th Street</h2>
+      <div class="meta">Manhattan · ZIP 10128 · BIN 1051349 · Upper East Side-Yorkville · On record since Jun 9, 1994 · Built 1960</div>
+      <p class="summary">Among the loudest buildings on the Upper East Side — driven mostly by permit and scaffolding issues, though activity has cooled since 2023.</p>
+    </div>
+
+    <div class="detail-body">
+      <div class="insight-grid">
+        <div class="insight">
+          <div class="insight-head">
+            <span class="t-eyebrow">Severity</span>
+            <span class="viz-card-aside">Pri A+B</span>
+          </div>
+          <div class="insight-headline">25 serious complaints</div>
+          <div class="insight-sub">In the long tail of this neighborhood</div>
+          <svg class="viz" viewBox="0 0 220 60">
+            <line x1="0" y1="44" x2="220" y2="44" stroke="#E5E5E5" stroke-width="0.5"/>
+            <g fill="#737373" opacity="0.55">
+              <circle cx="6" cy="42" r="1.6"/><circle cx="12" cy="40" r="1.6"/><circle cx="18" cy="38" r="1.6"/>
+              <circle cx="24" cy="34" r="1.6"/><circle cx="30" cy="32" r="1.6"/><circle cx="36" cy="28" r="1.6"/>
+              <circle cx="42" cy="32" r="1.6"/><circle cx="48" cy="36" r="1.6"/><circle cx="54" cy="34" r="1.6"/>
+              <circle cx="60" cy="38" r="1.6"/><circle cx="66" cy="36" r="1.6"/><circle cx="74" cy="40" r="1.6"/>
+              <circle cx="84" cy="38" r="1.6"/><circle cx="94" cy="40" r="1.6"/><circle cx="106" cy="42" r="1.6"/>
+              <circle cx="118" cy="40" r="1.6"/><circle cx="130" cy="42" r="1.6"/><circle cx="144" cy="42" r="1.6"/>
+              <circle cx="158" cy="42" r="1.6"/><circle cx="174" cy="42" r="1.6"/><circle cx="186" cy="42" r="1.6"/>
+            </g>
+            <line x1="198" y1="20" x2="198" y2="44" stroke="#7F1D1D" stroke-width="1.5"/>
+            <circle cx="198" cy="42" r="3.5" fill="#7F1D1D"/>
+            <text x="198" y="14" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#7F1D1D" font-weight="500">25</text>
+            <text x="2" y="56" font-family="JetBrains Mono" font-size="8" fill="#737373">0</text>
+            <text x="110" y="56" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#737373">median: 4</text>
+            <text x="218" y="56" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="#737373">30+</text>
+          </svg>
+        </div>
+
+        <div class="insight">
+          <div class="insight-head">
+            <span class="t-eyebrow">Trend</span>
+            <span class="viz-card-aside">Last 5 years</span>
+          </div>
+          <div class="insight-headline">Cooling since 2023</div>
+          <div class="insight-sub">4 in last 2 years vs 13 prior</div>
+          <svg class="viz" viewBox="0 0 220 60">
+            <line x1="0" y1="48" x2="220" y2="48" stroke="#E5E5E5" stroke-width="0.5"/>
+            <path d="M 8,38 L 50,28 L 92,16 L 134,28 L 176,38 L 212,40 L 212,48 L 8,48 Z" fill="#111111" opacity="0.08"/>
+            <path d="M 8,38 L 50,28 L 92,16 L 134,28 L 176,38 L 212,40" fill="none" stroke="#111111" stroke-width="1.25" stroke-linejoin="round"/>
+            <circle cx="212" cy="40" r="3" fill="#111111"/>
+            <text x="92" y="10" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#525252">peak: 9</text>
+            <text x="8" y="58" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#737373">'21</text>
+            <text x="212" y="58" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#737373">'25</text>
+          </svg>
+        </div>
+
+        <div class="insight">
+          <div class="insight-head">
+            <span class="t-eyebrow">Rank</span>
+            <span class="viz-card-aside">UES-Yorkville</span>
+          </div>
+          <div class="insight-headline">92nd percentile</div>
+          <div class="insight-sub">More than 92% of nearby buildings</div>
+          <svg class="viz" viewBox="0 0 220 60">
+            <rect x="0" y="26" width="44" height="6" fill="#84A98C" opacity="0.45"/>
+            <rect x="44" y="26" width="44" height="6" fill="#84A98C" opacity="0.7"/>
+            <rect x="88" y="26" width="44" height="6" fill="#E4A11B" opacity="0.6"/>
+            <rect x="132" y="26" width="44" height="6" fill="#E4A11B" opacity="0.85"/>
+            <rect x="176" y="26" width="44" height="6" fill="#7F1D1D" opacity="0.7"/>
+            <line x1="202" y1="18" x2="202" y2="40" stroke="#111111" stroke-width="1.5"/>
+            <circle cx="202" cy="29" r="4" fill="#FFFFFF" stroke="#111111" stroke-width="1.5"/>
+            <text x="202" y="13" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="#111111" font-weight="500">this bldg</text>
+            <text x="2" y="52" font-family="JetBrains Mono" font-size="8" fill="#737373">quietest</text>
+            <text x="218" y="52" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="#737373">loudest</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">Total complaints</div><div class="kpi-value">39</div><div class="kpi-median">median: 11</div></div>
+        <div class="kpi"><div class="kpi-label">Active</div><div class="kpi-value">2</div><div class="kpi-median">median: 0</div></div>
+        <div class="kpi"><div class="kpi-label">Priority A</div><div class="kpi-value">7</div><div class="kpi-median">median: 1</div></div>
+        <div class="kpi"><div class="kpi-label">Priority A+B</div><div class="kpi-value">25</div><div class="kpi-median">median: 4</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="meta">Tenement Design System · Porcelain v0.1</div>
+  <p>White surfaces · ink type · oxblood as the only color of consequence. Every number is comparative. Every claim cites its receipt.</p>
+</footer>
+
+</div>
+
+</body>
+</html>

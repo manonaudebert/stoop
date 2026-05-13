@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import type { TimelinePoint } from '@/lib/types'
 
-type EnrichedPoint = { month: string; old: number; mid: number; recent: number }
+type EnrichedPoint = { month: string; old: number; recent: number }
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '?'
@@ -31,19 +31,17 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   return (
     <div style={{ background: '#111111', borderRadius: 4, padding: '6px 10px' }}>
       <p style={{ fontSize: 10, color: '#737373', marginBottom: 2 }}>{label}</p>
-      <p style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 500 }}>{total} complaints</p>
+      <p style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 500 }}>{total} violations</p>
     </div>
   )
 }
 
-export default function ComplaintTimeline({
+export default function ViolationTimeline({
   data,
-  firstDate,
-  lastDate,
+  latestDate,
 }: {
   data: TimelinePoint[]
-  firstDate?: string | null
-  lastDate?: string | null
+  latestDate?: string | null
 }) {
   const [showFull, setShowFull] = useState(false)
 
@@ -57,52 +55,34 @@ export default function ComplaintTimeline({
 
   const hasRecentData = data.some(d => d.month >= fiveYearsStr && d.count > 0)
   const windowStartStr = (() => {
-    if (hasRecentData || !lastDate) return fiveYearsStr
-    const [y, m] = lastDate.split('-').map(Number)
+    if (hasRecentData || !latestDate) return fiveYearsStr
+    const [y, m] = latestDate.split('-').map(Number)
     return toMonthStr(new Date(y - 5, m - 1, 1))
-  })()
-  const windowLabel = (() => {
-    if (hasRecentData || !lastDate) return 'Last 5 years'
-    const endYear = lastDate.slice(0, 4)
-    const startYear = String(Number(endYear) - 5)
-    return `${startYear}–${endYear}`
   })()
 
   const visibleData = showFull ? data : data.filter(d => d.month >= windowStartStr)
   const hasOlderData = data.some(d => d.month < windowStartStr)
 
-  const enriched: EnrichedPoint[] = visibleData.map(d => {
-    const dt = new Date(d.month + '-01')
-    const isRecent = dt >= twoYearsAgo
-    const isMid = !isRecent && dt >= fiveYearsAgo
-    return {
-      month: d.month,
-      old: !isRecent && !isMid ? d.count : 0,
-      mid: isMid ? d.count : 0,
-      recent: isRecent ? d.count : 0,
-    }
-  })
+  const enriched: EnrichedPoint[] = visibleData.map(d => ({
+    month: d.month,
+    old: new Date(d.month + '-01') < twoYearsAgo ? d.count : 0,
+    recent: new Date(d.month + '-01') >= twoYearsAgo ? d.count : 0,
+  }))
 
   const existingMonths = new Set(enriched.map(d => d.month))
   const dataStart = enriched[0]?.month ?? ''
   const dataEnd = enriched[enriched.length - 1]?.month ?? ''
 
-  const boundaries = showFull ? [fiveYearsStr, twoYearsStr] : [twoYearsStr]
-  for (const m of boundaries) {
-    if (!existingMonths.has(m) && m >= dataStart && m <= dataEnd) {
-      enriched.push({ month: m, old: 0, mid: 0, recent: 0 })
-    }
+  if (!existingMonths.has(twoYearsStr) && twoYearsStr >= dataStart && twoYearsStr <= dataEnd) {
+    enriched.push({ month: twoYearsStr, old: 0, recent: 0 })
   }
   enriched.sort((a, b) => a.month.localeCompare(b.month))
-
-  const inRange = (m: string) => m >= dataStart && m <= dataEnd
 
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', margin: 0 }}>
-          {firstDate && <>First filed {fmtDate(firstDate)}.</>}
-          {lastDate && <> Latest: {fmtDate(lastDate)}.</>}
+          {latestDate && <>Latest violation: {fmtDate(latestDate)}.</>}
         </p>
         {hasOlderData && (
           <button
@@ -113,7 +93,7 @@ export default function ComplaintTimeline({
               cursor: 'pointer', padding: 0, letterSpacing: '0.04em', flexShrink: 0,
             }}
           >
-            {showFull ? windowLabel : 'Full history'}
+            {showFull ? 'Last 5 years' : 'Full history'}
           </button>
         )}
       </div>
@@ -138,15 +118,7 @@ export default function ComplaintTimeline({
             width={28}
           />
           <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#737373', strokeWidth: 1, strokeDasharray: '2 2' }} />
-          {showFull && inRange(fiveYearsStr) && (
-            <ReferenceLine
-              x={fiveYearsStr}
-              stroke="#A3A3A3"
-              strokeDasharray="3 3"
-              label={{ value: '5 yrs ago', fontSize: 9, fill: '#737373', position: 'insideTopLeft' }}
-            />
-          )}
-          {inRange(twoYearsStr) && (
+          {twoYearsStr >= dataStart && twoYearsStr <= dataEnd && (
             <ReferenceLine
               x={twoYearsStr}
               stroke="#A3A3A3"
@@ -155,8 +127,7 @@ export default function ComplaintTimeline({
             />
           )}
           <Area type="monotone" dataKey="old"    stackId="a" stroke="none" fill="#E5E5E5" fillOpacity={1} dot={false} />
-          <Area type="monotone" dataKey="mid"    stackId="a" stroke="none" fill="#A3A3A3" fillOpacity={0.6} dot={false} />
-          <Area type="monotone" dataKey="recent" stackId="a" stroke="none" fill="#7F1D1D" fillOpacity={0.85} dot={false} />
+          <Area type="monotone" dataKey="recent" stackId="a" stroke="none" fill="#EF4637" fillOpacity={0.75} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </>

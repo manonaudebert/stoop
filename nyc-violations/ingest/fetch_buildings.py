@@ -77,20 +77,89 @@ async def fetch_page_centroid(client: httpx.AsyncClient, offset: int) -> list[di
         return rows
 
 
+async def fetch_page_scalars(client: httpx.AsyncClient, offset: int) -> list[dict]:
+    """Fetch height_roof and shape_area as plain scalar columns (no geometry functions)."""
+    r = await _fetch_raw(client, {
+        "$select": "bin, height_roof, shape_area",
+        "$limit": PAGE_SIZE,
+        "$offset": offset,
+        "$where": "bin IS NOT NULL",
+    })
+    data = r.json()
+    if isinstance(data, dict):
+        raise ValueError("Socrata returned error object instead of list")
+    return data
+
+
+async def _get_total(client: httpx.AsyncClient) -> int:
+    r = await client.get(BUILDINGS_API, params={"$select": "count(*)", "$limit": 1}, timeout=30)
+    return int(r.json()[0]["count"])
+
+
+async def update_scalars():
+    """Update height_roof and footprint_area for all buildings (pass 2 only)."""
+    async with httpx.AsyncClient() as client:
+        total = await _get_total(client)
+    print(f"  {total:,} buildings to update")
+
+    conn = await asyncpg.connect(_asyncpg_url(DATABASE_URL), ssl='require', statement_cache_size=0)
+    updated = 0
+    with tqdm(total=total, unit='buildings') as bar:
+        async with httpx.AsyncClient() as client:
+            offset = 0
+            while offset < total:
+                rows = await fetch_page_scalars(client, offset)
+                if not rows:
+                    break
+
+                records = []
+                for row in rows:
+                    bin_val = (row.get('bin') or '').strip()
+                    if not bin_val or bin_val.lstrip('0') == '':
+                        continue
+                    try:
+                        height = float(row['height_roof']) if row.get('height_roof') is not None else None
+                    except (TypeError, ValueError):
+                        height = None
+                    try:
+                        footprint = float(row['shape_area']) if row.get('shape_area') is not None else None
+                    except (TypeError, ValueError):
+                        footprint = None
+                    if height is None and footprint is None:
+                        continue
+                    records.append((footprint, height, bin_val))
+
+                if records:
+                    await conn.executemany(
+                        """
+                        UPDATE buildings
+                           SET footprint_area = $1,
+                               height_roof    = $2
+                         WHERE bin = $3
+                        """,
+                        records,
+                    )
+                    updated += len(records)
+                    bar.update(len(rows))
+
+                offset += PAGE_SIZE
+
+    await conn.close()
+    print(f"Done — {updated:,} buildings updated with height/footprint.")
+
+
 async def load_buildings():
     print("Fetching building centroids from Socrata…")
 
-    # Get total count
     async with httpx.AsyncClient() as client:
-        r = await client.get(BUILDINGS_API, params={"$select": "count(*)", "$limit": 1}, timeout=30)
-        total = int(r.json()[0]["count"])
-
+        total = await _get_total(client)
     print(f"  {total:,} buildings to fetch")
 
     conn = await asyncpg.connect(_asyncpg_url(DATABASE_URL), ssl='require', statement_cache_size=0)
     await conn.execute("TRUNCATE buildings")
 
     inserted = 0
+    print("  Pass 1/2: centroids…")
     with tqdm(total=total, unit='buildings') as bar:
         async with httpx.AsyncClient() as client:
             offset = 0
@@ -134,8 +203,16 @@ async def load_buildings():
                 offset += PAGE_SIZE
 
     await conn.close()
-    print(f"Done — {inserted:,} buildings loaded.")
+    print(f"  Pass 1 done — {inserted:,} buildings inserted.")
+
+    print("  Pass 2/2: height and footprint area…")
+    await update_scalars()
 
 
 if __name__ == "__main__":
-    asyncio.run(load_buildings())
+    import sys
+    if "--pass2-only" in sys.argv:
+        print("Running pass 2 only (height + footprint area)…")
+        asyncio.run(update_scalars())
+    else:
+        asyncio.run(load_buildings())

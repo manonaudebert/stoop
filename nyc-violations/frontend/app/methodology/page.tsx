@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Methodology — Tenement',
-  description: 'How Tenement calculates building safety scores and assigns risk tiers from NYC Department of Buildings complaint data.',
+  description: 'How Tenement scores and compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
 // ── design tokens ─────────────────────────────────────────────────────────────
@@ -32,7 +32,27 @@ const PROSE: React.CSSProperties = {
   margin: 0,
 }
 
-// ── priority tier data ────────────────────────────────────────────────────────
+// ── priority / severity data ──────────────────────────────────────────────────
+
+const HPD_VIOLATION_CLASSES = [
+  { label: 'C', name: 'Immediately hazardous', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+    examples: 'Lead paint, mold, heat failure, pest infestation, structural hazard' },
+  { label: 'B', name: 'Hazardous', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+    examples: 'Broken locks, defective plumbing, missing smoke detectors, damaged floors' },
+  { label: 'A', name: 'Non-hazardous', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+    examples: 'Peeling paint (non-lead), minor repairs, cosmetic defects' },
+  { label: 'I', name: 'Informational', weight: 1, color: '#FFFFFF', textColor: '#111111',
+    border: '0.5px solid #E5E5E5', examples: 'Administrative notices, permit-related items' },
+]
+
+const HPD_COMPLAINT_TYPES = [
+  { label: 'IMMEDIATE EMERGENCY', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+    examples: 'No heat in winter, gas leak, sewage backup, structural collapse risk' },
+  { label: 'EMERGENCY', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+    examples: 'Mold, pest infestation, water leak, broken elevator' },
+  { label: 'NON EMERGENCY', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+    examples: 'Cosmetic damage, minor repairs, general maintenance' },
+]
 
 const PRIORITY_TIERS = [
   {
@@ -191,9 +211,10 @@ export default function MethodologyPage() {
             Methodology
           </h1>
           <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every score and risk tier on Tenement is derived from public records published by
-            the NYC Department of Buildings. This page explains exactly how raw complaint
-            data is transformed into the numbers you see.
+            Every score and comparison on Tenement is derived from public records published
+            by the NYC Department of Buildings and the NYC Department of Housing Preservation
+            &amp; Development. This page explains exactly how raw data is transformed into the
+            numbers you see, and how buildings are compared fairly regardless of size.
           </p>
         </div>
       </div>
@@ -208,14 +229,28 @@ export default function MethodologyPage() {
               id="eabe-havv"
               title="DOB Complaints Received"
               agency="NYC Dept. of Buildings"
-              description="Every complaint filed with the DOB since 2007, including category, status, inspection dates, and disposition. This is the primary dataset behind all scores."
+              description="Every complaint filed with the DOB since 2007, including category, status, inspection dates, and disposition. Primary dataset behind the DOB safety score."
               href="https://data.cityofnewyork.us/Housing-Development/DOB-Complaints-Received/eabe-havv"
+            />
+            <DataSourceCard
+              id="wvxf-dwi5"
+              title="HPD Housing Maintenance Violations"
+              agency="NYC Housing Preservation &amp; Development"
+              description="Formally issued violations for housing maintenance code breaches. Classified by severity: Class C (immediately hazardous), B (hazardous), A (non-hazardous)."
+              href="https://data.cityofnewyork.us/Housing-Development/Housing-Maintenance-Code-Violations/wvxf-dwi5"
+            />
+            <DataSourceCard
+              id="ygpa-z7cr"
+              title="HPD Housing Maintenance Complaints"
+              agency="NYC Housing Preservation &amp; Development"
+              description="Complaints filed directly by tenants about housing conditions — heat, hot water, pests, mold, leaks, and more. Classified as Immediate Emergency, Emergency, or Non Emergency."
+              href="https://data.cityofnewyork.us/Housing-Development/Housing-Maintenance-Code-Complaints/ygpa-z7cr"
             />
             <DataSourceCard
               id="5zhs-2jue"
               title="NYC Building Footprints"
               agency="NYC Dept. of City Planning"
-              description="Building centroids with latitude, longitude, borough, and construction year — used to plot buildings on the map and derive borough from BIN when absent."
+              description="Building polygons with roof height and footprint area — used to estimate total building scale for size-normalized comparisons, plus centroids for map placement."
               href="https://data.cityofnewyork.us/Housing-Development/Building-Footprints/nqwf-w8eh"
             />
             <DataSourceCard
@@ -282,7 +317,7 @@ export default function MethodologyPage() {
 
         {/* ── 3. Priority classification ─────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
-          <SectionTitle>Complaint priority</SectionTitle>
+          <SectionTitle>DOB complaint priority</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
             Each of the 254 DOB complaint category codes is assigned a priority tier based on
             the DOB&apos;s own classification system (rev. 09/21). When a complaint&apos;s category is
@@ -444,7 +479,131 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 5. Risk tiers ──────────────────────────────────────────────── */}
+        {/* ── 5. HPD violation severity ──────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>HPD violation severity</SectionTitle>
+          <p style={{ ...PROSE, marginBottom: 16 }}>
+            HPD Housing Maintenance Code violations are classified into four classes by severity.
+            The weighted violation score uses the same recency multipliers as the DOB score
+            (1.0× / 0.5× / 0.25× by age), so recent serious violations weigh more than old minor ones.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {HPD_VIOLATION_CLASSES.map(c => (
+              <div key={c.label} style={{
+                ...CARD, padding: '14px 18px',
+                display: 'flex', alignItems: 'flex-start', gap: 16,
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: c.color, border: c.border ?? 'none',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500, color: c.textColor }}>
+                    {c.label}
+                  </span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
+                      {c.name}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', letterSpacing: '0.04em' }}>
+                      weight {c.weight}
+                    </span>
+                  </div>
+                  <p style={{ ...PROSE, fontSize: 13 }}>{c.examples}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 6. HPD complaint urgency ────────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>HPD tenant complaint urgency</SectionTitle>
+          <p style={{ ...PROSE, marginBottom: 16 }}>
+            HPD tenant complaints are classified by urgency when filed. Because complaints are
+            typically closed once an inspector visits or a violation is issued, raw open counts
+            understate the building&apos;s history. The weighted complaint score captures the full
+            record — with higher weight for urgent and recent complaints.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {HPD_COMPLAINT_TYPES.map(t => (
+              <div key={t.label} style={{
+                display: 'flex', alignItems: 'center',
+                padding: '12px 18px', borderRadius: 8,
+                background: t.color, border: t.border ?? 'none',
+                gap: 16,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: t.textColor }}>
+                    {t.label}
+                  </span>
+                  <p style={{ ...PROSE, fontSize: 13, color: t.textColor, opacity: 0.8, margin: '3px 0 0' }}>
+                    {t.examples}
+                  </p>
+                </div>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: t.textColor, flexShrink: 0 }}>
+                  weight {t.weight}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 7. Building size normalization ─────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Building size normalization</SectionTitle>
+          <p style={{ ...PROSE, marginBottom: 20 }}>
+            A 200-unit tower will naturally accumulate more complaints than a four-unit brownstone.
+            Raw counts penalize larger buildings unfairly. To make comparisons meaningful, all
+            weighted scores are divided by an estimate of building scale before peer ranking.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={CARD}>
+              <p style={SECTION_HEADER}>Estimated scale</p>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500,
+                color: '#111111', marginBottom: 10,
+              }}>
+                scale = footprint × max(height / 12, 1)
+              </div>
+              <p style={{ ...PROSE, fontSize: 13 }}>
+                Footprint area (sq ft) from the building polygon multiplied by estimated floors
+                (roof height ÷ 12 ft per floor). This approximates total floor area without
+                needing unit counts.
+              </p>
+            </div>
+            <div style={CARD}>
+              <p style={SECTION_HEADER}>Complaint density</p>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500,
+                color: '#111111', marginBottom: 10,
+              }}>
+                density = weighted score / scale × 10 000
+              </div>
+              <p style={{ ...PROSE, fontSize: 13 }}>
+                Weighted complaint or violation sum divided by estimated scale, scaled to
+                &ldquo;per 10,000 sq-ft-floors.&rdquo; A small building and a large building with
+                proportional complaint histories get the same density.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ ...CARD, background: '#FAFAFA' }}>
+            <p style={SECTION_HEADER}>Size-normalized percentile</p>
+            <p style={{ ...PROSE, fontSize: 13 }}>
+              Each building&apos;s density is ranked via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>PERCENT_RANK()</code> within
+              its NTA, separately for HPD violations, HPD complaints, and DOB complaints.
+              Buildings without footprint or height data receive a raw count percentile instead.
+              A density percentile of 20 means the building has fewer weighted complaints per
+              unit of scale than 80% of its residential neighbors.
+            </p>
+          </div>
+        </section>
+
+        {/* ── 8. Risk tiers ──────────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Risk tiers</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
@@ -523,7 +682,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 6. Neighborhood comparison ─────────────────────────────────── */}
+        {/* ── 9. Neighborhood comparison ─────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Neighborhood comparisons</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -559,31 +718,31 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 7. Limitations ─────────────────────────────────────────────── */}
+        {/* ── 10. Limitations ────────────────────────────────────────────── */}
         <section style={{ marginBottom: '2rem' }}>
           <SectionTitle>Limitations</SectionTitle>
           <div style={{ ...CARD }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
                 {
-                  title: 'DOB complaints only',
-                  body: 'Tenement tracks complaints filed with the NYC Department of Buildings. Housing maintenance violations (heat, hot water, pests, mold) are handled by HPD and are not included. For a fuller picture, check hpdonline.nyc.gov.',
+                  title: 'Complaint ≠ confirmed violation',
+                  body: 'DOB and HPD complaints are reports filed by the public or other agencies — they are not confirmed findings. HPD violations are formally issued after inspection and carry more weight. Scores reflect the full record of complaints and violations, not confirmed outcomes only.',
                 },
                 {
                   title: 'Records begin in 2007',
-                  body: 'Electronic DOB complaint records are available from 2007 onwards. Complaints filed before that year, or any complaints that were never digitized, are not reflected in scores.',
+                  body: 'Electronic DOB complaint records are available from 2007 onwards. HPD violation and complaint records vary in depth. Complaints filed before the digital record period, or those never digitized, are not reflected in scores.',
                 },
                 {
                   title: 'BIN matching',
-                  body: 'Complaints are attributed to buildings using the Building Identification Number (BIN). If a complaint was filed with a missing or incorrect BIN, it will not appear on the correct building\'s page. Unmatched complaints are excluded from all scores.',
+                  body: 'All data is attributed to buildings using the Building Identification Number (BIN). If a complaint or violation was filed with a missing or incorrect BIN, it will not appear on the correct building\'s page and is excluded from scoring.',
                 },
                 {
-                  title: 'Complaint ≠ violation',
-                  body: 'A complaint is a report filed by a member of the public or another agency — it does not mean a violation was confirmed. Scores reflect complaint volume and severity, not confirmed violations.',
+                  title: 'Scale estimation',
+                  body: 'Building scale is estimated from footprint area and roof height. Buildings missing either value cannot be size-normalized and fall back to raw count percentiles within their NTA. Scale is a proxy — it does not account for unit density or occupancy.',
                 },
                 {
                   title: 'Sync frequency',
-                  body: 'The dataset is refreshed periodically from NYC Open Data. There may be a lag of several days between a complaint being filed and it appearing here.',
+                  body: 'All datasets are refreshed periodically from NYC Open Data. There may be a lag of several days between a complaint being filed and it appearing here.',
                 },
               ].map((item, i) => (
                 <div key={item.title}>

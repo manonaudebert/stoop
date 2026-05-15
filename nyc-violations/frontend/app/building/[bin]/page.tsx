@@ -426,6 +426,25 @@ export default async function BuildingPage({
 
       <main style={{ maxWidth: 1260, margin: '0 auto', padding: '1.75rem 1.5rem' }}>
 
+        {/* Cross-links */}
+        <div style={{ marginBottom: 20 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
+            DOB complaints
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
+          <Link href={`/hpd/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
+            HPD violations
+          </Link>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
+          <Link href={`/hpd-complaints/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
+            HPD complaints
+          </Link>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
+          <Link href={`/hpd-overview/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
+            HPD overview
+          </Link>
+        </div>
+
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
           <InsightCard eyebrow="Severity" aside="Pri A+B" headline={headline1} sub={sub1}>

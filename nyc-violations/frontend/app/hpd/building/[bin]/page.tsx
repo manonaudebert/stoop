@@ -182,6 +182,16 @@ export default async function HpdBuildingPage({
           >
             HPD complaints
           </Link>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
+          <Link
+            href={`/hpd-overview/building/${bin}`}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
+              textTransform: 'uppercase', color: '#737373', textDecoration: 'none',
+            }}
+          >
+            HPD overview
+          </Link>
         </div>
 
         {/* Hero */}

@@ -7,7 +7,8 @@ import {
 import BuildingNavBar from '@/components/BuildingNavBar'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
-import type { TimelinePoint } from '@/lib/types'
+import ViolationDescription from '@/components/ViolationDescription'
+import type { TimelinePoint, HpdViolation, HpdComplaint } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,20 @@ function fmtDate(iso: string | null | undefined) {
   } catch { return iso }
 }
 
+function stripLegalPrefix(s: string | null | undefined): string | null {
+  if (!s) return null
+  if (!s.startsWith('§')) return s
+  const idx = s.indexOf(' - ')
+  return idx !== -1 ? s.slice(idx + 3).trim() : s
+}
+
+const CLASS_META: Record<string, { label: string; color: string; bg: string }> = {
+  A: { label: 'Emergency',     color: '#7F1D1D', bg: '#FEF2F2' },
+  B: { label: 'Hazardous',     color: '#92400E', bg: '#FFF7ED' },
+  C: { label: 'Non-hazardous', color: '#525252', bg: '#F5F5F5' },
+  I: { label: 'Informational', color: '#737373', bg: '#FAFAFA' },
+}
+
 const TIER_COLORS: Record<string, { color: string; bg: string }> = {
   'Emergency':     { color: '#7F1D1D', bg: '#FEF2F2' },
   'Hazardous':     { color: '#92400E', bg: '#FFF7ED' },
@@ -27,9 +42,83 @@ const TIER_COLORS: Record<string, { color: string; bg: string }> = {
   'Resolved':      { color: '#166534', bg: '#F0FDF4' },
 }
 
+// ── row components ────────────────────────────────────────────────────────────
+
+function ViolationRow({ v }: { v: HpdViolation }) {
+  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.C
+  const isOpen = v.violation_status === 'Open'
+  return (
+    <tr style={{ borderBottom: '0.5px solid #E5E5E5' }}>
+      <td style={{ padding: '12px 16px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', fontWeight: 500, color: cls.color, background: cls.bg }}>
+          Class {v.violation_class ?? '?'}
+        </span>
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: isOpen ? '#7F1D1D' : '#737373' }}>
+          {isOpen ? 'Open' : 'Closed'}
+        </span>
+        {v.rent_impairing === 'Y' && (
+          <span style={{ display: 'block', fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', color: '#EF4637', marginTop: 2 }}>
+            RENT IMPAIRING
+          </span>
+        )}
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: '#525252' }}>{v.apartment ?? '—'}</span>
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{fmtDate(v.nov_issued_date)}</span>
+      </td>
+      <td style={{ padding: '12px 8px 12px 0', verticalAlign: 'top' }}>
+        <ViolationDescription
+          short={v.order_short_description ?? stripLegalPrefix(v.nov_description)}
+          full={v.nov_description}
+          category={v.order_category}
+        />
+      </td>
+    </tr>
+  )
+}
+
+function ComplaintRow({ c }: { c: HpdComplaint }) {
+  const isOpen = c.complaint_status === 'Open'
+  const isEmergency = c.type === 'EMERGENCY'
+  return (
+    <tr style={{ borderBottom: '0.5px solid #E5E5E5' }}>
+      <td style={{ padding: '12px 16px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', fontWeight: 500, color: isEmergency ? '#7F1D1D' : '#525252', background: isEmergency ? '#FEF2F2' : '#F5F5F5' }}>
+          {isEmergency ? 'Emergency' : 'Non-emergency'}
+        </span>
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: isOpen ? '#7F1D1D' : '#737373' }}>
+          {isOpen ? 'Open' : 'Closed'}
+        </span>
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12, color: '#525252' }}>{c.apartment ?? '—'}</span>
+      </td>
+      <td style={{ padding: '12px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{fmtDate(c.received_date)}</span>
+      </td>
+      <td style={{ padding: '12px 8px 12px 0', verticalAlign: 'top' }}>
+        <span style={{ fontSize: 12, color: '#111111', display: 'block' }}>
+          {c.major_category ?? '—'}
+          {c.minor_category && c.minor_category !== c.major_category
+            ? <span style={{ color: '#737373' }}> · {c.minor_category}</span>
+            : null}
+        </span>
+        {c.status_description && (
+          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2 }}>{c.status_description}</span>
+        )}
+      </td>
+    </tr>
+  )
+}
+
 // ── mini visualizations ────────────────────────────────────────────────────────
 
-// Shows open Class C and Class B as a severity scale (most → least severe)
 function HazardViz({ openC, openB, openA }: { openC: number; openB: number; openA: number }) {
   const total = openC + openB + openA || 1
   const cW = Math.max((openC / total) * 198, openC > 0 ? 4 : 0)
@@ -47,12 +136,10 @@ function HazardViz({ openC, openB, openA }: { openC: number; openB: number; open
 
   return (
     <svg viewBox="0 0 220 52" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      {/* Stacked bar: C (dark red) | B (amber) | A (light) */}
       <rect x="0" y="16" width={cW} height="8" rx="0" fill="#7F1D1D" />
       <rect x={cW} y="16" width={bW} height="8" rx="0" fill="#E4A11B" />
       <rect x={cW + bW} y="16" width={aW} height="8" rx="0" fill="#D4D4D4" />
       <rect x="0" y="16" width="198" height="8" rx="3" fill="transparent" stroke="#E5E5E5" strokeWidth="0.5" />
-      {/* Legend */}
       <rect x="0"   y="38" width="8" height="8" rx="1" fill="#7F1D1D" />
       <text x="12"  y="46" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Class C — immediately hazardous ({openC})</text>
       <rect x="0"   y="50" width="8" height="8" rx="1" fill="#E4A11B" />
@@ -113,20 +200,16 @@ function CombinedTrendViz({ violTimeline, complTimeline }: {
   return (
     <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
       <line x1="0" y1={baseY} x2="220" y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
-      {/* violations — solid dark red */}
       <path d={vPath} fill="none" stroke="#7F1D1D" strokeWidth="1.5" strokeLinejoin="round" />
       <circle cx={vPts[vPts.length - 1].x} cy={vPts[vPts.length - 1].y} r="2.5" fill="#7F1D1D" />
-      {/* complaints — dashed blue */}
       <path d={cPath} fill="none" stroke="#1D4ED8" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
       <circle cx={cPts[cPts.length - 1].x} cy={cPts[cPts.length - 1].y} r="2.5" fill="#1D4ED8" />
-      {/* year labels */}
       <text x={firstX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[0]).slice(2)}
       </text>
       <text x={lastX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
-      {/* legend */}
       <line x1="0" y1="68" x2="10" y2="68" stroke="#7F1D1D" strokeWidth="1.5" />
       <text x="13" y="71" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Violations</text>
       <line x1="68" y1="68" x2="78" y2="68" stroke="#1D4ED8" strokeWidth="1.5" strokeDasharray="4 2" />
@@ -186,10 +269,25 @@ function InsightCard({ eyebrow, aside, headline, sub, children }: {
 
 export default async function HpdOverviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bin: string }>
+  searchParams: Promise<{
+    show?: string
+    vpage?: string; vcls?: string; vst?: string
+    cpage?: string; ccat?: string; cst?: string
+  }>
 }) {
   const { bin } = await params
+  const sp = await searchParams
+
+  const show = sp.show  // 'violations' | 'complaints' | undefined
+  const vpage = Number(sp.vpage ?? 1)
+  const vcls = sp.vcls
+  const vst = sp.vst
+  const cpage = Number(sp.cpage ?? 1)
+  const ccat = sp.ccat
+  const cst = sp.cst
 
   const [violations, violationTimeline, violationBreakdown, complaints, complaintTimeline, complaintBreakdown] = await Promise.all([
     getHpdBuilding(bin, 1).catch(() => null),
@@ -201,6 +299,14 @@ export default async function HpdOverviewPage({
   ])
 
   if (!violations && !complaints) notFound()
+
+  // Log data — only fetched when the log is toggled open
+  const violationsLog = show === 'violations'
+    ? await getHpdBuilding(bin, vpage, vcls, vst).catch(() => null)
+    : null
+  const complaintsLog = show === 'complaints'
+    ? await getHpdComplaintBuilding(bin, cpage, ccat, cst).catch(() => null)
+    : null
 
   // ── derived values ──────────────────────────────────────────────────────────
   const address        = violations?.address ?? complaints?.address ?? 'Unknown address'
@@ -221,17 +327,12 @@ export default async function HpdOverviewPage({
   const heatComplaints      = complaints?.heat_complaints ?? 0
   const latestComplDate     = complaints?.latest_complaint_date ?? null
 
-  // Violation severity from breakdown (Class C = immediately hazardous, Class B = hazardous, Class A = non-hazardous)
   const openClassC  = violationBreakdown.filter(d => d.violation_class === 'C').reduce((s, d) => s + d.open_count, 0)
   const openClassB  = violationBreakdown.filter(d => d.violation_class === 'B').reduce((s, d) => s + d.open_count, 0)
   const openClassA  = violationBreakdown.filter(d => d.violation_class === 'A').reduce((s, d) => s + d.open_count, 0)
   const totalClassC = violationBreakdown.filter(d => d.violation_class === 'C').reduce((s, d) => s + d.count, 0)
   const totalClassB = violationBreakdown.filter(d => d.violation_class === 'B').reduce((s, d) => s + d.count, 0)
 
-  // ── Card 1: Hazard level ───────────────────────────────────────────────────
-  // openViolations (from hpd_building_summary) is the authoritative open count —
-  // the same source the violation page header uses. The breakdown gives the C/B/A
-  // split but is only trusted when the summary confirms there are open violations.
   const breakdownOpenC = openViolations > 0 ? openClassC : 0
   const breakdownOpenB = openViolations > 0 ? openClassB : 0
   const breakdownOpenA = openViolations > 0 ? openClassA : 0
@@ -260,7 +361,6 @@ export default async function HpdOverviewPage({
     ? 'Class B violations are hazardous conditions. Landlords must correct them within 30 days.'
     : 'Open violations are non-hazardous (Class A — 90-day correction window).'
 
-  // ── Card 2: Activity (active vs historical) ────────────────────────────────
   const cutoffStr = (() => {
     const d = new Date()
     d.setFullYear(d.getFullYear() - 2)
@@ -286,7 +386,6 @@ export default async function HpdOverviewPage({
     ? `Last 2 yrs: ${recentViol} violation${recentViol !== 1 ? 's' : ''} · ${recentCompl} complaint${recentCompl !== 1 ? 's' : ''}`
     : 'No timeline data available.'
 
-  // ── top categories ──────────────────────────────────────────────────────────
   const violByCategory = new Map<string, { count: number; open_count: number }>()
   for (const d of violationBreakdown) {
     const cat = d.category ?? `Class ${d.violation_class}`
@@ -308,7 +407,6 @@ export default async function HpdOverviewPage({
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
 
-  // ── Card 3: Neighborhood comparison ───────────────────────────────────────
   const violPct = violations?.violations_density_pct ?? null
   const complPct = complaints?.complaints_density_pct ?? null
 
@@ -336,6 +434,74 @@ export default async function HpdOverviewPage({
   const cTierMeta  = TIER_COLORS[complaintsTier] ?? { color: '#525252', bg: '#F5F5F5' }
   const metaLine   = [borough, zipCode && `ZIP ${zipCode}`, `BIN ${bin}`, ntaName].filter(Boolean).join(' · ')
 
+  // ── filter/page URL helpers ────────────────────────────────────────────────
+
+  function violFilterUrl(updates: Record<string, string | undefined>) {
+    const q = new URLSearchParams()
+    q.set('show', 'violations')
+    q.set('vpage', '1')
+    const cls = 'vcls' in updates ? updates.vcls : vcls
+    const st  = 'vst'  in updates ? updates.vst  : vst
+    if (cls) q.set('vcls', cls)
+    if (st)  q.set('vst', st)
+    return `/hpd-overview/building/${bin}?${q}`
+  }
+
+  function violPageUrl(p: number) {
+    const q = new URLSearchParams()
+    q.set('show', 'violations')
+    q.set('vpage', String(p))
+    if (vcls) q.set('vcls', vcls)
+    if (vst)  q.set('vst', vst)
+    return `/hpd-overview/building/${bin}?${q}`
+  }
+
+  function complFilterUrl(updates: Record<string, string | undefined>) {
+    const q = new URLSearchParams()
+    q.set('show', 'complaints')
+    q.set('cpage', '1')
+    const cat = 'ccat' in updates ? updates.ccat : ccat
+    const st  = 'cst'  in updates ? updates.cst  : cst
+    if (cat) q.set('ccat', cat)
+    if (st)  q.set('cst', st)
+    return `/hpd-overview/building/${bin}?${q}`
+  }
+
+  function complPageUrl(p: number) {
+    const q = new URLSearchParams()
+    q.set('show', 'complaints')
+    q.set('cpage', String(p))
+    if (ccat) q.set('ccat', ccat)
+    if (cst)  q.set('cst', cst)
+    return `/hpd-overview/building/${bin}?${q}`
+  }
+
+  const FilterPill = ({ label, active, href }: { label: string; active: boolean; href: string }) => (
+    <Link
+      href={href}
+      style={{
+        display: 'inline-block', padding: '4px 10px', borderRadius: 20,
+        fontSize: 11, fontFamily: 'var(--font-mono)', textDecoration: 'none',
+        background: active ? '#111111' : '#F5F5F5',
+        color: active ? '#FFFFFF' : '#525252',
+        border: `0.5px solid ${active ? '#111111' : '#E5E5E5'}`,
+      }}
+    >
+      {label}
+    </Link>
+  )
+
+  // Top complaint categories for filter pills
+  const topComplaintCategories = Array.from(
+    complaintBreakdown.reduce((acc, d) => {
+      acc.set(d.major_category, (acc.get(d.major_category) ?? 0) + d.count)
+      return acc
+    }, new Map<string, number>())
+  ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat]) => cat)
+
+  const violTotalPages = violationsLog ? Math.ceil(violationsLog.total_count / violationsLog.page_size) : 0
+  const complTotalPages = complaintsLog ? Math.ceil(complaintsLog.total_count / complaintsLog.page_size) : 0
+
   return (
     <>
       <BuildingNavBar backHref="/hpd" backLabel="← HPD map" />
@@ -346,14 +512,6 @@ export default async function HpdOverviewPage({
         <div style={{ marginBottom: 20 }}>
           <Link href={`/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
             DOB complaints
-          </Link>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
-          <Link href={`/hpd/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
-            HPD violations
-          </Link>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
-          <Link href={`/hpd-complaints/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
-            HPD complaints
           </Link>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
@@ -503,6 +661,178 @@ export default async function HpdOverviewPage({
                   Top complaint categories
                 </h2>
                 <ViolationCategoryBreakdown data={topComplCategories} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Log toggle buttons */}
+        <div id="log-controls" style={{ display: 'flex', gap: 8, marginBottom: 12, scrollMarginTop: '72px' }}>
+          <Link
+            href={show === 'violations' ? `/hpd-overview/building/${bin}` : `/hpd-overview/building/${bin}?show=violations#log-controls`}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+              padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
+              border: show === 'violations' ? '0.5px solid #111111' : '0.5px solid #A3A3A3',
+              background: show === 'violations' ? '#111111' : '#FFFFFF',
+              color: show === 'violations' ? '#FFFFFF' : '#111111',
+            }}
+          >
+            {show === 'violations' ? 'Hide violations ↑' : 'See violations →'}
+          </Link>
+          <Link
+            href={show === 'complaints' ? `/hpd-overview/building/${bin}` : `/hpd-overview/building/${bin}?show=complaints#log-controls`}
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+              padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
+              border: show === 'complaints' ? '0.5px solid #111111' : '0.5px solid #A3A3A3',
+              background: show === 'complaints' ? '#111111' : '#FFFFFF',
+              color: show === 'complaints' ? '#FFFFFF' : '#111111',
+            }}
+          >
+            {show === 'complaints' ? 'Hide complaints ↑' : 'See complaints →'}
+          </Link>
+        </div>
+
+        {/* Violation log */}
+        {show === 'violations' && violationsLog && (
+          <div id="violation-log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+            <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
+                  Violation log
+                </h2>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>
+                  {violationsLog.total_count.toLocaleString()} violations
+                  {vcls ? ` · Class ${vcls}` : ''}
+                  {vst ? ` · ${vst}` : ''}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <FilterPill label="All classes" active={!vcls} href={violFilterUrl({ vcls: undefined })} />
+                {['A', 'B', 'C', 'I'].map(cls => (
+                  <FilterPill key={cls} label={`Class ${cls}`} active={vcls === cls} href={violFilterUrl({ vcls: cls })} />
+                ))}
+                <span style={{ width: 1, background: '#E5E5E5', alignSelf: 'stretch', margin: '0 2px' }} />
+                <FilterPill label="All"    active={!vst}             href={violFilterUrl({ vst: undefined })} />
+                <FilterPill label="Open"   active={vst === 'Open'}   href={violFilterUrl({ vst: 'Open' })} />
+                <FilterPill label="Closed" active={vst === 'Close'}  href={violFilterUrl({ vst: 'Close' })} />
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
+                    {['Class', 'Status', 'Apt', 'Issued', 'Description'].map(h => (
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {violationsLog.violations.map((v: HpdViolation) => (
+                    <ViolationRow key={v.violation_id} v={v} />
+                  ))}
+                  {violationsLog.violations.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#A3A3A3', fontFamily: 'var(--font-mono)' }}>
+                        No violations match the current filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {violTotalPages > 1 && (
+              <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
+                  Page {vpage} of {violTotalPages}
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {vpage > 1 && (
+                    <Link href={violPageUrl(vpage - 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
+                      ← Prev
+                    </Link>
+                  )}
+                  {vpage < violTotalPages && (
+                    <Link href={violPageUrl(vpage + 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
+                      Next →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Complaint log */}
+        {show === 'complaints' && complaintsLog && (
+          <div id="complaint-log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
+            <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
+                  Complaint log
+                </h2>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>
+                  {complaintsLog.total_count.toLocaleString()} complaints
+                  {ccat ? ` · ${ccat}` : ''}
+                  {cst ? ` · ${cst}` : ''}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <FilterPill label="All categories" active={!ccat} href={complFilterUrl({ ccat: undefined })} />
+                {topComplaintCategories.map(cat => (
+                  <FilterPill key={cat} label={cat} active={ccat === cat} href={complFilterUrl({ ccat: cat })} />
+                ))}
+                <span style={{ width: 1, background: '#E5E5E5', alignSelf: 'stretch', margin: '0 2px' }} />
+                <FilterPill label="All"    active={!cst}             href={complFilterUrl({ cst: undefined })} />
+                <FilterPill label="Open"   active={cst === 'Open'}   href={complFilterUrl({ cst: 'Open' })} />
+                <FilterPill label="Closed" active={cst === 'Close'}  href={complFilterUrl({ cst: 'Close' })} />
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
+                    {['Type', 'Status', 'Apt', 'Received', 'Category'].map(h => (
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {complaintsLog.complaints.map((c: HpdComplaint) => (
+                    <ComplaintRow key={c.problem_id} c={c} />
+                  ))}
+                  {complaintsLog.complaints.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#A3A3A3', fontFamily: 'var(--font-mono)' }}>
+                        No complaints match the current filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {complTotalPages > 1 && (
+              <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
+                  Page {cpage} of {complTotalPages}
+                </span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {cpage > 1 && (
+                    <Link href={complPageUrl(cpage - 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
+                      ← Prev
+                    </Link>
+                  )}
+                  {cpage < complTotalPages && (
+                    <Link href={complPageUrl(cpage + 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
+                      Next →
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </div>

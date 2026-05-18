@@ -119,7 +119,7 @@ export default async function HpdBuildingPage({
     q.set('page', String(p))
     if (violationClass) q.set('class', violationClass)
     if (status) q.set('status', status)
-    return `/hpd/building/${bin}?${q}`
+    return `/hpd/building/${bin}?${q}#log`
   }
 
   function filterUrl(updates: Record<string, string | undefined>) {
@@ -129,7 +129,7 @@ export default async function HpdBuildingPage({
     const st  = 'status' in updates ? updates.status : status
     if (cls) q.set('class', cls)
     if (st)  q.set('status', st)
-    return `/hpd/building/${bin}?${q}`
+    return `/hpd/building/${bin}?${q}#log`
   }
 
   const FilterPill = ({ label, active, href }: { label: string; active: boolean; href: string }) => (
@@ -213,7 +213,7 @@ export default async function HpdBuildingPage({
             { label: 'Total violations',   value: building.total_violations },
             { label: 'Open violations',    value: building.open_violations },
             { label: 'Class A (emergency)',value: building.class_a_violations },
-            { label: 'Rent impairing',     value: building.rent_impairing_count },
+            { label: 'Open rent-impairing', value: building.rent_impairing_count },
           ].map(({ label, value }) => (
             <div
               key={label}
@@ -254,7 +254,7 @@ export default async function HpdBuildingPage({
         </div>
 
         {/* Violation log */}
-        <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden' }}>
+        <div id="log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', scrollMarginTop: '72px' }}>
           <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>

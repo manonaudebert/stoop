@@ -377,7 +377,7 @@ WITH base AS (
         COUNT(*) FILTER (WHERE v.violation_status = 'Open')      AS open_violations,
         COUNT(*) FILTER (WHERE v.violation_class  = 'A')         AS class_a_violations,
         COUNT(*) FILTER (WHERE v.violation_class  = 'B')         AS class_b_violations,
-        COUNT(*) FILTER (WHERE v.rent_impairing = 'Y')           AS rent_impairing_count,
+        COUNT(*) FILTER (WHERE v.violation_status = 'Open' AND v.rent_impairing = 'Y') AS rent_impairing_count,
         MAX(v.nov_issued_date)                      AS latest_violation_date,
         COALESCE(SUM(
             CASE COALESCE(v.violation_class, 'I')

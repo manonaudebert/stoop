@@ -78,7 +78,7 @@ export default function HpdComplaintsSidebar({ building, onClose }: Props) {
         {[
           { label: 'Total',     value: building.total_complaints },
           { label: 'Open',      value: building.open_complaints },
-          { label: 'Emergency', value: building.open_emergency_complaints },
+          { label: 'Open emerg.', value: building.open_emergency_complaints },
         ].map(({ label, value }) => (
           <div key={label}>
             <div style={{
@@ -98,15 +98,15 @@ export default function HpdComplaintsSidebar({ building, onClose }: Props) {
       </div>
 
       <Link
-        href={`/hpd-complaints/building/${building.bin}`}
+        href={`/hpd-overview/building/${building.bin}`}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 13, fontWeight: 500, color: '#92400E',
+          fontSize: 13, fontWeight: 500, color: '#111111',
           paddingTop: 12, borderTop: '0.5px solid #E5E5E5',
           textDecoration: 'none',
         }}
       >
-        <span>View complaints</span>
+        <span>HPD overview</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M5 12h14M13 6l6 6-6 6"/>
         </svg>

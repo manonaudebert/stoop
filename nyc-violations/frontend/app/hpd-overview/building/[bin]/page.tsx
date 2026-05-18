@@ -444,7 +444,7 @@ export default async function HpdOverviewPage({
     const st  = 'vst'  in updates ? updates.vst  : vst
     if (cls) q.set('vcls', cls)
     if (st)  q.set('vst', st)
-    return `/hpd-overview/building/${bin}?${q}`
+    return `/hpd-overview/building/${bin}?${q}#log-controls`
   }
 
   function violPageUrl(p: number) {
@@ -453,7 +453,7 @@ export default async function HpdOverviewPage({
     q.set('vpage', String(p))
     if (vcls) q.set('vcls', vcls)
     if (vst)  q.set('vst', vst)
-    return `/hpd-overview/building/${bin}?${q}`
+    return `/hpd-overview/building/${bin}?${q}#log-controls`
   }
 
   function complFilterUrl(updates: Record<string, string | undefined>) {
@@ -464,7 +464,7 @@ export default async function HpdOverviewPage({
     const st  = 'cst'  in updates ? updates.cst  : cst
     if (cat) q.set('ccat', cat)
     if (st)  q.set('cst', st)
-    return `/hpd-overview/building/${bin}?${q}`
+    return `/hpd-overview/building/${bin}?${q}#log-controls`
   }
 
   function complPageUrl(p: number) {
@@ -473,7 +473,7 @@ export default async function HpdOverviewPage({
     q.set('cpage', String(p))
     if (ccat) q.set('ccat', ccat)
     if (cst)  q.set('cst', cst)
-    return `/hpd-overview/building/${bin}?${q}`
+    return `/hpd-overview/building/${bin}?${q}#log-controls`
   }
 
   const FilterPill = ({ label, active, href }: { label: string; active: boolean; href: string }) => (
@@ -591,7 +591,7 @@ export default async function HpdOverviewPage({
               { label: 'Total violations',              value: totalViolations },
               { label: 'Open violations',               value: openViolations },
               { label: 'Open Class C (immed. haz.)',    value: openClassC },
-              { label: 'Rent impairing',                value: rentImpairing },
+              { label: 'Open rent-impairing',            value: rentImpairing },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
@@ -613,7 +613,7 @@ export default async function HpdOverviewPage({
             {[
               { label: 'Total complaints', value: totalComplaints },
               { label: 'Open complaints',  value: openComplaints },
-              { label: 'Emergency type',   value: emergencyComplaints },
+              { label: 'Open emergency',   value: emergencyComplaints },
               { label: 'Heat/hot water',   value: heatComplaints },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>

@@ -131,24 +131,11 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         }}>
           Confirmed by inspectors
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-          <StatCell label="Total"   value={building.total_complaints} />
-          <StatCell label="Open"    value={building.open_complaints} />
-          <StatCell label="Class A" value={building.priority_a_complaints} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <StatCell label="Total"          value={building.total_complaints} />
+          <StatCell label="Open"           value={building.open_complaints} />
+          <StatCell label="Open rent-imp." value={building.rent_impairing_count ?? null} />
         </div>
-        <Link
-          href={`/hpd/building/${building.bin}`}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 11, fontWeight: 500, color: '#7F1D1D',
-            textDecoration: 'none',
-          }}
-        >
-          <span>View violations</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14M13 6l6 6-6 6"/>
-          </svg>
-        </Link>
       </div>
 
       {/* Complaints — reported by tenants */}
@@ -159,21 +146,24 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         }}>
           Reported by tenants
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <StatCell label="Total"     value={c?.total_complaints ?? null} />
           <StatCell label="Open"      value={c?.open_complaints ?? null} />
-          <StatCell label="Emergency" value={c?.open_emergency_complaints ?? null} />
+          <StatCell label="Open emerg." value={c?.open_emergency_complaints ?? null} />
         </div>
+      </div>
+
+      {/* Single CTA */}
+      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
         <Link
-          href={`/hpd-complaints/building/${building.bin}`}
+          href={`/hpd-overview/building/${building.bin}`}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 11, fontWeight: 500, color: '#92400E',
+            fontSize: 11, fontWeight: 500, color: '#111111',
             textDecoration: 'none',
-            opacity: complaints === 'loading' ? 0.4 : 1,
           }}
         >
-          <span>View complaints</span>
+          <span>HPD overview</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14M13 6l6 6-6 6"/>
           </svg>

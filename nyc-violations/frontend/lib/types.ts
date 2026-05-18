@@ -113,6 +113,7 @@ export interface HpdBuildingSummary {
   rent_impairing_count: number
   latest_violation_date: string | null
   hpd_risk_tier: string | null
+  violations_density_pct: number | null
 }
 
 export interface HpdBuildingDetail extends HpdBuildingSummary {
@@ -164,6 +165,7 @@ export interface HpdComplaintBuildingSummary {
   heat_complaints: number
   latest_complaint_date: string | null
   complaint_risk_tier: string | null
+  complaints_density_pct: number | null
 }
 
 export interface HpdComplaintBuildingDetail extends HpdComplaintBuildingSummary {

@@ -136,6 +136,7 @@ class HpdBuildingSummaryResponse(BaseModel):
     rent_impairing_count: int
     latest_violation_date: date | None
     hpd_risk_tier: str | None
+    violations_density_pct: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -191,6 +192,7 @@ class HpdComplaintBuildingSummaryResponse(BaseModel):
     heat_complaints: int
     latest_complaint_date: date | None
     complaint_risk_tier: str | None
+    complaints_density_pct: float | None = None
 
     model_config = {"from_attributes": True}
 

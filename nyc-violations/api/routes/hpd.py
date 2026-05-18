@@ -208,6 +208,7 @@ def _row_to_summary(r) -> HpdBuildingSummaryResponse:
         rent_impairing_count=r.rent_impairing_count,
         latest_violation_date=r.latest_violation_date,
         hpd_risk_tier=tier,
+        violations_density_pct=getattr(r, "violations_density_pct", None),
     )
 
 

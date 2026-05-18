@@ -65,51 +65,72 @@ function CombinedTrendViz({ violTimeline, complTimeline }: {
   violTimeline: TimelinePoint[]; complTimeline: TimelinePoint[]
 }) {
   const cutoffYear = new Date().getFullYear() - 5
-  const byYear: Record<number, number> = {}
-  for (const pt of [...violTimeline, ...complTimeline]) {
-    const year = parseInt(pt.month.slice(0, 4))
-    if (year >= cutoffYear) byYear[year] = (byYear[year] ?? 0) + pt.count
+  const violByYear: Record<number, number> = {}
+  const complByYear: Record<number, number> = {}
+
+  for (const pt of violTimeline) {
+    const y = parseInt(pt.month.slice(0, 4))
+    if (y >= cutoffYear) violByYear[y] = (violByYear[y] ?? 0) + pt.count
+  }
+  for (const pt of complTimeline) {
+    const y = parseInt(pt.month.slice(0, 4))
+    if (y >= cutoffYear) complByYear[y] = (complByYear[y] ?? 0) + pt.count
   }
 
-  const years = Object.keys(byYear).map(Number).sort()
+  const years = Array.from(
+    new Set([...Object.keys(violByYear), ...Object.keys(complByYear)].map(Number))
+  ).sort()
+
   if (years.length < 2) {
     return (
-      <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
         <line x1="0" y1="48" x2="220" y2="48" stroke="#E5E5E5" strokeWidth="0.5" />
         <text x="110" y="30" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not enough history</text>
       </svg>
     )
   }
 
-  const vals = years.map(y => byYear[y])
-  const maxVal = Math.max(...vals, 1)
-  const baseY = 48
+  const violVals = years.map(y => violByYear[y] ?? 0)
+  const complVals = years.map(y => complByYear[y] ?? 0)
+  const maxVal = Math.max(...violVals, ...complVals, 1)
+  const baseY = 50
   const padX = 8
-  const points = vals.map((v, i) => ({
-    x: padX + (i / (vals.length - 1)) * (220 - 2 * padX),
-    y: baseY - Math.round((v / maxVal) * (baseY - 12)),
-  }))
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-  const areaPath = `${linePath} L ${points[points.length - 1].x},${baseY} L ${points[0].x},${baseY} Z`
-  const lastPt = points[points.length - 1]
-  const peakIdx = vals.indexOf(Math.max(...vals))
-  const peakPt = points[peakIdx]
+
+  function pts(vals: number[]) {
+    return vals.map((v, i) => ({
+      x: padX + (i / (years.length - 1)) * (220 - 2 * padX),
+      y: baseY - Math.round((v / maxVal) * (baseY - 10)),
+    }))
+  }
+
+  const vPts = pts(violVals)
+  const cPts = pts(complVals)
+  const vPath = vPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
+  const cPath = cPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
+  const firstX = vPts[0].x
+  const lastX  = vPts[vPts.length - 1].x
 
   return (
-    <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
+    <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
       <line x1="0" y1={baseY} x2="220" y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
-      <path d={areaPath} fill="#111111" opacity="0.08" />
-      <path d={linePath} fill="none" stroke="#111111" strokeWidth="1.25" strokeLinejoin="round" />
-      <circle cx={lastPt.x} cy={lastPt.y} r="3" fill="#111111" />
-      <text x={peakPt.x} y={Math.min(peakPt.y - 5, 10)} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#525252">
-        peak: {Math.max(...vals)}
-      </text>
-      <text x={points[0].x} y="62" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">
+      {/* violations — solid dark red */}
+      <path d={vPath} fill="none" stroke="#7F1D1D" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx={vPts[vPts.length - 1].x} cy={vPts[vPts.length - 1].y} r="2.5" fill="#7F1D1D" />
+      {/* complaints — dashed blue */}
+      <path d={cPath} fill="none" stroke="#1D4ED8" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
+      <circle cx={cPts[cPts.length - 1].x} cy={cPts[cPts.length - 1].y} r="2.5" fill="#1D4ED8" />
+      {/* year labels */}
+      <text x={firstX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[0]).slice(2)}
       </text>
-      <text x={lastPt.x} y="62" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">
+      <text x={lastX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
+      {/* legend */}
+      <line x1="0" y1="68" x2="10" y2="68" stroke="#7F1D1D" strokeWidth="1.5" />
+      <text x="13" y="71" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Violations</text>
+      <line x1="68" y1="68" x2="78" y2="68" stroke="#1D4ED8" strokeWidth="1.5" strokeDasharray="4 2" />
+      <text x="81" y="71" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Complaints</text>
     </svg>
   )
 }
@@ -208,32 +229,36 @@ export default async function HpdOverviewPage({
   const totalClassB = violationBreakdown.filter(d => d.violation_class === 'B').reduce((s, d) => s + d.count, 0)
 
   // ── Card 1: Hazard level ───────────────────────────────────────────────────
-  // Class C = immediately hazardous (lead, mold, pests, heat, structural) — most important to a tenant
-  // Class B = hazardous (30-day correction window)
-  // Class A = non-hazardous (90-day window) — not a health concern
-  const hazardHeadline = openClassC > 5
-    ? `${openClassC} immediately hazardous violations remain open`
-    : openClassC > 0
-    ? `${openClassC} immediately hazardous (Class C) violation${openClassC !== 1 ? 's' : ''} still open`
-    : openClassB > 0
-    ? `${openClassB} hazardous (Class B) violation${openClassB !== 1 ? 's' : ''} still open`
-    : rentImpairing > 0
-    ? `${rentImpairing} rent-impairing violation${rentImpairing !== 1 ? 's' : ''} unresolved`
-    : openViolations === 0 && totalViolations > 0
+  // openViolations (from hpd_building_summary) is the authoritative open count —
+  // the same source the violation page header uses. The breakdown gives the C/B/A
+  // split but is only trusted when the summary confirms there are open violations.
+  const breakdownOpenC = openViolations > 0 ? openClassC : 0
+  const breakdownOpenB = openViolations > 0 ? openClassB : 0
+  const breakdownOpenA = openViolations > 0 ? openClassA : 0
+
+  const hazardHeadline = openViolations === 0 && totalViolations > 0
     ? 'All violations have been resolved'
     : openViolations === 0
     ? 'No HPD violations on record'
-    : 'Open violations are non-hazardous (Class A)'
+    : breakdownOpenC > 0
+    ? `${breakdownOpenC} immediately hazardous (Class C) violation${breakdownOpenC !== 1 ? 's' : ''} still open`
+    : breakdownOpenB > 0
+    ? `${breakdownOpenB} hazardous (Class B) violation${breakdownOpenB !== 1 ? 's' : ''} still open`
+    : rentImpairing > 0
+    ? `${rentImpairing} rent-impairing violation${rentImpairing !== 1 ? 's' : ''} unresolved`
+    : `${openViolations} open violation${openViolations !== 1 ? 's' : ''} (non-hazardous)`
 
-  const hazardSub = openClassC > 0
+  const hazardSub = openViolations === 0
+    ? totalClassC + totalClassB > 0
+      ? `${totalClassC} Class C and ${totalClassB} Class B violations on record — all currently closed.`
+      : totalViolations > 0
+      ? `${totalViolations.toLocaleString()} violations on record (Class A — non-hazardous).`
+      : 'No HPD violation records found.'
+    : breakdownOpenC > 0
     ? 'Class C violations include lead paint, mold, pest infestations, heat/hot water failure, and structural hazards — the most serious category.'
-    : openClassB > 0
+    : breakdownOpenB > 0
     ? 'Class B violations are hazardous conditions. Landlords must correct them within 30 days.'
-    : totalClassC + totalClassB > 0
-    ? `${totalClassC} Class C and ${totalClassB} Class B violations on record — all currently closed.`
-    : totalViolations > 0
-    ? `${totalViolations.toLocaleString()} violations on record (Class A — non-hazardous).`
-    : 'No HPD violation records found.'
+    : 'Open violations are non-hazardous (Class A — 90-day correction window).'
 
   // ── Card 2: Activity (active vs historical) ────────────────────────────────
   const cutoffStr = (() => {
@@ -258,7 +283,7 @@ export default async function HpdOverviewPage({
     : 'No HPD timeline history on record'
 
   const activitySub = recentTotal + historicTotal > 0
-    ? `${recentTotal.toLocaleString()} issues in the last 2 years · ${historicTotal.toLocaleString()} before that`
+    ? `Last 2 yrs: ${recentViol} violation${recentViol !== 1 ? 's' : ''} · ${recentCompl} complaint${recentCompl !== 1 ? 's' : ''}`
     : 'No timeline data available.'
 
   // ── top categories ──────────────────────────────────────────────────────────
@@ -282,6 +307,30 @@ export default async function HpdOverviewPage({
     .map(([cat, { count, open_count }]) => ({ violation_class: cat, category: cat, count, open_count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
+
+  // ── Card 3: Neighborhood comparison ───────────────────────────────────────
+  const violPct = violations?.violations_density_pct ?? null
+  const complPct = complaints?.complaints_density_pct ?? null
+
+  function pctHeadline(vp: number | null, cp: number | null): string {
+    const primary = vp ?? cp
+    if (primary === null) return 'Not enough data to compare building size'
+    const better = Math.round(100 - primary)
+    if (primary <= 20) return `Fewer issues than ${better}% of nearby buildings`
+    if (primary <= 40) return `Below-average issue rate for the neighborhood`
+    if (primary <= 60) return `Around average for the neighborhood`
+    if (primary <= 80) return `Above-average issue rate for the neighborhood`
+    return `More issues than ${primary}% of nearby buildings`
+  }
+
+  function pctSub(vp: number | null, cp: number | null, nta: string): string {
+    if (vp === null && cp === null)
+      return 'Building footprint or height data is missing — size-normalized ranking unavailable.'
+    return `Size-normalized and ranked against residential buildings in ${nta || 'the same neighborhood'}. Adjusts for building scale so a tower and a brownstone are compared fairly.`
+  }
+
+  const neighborhoodHeadline = pctHeadline(violPct, complPct)
+  const neighborhoodSub = pctSub(violPct, complPct, ntaName)
 
   const vTierMeta  = TIER_COLORS[violationsTier] ?? { color: '#525252', bg: '#F5F5F5' }
   const cTierMeta  = TIER_COLORS[complaintsTier] ?? { color: '#525252', bg: '#F5F5F5' }
@@ -336,20 +385,42 @@ export default async function HpdOverviewPage({
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
           <InsightCard eyebrow="Hazard level" aside="open violations" headline={hazardHeadline} sub={hazardSub}>
-            <HazardViz openC={openClassC} openB={openClassB} openA={openClassA} />
+            <HazardViz openC={breakdownOpenC} openB={breakdownOpenB} openA={breakdownOpenA} />
             <div style={{ marginTop: 12 }}>
-              <OpenIssueMiniTable openC={openClassC} openB={openClassB} />
+              <OpenIssueMiniTable openC={breakdownOpenC} openB={breakdownOpenB} />
             </div>
           </InsightCard>
           <InsightCard eyebrow="Activity" aside="Last 5 years" headline={activityHeadline} sub={activitySub}>
             <CombinedTrendViz violTimeline={violationTimeline} complTimeline={complaintTimeline} />
           </InsightCard>
-          <div style={{ background: '#FFFFFF', border: '0.5px dashed #E5E5E5', borderRadius: 12, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8, minHeight: 200 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#D4D4D4' }}>
-              Neighborhood
-            </span>
-            <span style={{ fontSize: 13, color: '#D4D4D4' }}>Coming soon</span>
-          </div>
+          <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
+            {(violPct !== null || complPct !== null) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { label: 'HPD violations', pct: violPct },
+                  { label: 'HPD complaints', pct: complPct },
+                ].map(({ label, pct }) => {
+                  if (pct === null) return null
+                  const better = Math.round(100 - pct)
+                  const barColor = pct <= 40 ? '#166534' : pct <= 65 ? '#92400E' : '#7F1D1D'
+                  const barBg    = pct <= 40 ? '#DCFCE7' : pct <= 65 ? '#FEF3C7' : '#FEF2F2'
+                  return (
+                    <div key={label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>{label}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: barColor }}>
+                          better than {better}%
+                        </span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 3, background: '#F5F5F5', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${better}%`, background: barColor, borderRadius: 3, opacity: 0.7 }} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </InsightCard>
         </div>
 
         {/* KPI rows */}
@@ -437,17 +508,11 @@ export default async function HpdOverviewPage({
           </div>
         )}
 
-        {/* Neighborhood comparison note */}
+        {/* DOB cross-link note */}
         <div style={{ background: '#FAFAFA', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', marginBottom: 4 }}>
-              Neighborhood comparison
-            </div>
-            <p style={{ fontSize: 13, color: '#525252', margin: 0, lineHeight: 1.5 }}>
-              How this building ranks against others{ntaName ? ` in ${ntaName}` : ' in its neighborhood'} is available on the DOB complaints tab,
-              which scores buildings against residential peers using 311 complaint history.
-            </p>
-          </div>
+          <p style={{ fontSize: 13, color: '#525252', margin: 0, lineHeight: 1.5, flex: 1 }}>
+            DOB complaints — construction, permits, and structural issues filed with the NYC Dept. of Buildings — are scored separately.
+          </p>
           <Link
             href={`/building/${bin}`}
             style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '8px 14px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}

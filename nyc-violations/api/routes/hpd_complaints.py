@@ -193,6 +193,7 @@ def _row_to_summary(r) -> HpdComplaintBuildingSummaryResponse:
         heat_complaints=r.heat_complaints,
         latest_complaint_date=r.latest_complaint_date,
         complaint_risk_tier=tier,
+        complaints_density_pct=getattr(r, "complaints_density_pct", None),
     )
 
 

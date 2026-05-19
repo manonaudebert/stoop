@@ -1,4 +1,4 @@
-# Tenement — NYC Building Research
+# stoop — NYC Building Research
 
 A web app that helps NYC renters research building complaint and violation histories before signing a lease. Data comes from NYC Open Data (DOB and HPD), ingested into a Neon (serverless PostgreSQL) database, served by a FastAPI backend, and visualized in a Next.js + Mapbox frontend.
 

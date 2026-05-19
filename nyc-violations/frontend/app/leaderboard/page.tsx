@@ -175,7 +175,7 @@ export default async function LeaderboardPage({
           fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
           color: '#FFFFFF', letterSpacing: '-0.015em',
         }}>
-          Tenement
+          stoop
         </span>
         <div style={{ flex: 1 }} />
         <Link href="/methodology" style={{

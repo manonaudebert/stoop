@@ -2,8 +2,8 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Methodology — Tenement',
-  description: 'How Tenement scores and compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
+  title: 'Methodology — stoop',
+  description: 'How stoop scores and compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
 // ── design tokens ─────────────────────────────────────────────────────────────
@@ -189,7 +189,7 @@ export default function MethodologyPage() {
           fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
           color: '#FFFFFF', letterSpacing: '-0.015em',
         }}>
-          Tenement
+          stoop
         </span>
         <div style={{ flex: 1 }} />
         <Link href="/leaderboard" style={{
@@ -211,7 +211,7 @@ export default function MethodologyPage() {
             Methodology
           </h1>
           <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every score and comparison on Tenement is derived from public records published
+            Every score and comparison on stoop is derived from public records published
             by the NYC Department of Buildings and the NYC Department of Housing Preservation
             &amp; Development. This page explains exactly how raw data is transformed into the
             numbers you see, and how buildings are compared fairly regardless of size.

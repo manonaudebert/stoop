@@ -134,7 +134,7 @@ export default function HpdComplaintsMapWrapper() {
           className="pointer-events-auto"
         >
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.015em', flexShrink: 0 }}>
-            Tenement
+            stoop
           </span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', flexShrink: 0 }}>
             HPD complaints

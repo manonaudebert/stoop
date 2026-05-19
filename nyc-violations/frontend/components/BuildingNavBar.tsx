@@ -21,19 +21,21 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
       position: 'sticky', top: 0, zIndex: 10, background: '#111111',
       padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <Link href={backHref} style={{
-        fontSize: 11, fontWeight: 400, color: '#A3A3A3', textDecoration: 'none',
-        fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase',
-        whiteSpace: 'nowrap', flexShrink: 0,
-      }}>
-        {backLabel}
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{
+          fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
+          color: '#FFFFFF', letterSpacing: '-0.015em',
+        }}>
+          stoop
+        </div>
 
-      <div style={{
-        fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
-        color: '#FFFFFF', letterSpacing: '-0.015em', flexShrink: 0,
-      }}>
-        Tenement
+        <Link href={backHref} style={{
+          fontSize: 11, fontWeight: 400, color: '#A3A3A3', textDecoration: 'none',
+          fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
+        }}>
+          {backLabel}
+        </Link>
       </div>
 
       <div style={{ flex: 1 }} />

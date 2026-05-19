@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tenement",
+  title: "stoop",
   description: "Research complaint history for NYC buildings before you rent",
 };
 

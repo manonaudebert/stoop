@@ -1,6 +1,6 @@
 import HpdComplaintsMapWrapper from '@/components/HpdComplaintsMapWrapper'
 
-export const metadata = { title: 'Tenement · HPD Complaints' }
+export const metadata = { title: 'stoop · HPD Complaints' }
 
 export default function HpdComplaintsPage() {
   return (

@@ -1,11 +1,5 @@
-import HpdComplaintsMapWrapper from '@/components/HpdComplaintsMapWrapper'
-
-export const metadata = { title: 'stoop · HPD Complaints' }
+import { redirect } from 'next/navigation'
 
 export default function HpdComplaintsPage() {
-  return (
-    <main className="w-full h-screen overflow-hidden">
-      <HpdComplaintsMapWrapper />
-    </main>
-  )
+  redirect('/hpd')
 }

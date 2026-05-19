@@ -8,32 +8,29 @@ export type HpdSelectedBuilding = {
   address: string | null
   borough: string | null
   zip_code: string | null
-  hpd_risk_tier: string | null
-  // Map.tsx emits these under DOB-compatible names
-  total_complaints: number    // = total_violations
-  open_complaints: number     // = open_violations
-  priority_a_complaints: number  // = class_a_violations
-  // HPD-specific extras
-  class_b_violations?: number
-  rent_impairing_count?: number
-}
-
-type ComplaintSummary = {
-  bin: string
+  risk_level: string | null
   total_complaints: number
   open_complaints: number
   open_emergency_complaints: number
 }
 
-const TIER_META: Record<string, { label: string; color: string }> = {
-  'Emergency':     { label: 'Emergency violations',     color: '#7F1D1D' },
-  'Hazardous':     { label: 'Hazardous violations',     color: '#7F1D1D' },
-  'Non-hazardous': { label: 'Non-hazardous violations', color: '#525252' },
-  'Resolved':      { label: 'All violations resolved',  color: '#525252' },
+type ViolationSummary = {
+  bin: string
+  total_violations: number
+  open_violations: number
+  rent_impairing_count: number
 }
 
-function getTierMeta(tier: string | null) {
-  return TIER_META[tier ?? ''] ?? { label: 'Unknown', color: '#737373' }
+const RISK_LEVEL_META: Record<string, { label: string; color: string }> = {
+  'Very low':  { label: 'Very low risk',  color: '#525252' },
+  'Low':       { label: 'Low risk',       color: '#525252' },
+  'Moderate':  { label: 'Moderate risk',  color: '#92400E' },
+  'High':      { label: 'High risk',      color: '#7F1D1D' },
+  'Very high': { label: 'Very high risk', color: '#7F1D1D' },
+}
+
+function getRiskMeta(level: string | null) {
+  return RISK_LEVEL_META[level ?? ''] ?? { label: 'No data', color: '#737373' }
 }
 
 function StatCell({ label, value }: { label: string; value: number | null }) {
@@ -62,31 +59,30 @@ type Props = {
 }
 
 export default function HpdBuildingSidebar({ building, onClose }: Props) {
-  const meta = getTierMeta(building.hpd_risk_tier)
-  const [complaints, setComplaints] = useState<ComplaintSummary | null | 'loading'>('loading')
+  const meta = getRiskMeta(building.risk_level)
+  const [violations, setViolations] = useState<ViolationSummary | null | 'loading'>('loading')
 
   useEffect(() => {
-    setComplaints('loading')
+    setViolations('loading')
     let cancelled = false
-    fetch(`/api/proxy/hpd-complaints/building/search?q=${encodeURIComponent(building.bin)}`)
+    fetch(`/api/proxy/hpd/building/search?q=${encodeURIComponent(building.bin)}`)
       .then(r => r.ok ? r.json() : [])
-      .then((results: ComplaintSummary[]) => {
+      .then((results: ViolationSummary[]) => {
         if (cancelled) return
         const match = results.find(r => r.bin === building.bin)
-        setComplaints(match ?? null)
+        setViolations(match ?? null)
       })
-      .catch(() => { if (!cancelled) setComplaints(null) })
+      .catch(() => { if (!cancelled) setViolations(null) })
     return () => { cancelled = true }
   }, [building.bin])
 
-  const c = complaints === 'loading' ? null : complaints
+  const v = violations === 'loading' ? null : violations
 
   return (
     <div style={{
       background: '#FFFFFF', borderRadius: 12, padding: '16px 18px', width: 240,
       border: '0.5px solid #A3A3A3',
     }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <span style={{
@@ -123,23 +119,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         </button>
       </div>
 
-      {/* Violations — confirmed by inspectors */}
       <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 10 }}>
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
-          textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
-        }}>
-          Confirmed by inspectors
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <StatCell label="Total"          value={building.total_complaints} />
-          <StatCell label="Open"           value={building.open_complaints} />
-          <StatCell label="Open rent-imp." value={building.rent_impairing_count ?? null} />
-        </div>
-      </div>
-
-      {/* Complaints — reported by tenants */}
-      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
           textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
@@ -147,13 +127,26 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
           Reported by tenants
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <StatCell label="Total"     value={c?.total_complaints ?? null} />
-          <StatCell label="Open"      value={c?.open_complaints ?? null} />
-          <StatCell label="Open emerg." value={c?.open_emergency_complaints ?? null} />
+          <StatCell label="Total"       value={building.total_complaints} />
+          <StatCell label="Open"        value={building.open_complaints} />
+          <StatCell label="Open emerg." value={building.open_emergency_complaints} />
         </div>
       </div>
 
-      {/* Single CTA */}
+      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
+          textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
+        }}>
+          Confirmed by inspectors
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <StatCell label="Total"          value={v?.total_violations ?? null} />
+          <StatCell label="Open"           value={v?.open_violations ?? null} />
+          <StatCell label="Open rent-imp." value={v?.rent_impairing_count ?? null} />
+        </div>
+      </div>
+
       <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
         <Link
           href={`/hpd-overview/building/${building.bin}`}

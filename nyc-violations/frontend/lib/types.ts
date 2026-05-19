@@ -166,6 +166,7 @@ export interface HpdComplaintBuildingSummary {
   latest_complaint_date: string | null
   complaint_risk_tier: string | null
   complaints_density_pct: number | null
+  risk_level: string | null
 }
 
 export interface HpdComplaintBuildingDetail extends HpdComplaintBuildingSummary {

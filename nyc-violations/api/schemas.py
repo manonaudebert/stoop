@@ -193,6 +193,7 @@ class HpdComplaintBuildingSummaryResponse(BaseModel):
     latest_complaint_date: date | None
     complaint_risk_tier: str | None
     complaints_density_pct: float | None = None
+    risk_level: str | None = None
 
     model_config = {"from_attributes": True}
 

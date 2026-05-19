@@ -1,11 +1,11 @@
-import HpdMapWrapper from '@/components/HpdMapWrapper'
+import HpdComplaintsMapWrapper from '@/components/HpdComplaintsMapWrapper'
 
-export const metadata = { title: 'stoop · HPD Violations' }
+export const metadata = { title: 'stoop · HPD Complaints' }
 
 export default function HpdPage() {
   return (
     <main className="w-full h-screen overflow-hidden">
-      <HpdMapWrapper />
+      <HpdComplaintsMapWrapper />
     </main>
   )
 }

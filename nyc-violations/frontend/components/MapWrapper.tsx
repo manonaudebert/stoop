@@ -193,7 +193,7 @@ export default function MapWrapper() {
             {/* Risk level */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-                Risk level
+                Complaint level
               </p>
               {visibleTiers.size < LEGEND.length && (
                 <button

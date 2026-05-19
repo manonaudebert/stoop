@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import SearchBar from './SearchBar'
-import HpdComplaintsSidebar, { type HpdComplaintSelectedBuilding } from './HpdComplaintsSidebar'
+import HpdBuildingSidebar, { type HpdSelectedBuilding } from './HpdBuildingSidebar'
 import type { HpdComplaintBuildingSummary } from '@/lib/types'
 
 const Map = dynamic(() => import('./Map'), { ssr: false })
@@ -12,16 +12,18 @@ const Map = dynamic(() => import('./Map'), { ssr: false })
 const HPD_COMPLAINTS_CLUSTERS_URL = '/api/proxy/hpd-complaints/map/clusters'
 
 const LEGEND = [
-  { tier: 'very-high', color: '#EF4637', label: 'Emergency'  },
-  { tier: 'moderate',  color: '#F5A047', label: 'Active'     },
-  { tier: 'low',       color: '#A8E5A0', label: 'Resolved'   },
+  { tier: 'very-high', color: '#EF4637', label: 'Very high' },
+  { tier: 'high',      color: '#F5A047', label: 'High'      },
+  { tier: 'moderate',  color: '#FFD930', label: 'Moderate'  },
+  { tier: 'low',       color: '#A8E5A0', label: 'Low'       },
+  { tier: 'very-low',  color: '#D4F5CB', label: 'Very low'  },
 ]
 
 type FlyTarget = { lng: number; lat: number; id: number }
 type NtaItem   = { code: string; name: string }
 
 export default function HpdComplaintsMapWrapper() {
-  const [selected,        setSelected]        = useState<HpdComplaintSelectedBuilding | null>(null)
+  const [selected,        setSelected]        = useState<HpdSelectedBuilding | null>(null)
   const [flyTarget,       setFlyTarget]       = useState<FlyTarget | null>(null)
   const [visibleTiers,    setVisibleTiers]    = useState<Set<string>>(() => new Set(LEGEND.map(l => l.tier)))
   const [showNtaBorders,  setShowNtaBorders]  = useState(false)
@@ -54,7 +56,7 @@ export default function HpdComplaintsMapWrapper() {
       address: b.address,
       borough: b.borough,
       zip_code: b.zip_code,
-      complaint_risk_tier: b.complaint_risk_tier ?? null,
+      risk_level: b.risk_level ?? null,
       total_complaints: b.total_complaints,
       open_complaints: b.open_complaints,
       open_emergency_complaints: b.open_emergency_complaints,
@@ -72,7 +74,7 @@ export default function HpdComplaintsMapWrapper() {
       address: raw.address ?? null,
       borough: raw.borough ?? null,
       zip_code: raw.zip_code ?? null,
-      complaint_risk_tier: raw.complaint_risk_tier ?? null,
+      risk_level: raw.risk_level ?? null,
       total_complaints: raw.total_complaints ?? 0,
       open_complaints: raw.open_complaints ?? 0,
       open_emergency_complaints: raw.open_emergency_complaints ?? 0,
@@ -148,17 +150,6 @@ export default function HpdComplaintsMapWrapper() {
               />
             </div>
             <Link
-              href="/hpd"
-              className="hidden sm:inline"
-              style={{
-                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-                textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              HPD violations
-            </Link>
-            <Link
               href="/"
               className="hidden sm:inline"
               style={{
@@ -197,7 +188,7 @@ export default function HpdComplaintsMapWrapper() {
           <div className={legendCollapsed ? 'hidden sm:block' : ''}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-                Complaint status
+                Complaint level
               </p>
               {visibleTiers.size < LEGEND.length && (
                 <button
@@ -289,7 +280,7 @@ export default function HpdComplaintsMapWrapper() {
         </div>
 
         {selected && (
-          <HpdComplaintsSidebar building={selected} onClose={() => setSelected(null)} />
+          <HpdBuildingSidebar building={selected} onClose={() => setSelected(null)} />
         )}
       </div>
     </div>

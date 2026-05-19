@@ -21,14 +21,6 @@ PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
 PER_BOROUGH_LIMIT = 2500
 
-# Maps complaint tier → DOB-compatible risk_level string for Map.tsx coloring.
-COMPLAINT_TIER_TO_RISK_LEVEL: dict[str, str] = {
-    "Emergency": "Very high",
-    "Active":    "Moderate",
-    "Resolved":  "Low",
-}
-
-
 def _complaint_risk_tier(open_emergency: int, open_count: int) -> str:
     if open_emergency > 0:
         return "Emergency"
@@ -100,7 +92,7 @@ async def get_hpd_complaint_clusters(
                 "total_complaints":          r.total_complaints,
                 "open_complaints":           r.open_complaints,
                 "priority_a_complaints":     r.open_emergency_complaints,
-                "risk_level":                COMPLAINT_TIER_TO_RISK_LEVEL[tier],
+                "risk_level":                r.risk_level or "Very low",
                 # HPD complaints-specific extras
                 "complaint_risk_tier":       tier,
                 "open_emergency_complaints": r.open_emergency_complaints,
@@ -194,6 +186,7 @@ def _row_to_summary(r) -> HpdComplaintBuildingSummaryResponse:
         latest_complaint_date=r.latest_complaint_date,
         complaint_risk_tier=tier,
         complaints_density_pct=getattr(r, "complaints_density_pct", None),
+        risk_level=getattr(r, "risk_level", None),
     )
 
 

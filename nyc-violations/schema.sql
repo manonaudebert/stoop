@@ -509,6 +509,18 @@ nta_density_pct AS (
         )::numeric, 1) AS complaints_density_pct
     FROM with_density
     WHERE nta_code IS NOT NULL AND weighted_complaints_density IS NOT NULL
+),
+-- Fallback percentile for buildings without footprint/height data
+nta_raw_pct AS (
+    SELECT bin,
+        ROUND((
+            PERCENT_RANK() OVER (
+                PARTITION BY nta_code
+                ORDER BY weighted_complaint_sum ASC
+            ) * 100
+        )::numeric, 1) AS complaints_raw_pct
+    FROM with_density
+    WHERE nta_code IS NOT NULL
 )
 SELECT
     wd.bin, wd.latitude, wd.longitude, wd.borough, wd.nta_code, wd.nta_name,
@@ -519,9 +531,20 @@ SELECT
     wd.weighted_complaint_sum,
     wd.estimated_scale,
     wd.weighted_complaints_density,
-    np.complaints_density_pct
+    np.complaints_density_pct,
+    rp.complaints_raw_pct,
+    CASE
+        WHEN wd.total_complaints < 5                                                        THEN 'Very low'
+        WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) IS NULL            THEN 'Very low'
+        WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) < 15              THEN 'Very low'
+        WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) < 40              THEN 'Low'
+        WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) < 70              THEN 'Moderate'
+        WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) < 90              THEN 'High'
+        ELSE                                                                                    'Very high'
+    END AS risk_level
 FROM with_density wd
-LEFT JOIN nta_density_pct np ON wd.bin = np.bin;
+LEFT JOIN nta_density_pct np ON wd.bin = np.bin
+LEFT JOIN nta_raw_pct     rp ON wd.bin = rp.bin;
 
 CREATE UNIQUE INDEX IF NOT EXISTS hpd_complaints_building_summary_bin_idx
     ON hpd_complaints_building_summary(bin);
@@ -533,3 +556,5 @@ CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_open_idx
     ON hpd_complaints_building_summary(open_complaints DESC);
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_density_pct_idx
     ON hpd_complaints_building_summary(complaints_density_pct);
+CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_risk_level_idx
+    ON hpd_complaints_building_summary(risk_level);

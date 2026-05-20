@@ -6,7 +6,6 @@ import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationBreakdown from '@/components/ViolationBreakdown'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
-import ViolationDescription from '@/components/ViolationDescription'
 import type { HpdViolation } from '@/lib/types'
 
 const CLASS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -80,11 +79,17 @@ function ViolationRow({ v }: { v: HpdViolation }) {
         </span>
       </td>
       <td style={{ padding: '12px 8px 12px 0', verticalAlign: 'top' }}>
-        <ViolationDescription
-          short={v.order_short_description ?? stripLegalPrefix(v.nov_description)}
-          full={v.nov_description}
-          category={v.order_category}
-        />
+        <span style={{ fontSize: 12, color: '#111111', display: 'block', lineHeight: 1.4 }}>
+          {v.order_short_description ?? stripLegalPrefix(v.nov_description) ?? '—'}
+          {v.order_category && (
+            <span style={{ color: '#737373' }}> · {v.order_category}</span>
+          )}
+        </span>
+        {v.nov_description && (
+          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+            {v.nov_description}
+          </span>
+        )}
       </td>
     </tr>
   )
@@ -154,7 +159,7 @@ export default async function HpdBuildingPage({
 
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 80px' }}>
 
-        {/* Cross-links */}
+        Cross-links
         <div style={{ marginBottom: 20 }}>
           <Link
             href={`/building/${bin}`}

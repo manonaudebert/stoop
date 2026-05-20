@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import TooltipIcon from '@/components/TooltipIcon'
+import RankViz from '@/components/RankViz'
 import {
   getHpdBuilding, getHpdTimeline, getHpdBreakdown,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
@@ -8,7 +10,6 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
-import ViolationDescription from '@/components/ViolationDescription'
 import type { TimelinePoint, HpdViolation, HpdComplaint } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -72,11 +73,17 @@ function ViolationRow({ v }: { v: HpdViolation }) {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{fmtDate(v.nov_issued_date)}</span>
       </td>
       <td style={{ padding: '12px 8px 12px 0', verticalAlign: 'top' }}>
-        <ViolationDescription
-          short={v.order_short_description ?? stripLegalPrefix(v.nov_description)}
-          full={v.nov_description}
-          category={v.order_category}
-        />
+        <span style={{ fontSize: 12, color: '#111111', display: 'block', lineHeight: 1.4 }}>
+          {v.order_short_description ?? stripLegalPrefix(v.nov_description) ?? '—'}
+          {v.order_category && (
+            <span style={{ color: '#737373' }}> · {v.order_category}</span>
+          )}
+        </span>
+        {v.nov_description && (
+          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+            {v.nov_description}
+          </span>
+        )}
       </td>
     </tr>
   )
@@ -240,14 +247,15 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
 
 // ── insight card ──────────────────────────────────────────────────────────────
 
-function InsightCard({ eyebrow, aside, headline, sub, children }: {
-  eyebrow: string; aside?: string; headline: string; sub: string; children?: React.ReactNode
+function InsightCard({ eyebrow, aside, headline, sub, tooltip, children }: {
+  eyebrow: string; aside?: string; headline: string; sub: string; tooltip?: string; children?: React.ReactNode
 }) {
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
           {eyebrow}
+          {tooltip && <TooltipIcon text={tooltip} />}
         </span>
         {aside && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
@@ -522,15 +530,6 @@ export default async function HpdOverviewPage({
 
         {/* Hero */}
         <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: '0.5px solid #E5E5E5' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 500, color: vTierMeta.color, background: vTierMeta.bg, textTransform: 'uppercase' }}>
-              Violations: {violationsTier}
-            </span>
-            <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 500, color: cTierMeta.color, background: cTierMeta.bg, textTransform: 'uppercase' }}>
-              Complaints: {complaintsTier}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A3A3A3' }}>HPD Overview</span>
-          </div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', lineHeight: 1.1, margin: '0 0 8px' }}>
             {address}
           </h1>
@@ -540,14 +539,17 @@ export default async function HpdOverviewPage({
             {latestComplDate && ` · Last complaint ${fmtDate(latestComplDate)}`}
           </p>
           <BuildingExplainer
-            label="About HPD"
-            text="NYC Housing Preservation & Development (HPD) tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants or residents, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law."
-          />
+            label="Data Source: NYC Housing Preservation & Development"
+            text={[                                                                                                                                        
+              "New York City Department of Housing Preservation & Development (HPD) oversees housing conditions that impact tenant safety and quality of life.",                                                                                                                                          
+              `Complaints are reports submitted by tenants or the public, while violations are issued after HPD inspectors verify that a building condition violates \
+              the NYC Housing Maintenance Code or Multiple Dwelling Law.`                                                                            
+            ]}             />
         </div>
 
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-          <InsightCard eyebrow="Hazard level" aside="open violations" headline={hazardHeadline} sub={hazardSub}>
+          <InsightCard eyebrow="Severity" aside="open violations" headline={hazardHeadline} sub={hazardSub} tooltip="HPD violations are categorized by severity, from Class A (non-hazardous) to Class C (immediately hazardous conditions requiring urgent correction).">
             <HazardViz openC={breakdownOpenC} openB={breakdownOpenB} openA={breakdownOpenA} />
             <div style={{ marginTop: 12 }}>
               <OpenIssueMiniTable openC={breakdownOpenC} openB={breakdownOpenB} />
@@ -557,32 +559,7 @@ export default async function HpdOverviewPage({
             <CombinedTrendViz violTimeline={violationTimeline} complTimeline={complaintTimeline} />
           </InsightCard>
           <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
-            {(violPct !== null || complPct !== null) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[
-                  { label: 'HPD violations', pct: violPct },
-                  { label: 'HPD complaints', pct: complPct },
-                ].map(({ label, pct }) => {
-                  if (pct === null) return null
-                  const better = Math.round(100 - pct)
-                  const barColor = pct <= 40 ? '#166534' : pct <= 65 ? '#92400E' : '#7F1D1D'
-                  const barBg    = pct <= 40 ? '#DCFCE7' : pct <= 65 ? '#FEF3C7' : '#FEF2F2'
-                  return (
-                    <div key={label}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>{label}</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: barColor }}>
-                          better than {better}%
-                        </span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 3, background: '#F5F5F5', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${better}%`, background: barColor, borderRadius: 3, opacity: 0.7 }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <RankViz percentile={violPct ?? complPct} />
           </InsightCard>
         </div>
 

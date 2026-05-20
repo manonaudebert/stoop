@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
 
-export default function BuildingExplainer({ label, text }: { label: string; text: string }) {
+export default function BuildingExplainer({ label, text }: { label: string; text: string | string[] }) {
   const [open, setOpen] = useState(false)
+  const paragraphs = Array.isArray(text) ? text : [text]
   return (
     <div style={{ marginTop: 10 }}>
       <button
@@ -19,11 +20,11 @@ export default function BuildingExplainer({ label, text }: { label: string; text
         </svg>
         {label}
       </button>
-      {open && (
-        <p style={{ fontSize: 12, color: '#737373', lineHeight: 1.55, margin: '6px 0 0 0', fontFamily: 'var(--font-sans)' }}>
-          {text}
+      {open && paragraphs.map((p, i) => (
+        <p key={i} style={{ fontSize: 12, color: '#737373', lineHeight: 1.55, margin: '6px 0 0 0', fontFamily: 'var(--font-sans)' }}>
+          {p}
         </p>
-      )}
+      ))}
     </div>
   )
 }

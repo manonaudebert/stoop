@@ -7,6 +7,8 @@ import BuildingGate from '@/components/BuildingGate'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
+import TooltipIcon from '@/components/TooltipIcon'
+import RankViz from '@/components/RankViz'
 import type { Complaint, TimelinePoint } from '@/lib/types'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -130,45 +132,19 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
   )
 }
 
-function RankViz({ percentile }: { percentile: number | null }) {
-  if (percentile == null) {
-    return (
-      <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <line x1="0" y1="29" x2="220" y2="29" stroke="#E5E5E5" strokeWidth="6" strokeLinecap="round" />
-        <text x="110" y="50" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not comparable</text>
-      </svg>
-    )
-  }
-
-  const markerX = Math.min(Math.max((percentile / 100) * 220, 6), 214)
-
-  return (
-    <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <rect x="0"   y="26" width="44" height="6" fill="#84A98C" opacity="0.45" />
-      <rect x="44"  y="26" width="44" height="6" fill="#84A98C" opacity="0.7" />
-      <rect x="88"  y="26" width="44" height="6" fill="#E4A11B" opacity="0.6" />
-      <rect x="132" y="26" width="44" height="6" fill="#E4A11B" opacity="0.85" />
-      <rect x="176" y="26" width="44" height="6" fill="#7F1D1D" opacity="0.7" />
-      <line x1={markerX} y1="18" x2={markerX} y2="40" stroke="#111111" strokeWidth="1.5" />
-      <circle cx={markerX} cy="29" r="4" fill="#FFFFFF" stroke="#111111" strokeWidth="1.5" />
-      <text x="2"   y="52" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">quietest</text>
-      <text x="218" y="52" textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">loudest</text>
-    </svg>
-  )
-}
-
 // ── insight card ──────────────────────────────────────────────────────────────
 
 function InsightCard({
-  eyebrow, aside, headline, sub, children,
+  eyebrow, aside, headline, sub, tooltip, children,
 }: {
-  eyebrow: string; aside?: string; headline: string; sub: string; children?: React.ReactNode
+  eyebrow: string; aside?: string; headline: string; sub: string; tooltip?: string; children?: React.ReactNode
 }) {
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
           {eyebrow}
+          {tooltip && <TooltipIcon text={tooltip} />}
         </span>
         {aside && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
@@ -402,7 +378,18 @@ export default async function BuildingPage({
 
       {/* Hero */}
       <div style={{ padding: '40px 32px 36px', background: '#FAFAFA', borderBottom: '0.5px solid #E5E5E5' }}>
-        <div style={{ maxWidth: 1260, margin: '0 auto', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 48 }}>
+        <div style={{ maxWidth: 1260, margin: '0 auto' }}>
+        {/* Cross-links */}
+        <div style={{ marginBottom: 20 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
+            Building Safety
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
+          <Link href={`/hpd-overview/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
+            Housing Conditions
+          </Link>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 48 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: eyebrow.color, marginBottom: 6 }}>
               {eyebrow.text}
@@ -417,7 +404,7 @@ export default async function BuildingPage({
               {building.construction_year && ` · Built ${building.construction_year}`}
             </p>
             <BuildingExplainer
-              label="About DOB complaints"
+              label="Data Source: NYC Department of Buildings"
               text="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
             />
           </div>
@@ -427,24 +414,14 @@ export default async function BuildingPage({
             </p>
           )}
         </div>
+        </div>
       </div>
 
       <main style={{ maxWidth: 1260, margin: '0 auto', padding: '1.75rem 1.5rem' }}>
 
-        {/* Cross-links */}
-        <div style={{ marginBottom: 20 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
-            DOB complaints
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
-          <Link href={`/hpd-overview/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
-            HPD overview
-          </Link>
-        </div>
-
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-          <InsightCard eyebrow="Severity" aside="Pri A+B" headline={headline1} sub={sub1}>
+          <InsightCard eyebrow="Severity" aside="Pri A+B" headline={headline1} sub={sub1} tooltip="DOB complaints are prioritized from Priority A (most urgent safety concerns) through lower-priority categories based on severity and potential public risk.">
             <SeverityViz count={building.priority_ab_complaints} />
           </InsightCard>
           <InsightCard eyebrow="Trend" aside="Last 5 years" headline={headline2} sub={sub2}>

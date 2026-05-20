@@ -211,7 +211,7 @@ export default async function HpdComplaintsBuildingPage({
           </p>
           <BuildingExplainer
             label="About HPD complaints"
-            text="NYC Housing Preservation & Development (HPD) tracks housing conditions reported by tenants and residents. Complaints trigger HPD inspections — if a condition is confirmed, a violation is issued. Emergency complaints require a response within 24 hours."
+            text="NYC Housing Preservation & Development (HPD) tracks housing conditions reported by tenants and residents. Complaints trigger HPD inspections; if a condition is confirmed, a violation is issued. Emergency complaints require a response within 24 hours."
           />
         </div>
 

@@ -35,19 +35,19 @@ function getRiskMeta(level: string | null) {
 
 function StatCell({ label, value }: { label: string; value: number | null }) {
   return (
-    <div>
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#737373', marginBottom: 3,
-      }}>
-        {label}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
         color: value === null ? '#D4D1C3' : '#111111',
-        lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
       }}>
         {value === null ? '—' : value.toLocaleString()}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
+        textTransform: 'uppercase', color: '#737373',
+      }}>
+        {label}
       </div>
     </div>
   )
@@ -129,11 +129,11 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <StatCell label="Total"       value={building.total_complaints} />
           <StatCell label="Open"        value={building.open_complaints} />
-          <StatCell label="Open emerg." value={building.open_emergency_complaints} />
+          <StatCell label="Open emergency" value={building.open_emergency_complaints} />
         </div>
       </div>
 
-      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
+      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12, marginBottom: 12 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
           textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
@@ -143,7 +143,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <StatCell label="Total"          value={v?.total_violations ?? null} />
           <StatCell label="Open"           value={v?.open_violations ?? null} />
-          <StatCell label="Open rent-imp." value={v?.rent_impairing_count ?? null} />
+          <StatCell label="Open rent-impairing" value={v?.rent_impairing_count ?? null} />
         </div>
       </div>
 

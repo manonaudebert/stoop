@@ -522,8 +522,8 @@ export default async function HpdOverviewPage({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             <StatCard label="Total violations"           value={totalViolations} />
             <StatCard label="Open violations"            value={openViolations} />
-            <StatCard label="Open Class C (immed. haz.)" value={openClassC} />
-            <StatCard label="Open rent-impairing"        value={rentImpairing} />
+            <StatCard label="Open Class C (immed. haz.)" value={openClassC} tooltip="Verified violations posing immediate danger to occupants, including no heat or hot water, lead paint, mold, rodent/roach infestations, and structural hazards. Default correction window is 24 hours, with longer windows for certain categories (e.g., 21 days for lead and pests)." />
+            <StatCard label="Open rent-impairing"        value={rentImpairing} tooltip="A specific subset of violations designated by HPD under Multiple Dwelling Law as constituting a fire hazard or serious threat to life, health, or safety. If left uncorrected for more than six months, the landlord is barred from collecting rent (subject to the tenant following statutory procedures)." />
           </div>
         </div>
 
@@ -534,7 +534,7 @@ export default async function HpdOverviewPage({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
             <StatCard label="Total complaints" value={totalComplaints} />
             <StatCard label="Open complaints"  value={openComplaints} />
-            <StatCard label="Open emergency"   value={emergencyComplaints} />
+            <StatCard label="Open emergency"   value={emergencyComplaints} tooltip="Active tenant-reported complaints currently flagged for emergency response, typically no heat, no hot water, no gas, major leaks, or hazardous conditions targeted for inspection within ~24 hours." />
             <StatCard label="Heat/hot water"   value={heatComplaints} />
           </div>
         </div>

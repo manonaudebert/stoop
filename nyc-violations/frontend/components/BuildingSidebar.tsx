@@ -82,22 +82,22 @@ export default function BuildingSidebar({ building, onClose }: Props) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
         {[
-          { label: 'Total', value: building.total_complaints },
-          { label: 'Open',  value: building.open_complaints },
-          { label: 'Pri A', value: building.priority_a_complaints },
+          { label: 'Total',      value: building.total_complaints },
+          { label: 'Open',       value: building.open_complaints },
+          { label: 'Priority A', value: building.priority_a_complaints },
         ].map(({ label, value }) => (
-          <div key={label}>
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-              textTransform: 'uppercase', color: '#737373', marginBottom: 3,
-            }}>
-              {label}
-            </div>
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
-              color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+              color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
             }}>
               {value.toLocaleString()}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
+              textTransform: 'uppercase', color: '#737373',
+            }}>
+              {label}
             </div>
           </div>
         ))}

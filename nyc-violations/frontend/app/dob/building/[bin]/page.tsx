@@ -375,8 +375,8 @@ export default async function BuildingPage({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
           <StatCard label="Total complaints" value={building.total_complaints} />
           <StatCard label="Active"           value={building.open_complaints} />
-          <StatCard label="Priority A"       value={building.priority_a_complaints} />
-          <StatCard label="Priority A+B"     value={building.priority_ab_complaints} />
+          <StatCard label="Priority A"       value={building.priority_a_complaints} tooltip="The highest-severity DOB complaints, alleging conditions that present an imminent risk to public safety (e.g., structural instability, collapse risk, shaking buildings). DOB's target is to inspect within 24 hours. Count includes all complaints ever filed, not just active ones." />
+          <StatCard label="Priority A+B"     value={building.priority_ab_complaints} tooltip="Combined count of Priority A complaints (imminent safety risks, 24-hour target) and Priority B complaints (serious but non-imminent, e.g., illegal conversions, work without a permit, inadequate scaffolding, 40-day target). Includes all complaints ever filed." />
         </div>
 
         {/* Chart cards */}

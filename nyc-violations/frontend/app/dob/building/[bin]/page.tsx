@@ -1,14 +1,17 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
+import { fmtDate } from '@/lib/fmt'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingGate from '@/components/BuildingGate'
 import BuildingHero from '@/components/BuildingHero'
 import BuildingCrossLinks from '@/components/BuildingCrossLinks'
+import InsightCard from '@/components/InsightCard'
+import StatCard from '@/components/StatCard'
+import Pagination from '@/components/Pagination'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
-import TooltipIcon from '@/components/TooltipIcon'
 import RankViz from '@/components/RankViz'
 import type { Complaint, TimelinePoint } from '@/lib/types'
 
@@ -16,15 +19,6 @@ import type { Complaint, TimelinePoint } from '@/lib/types'
 
 const toTitleCase = (str: string) => str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '—'
-  try {
-    const [y, m, d] = dateStr.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-    })
-  } catch { return dateStr }
-}
 
 function yearsOnRecord(firstDate: string | null): number {
   if (!firstDate) return 1
@@ -133,37 +127,6 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
   )
 }
 
-// ── insight card ──────────────────────────────────────────────────────────────
-
-function InsightCard({
-  eyebrow, aside, headline, sub, tooltip, children,
-}: {
-  eyebrow: string; aside?: string; headline: string; sub: string; tooltip?: string; children?: React.ReactNode
-}) {
-  return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
-          {eyebrow}
-          {tooltip && <TooltipIcon text={tooltip} />}
-        </span>
-        {aside && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
-            {aside}
-          </span>
-        )}
-      </div>
-      <div style={{ fontSize: 15, fontWeight: 500, color: '#111111', marginBottom: 4, lineHeight: 1.3 }}>
-        {headline}
-      </div>
-      <div style={{ fontSize: 12, color: '#525252', marginBottom: 16, lineHeight: 1.5 }}>
-        {sub}
-      </div>
-      {children}
-    </div>
-  )
-}
-
 // ── complaint table ───────────────────────────────────────────────────────────
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -199,7 +162,7 @@ function ComplaintRow({ c }: { c: Complaint }) {
     <tr style={{ borderBottom: '0.5px solid #E5E5E5' }}>
       <td style={{ width: 4, padding: 0, background: dot }} />
       <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', whiteSpace: 'nowrap' }}>
-        {formatDate(c.date_entered)}
+        {fmtDate(c.date_entered)}
       </td>
       <td style={{ padding: '11px 14px', maxWidth: 280 }}>
         <p style={{ fontSize: 13, fontWeight: 500, color: '#111111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
@@ -225,7 +188,7 @@ function ComplaintRow({ c }: { c: Complaint }) {
         </span>
       </td>
       <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', whiteSpace: 'nowrap' }}>
-        {formatDate(c.disposition_date)}
+        {fmtDate(c.disposition_date)}
       </td>
       <td style={{ padding: '11px 14px' }}>
         <OutcomeCell description={c.disposition_description} code={c.disposition_code} />
@@ -387,7 +350,7 @@ export default async function BuildingPage({
             `ZIP ${building.zip_code}`,
             `BIN ${building.bin}`,
             neighborhood?.nta_name,
-            building.first_complaint_date && `On record since ${formatDate(building.first_complaint_date)}`,
+            building.first_complaint_date && `On record since ${fmtDate(building.first_complaint_date)}`,
             building.construction_year && `Built ${building.construction_year}`,
           ].filter(Boolean).join(' · ')}
           explainerLabel="Data Source: NYC Department of Buildings"
@@ -410,21 +373,10 @@ export default async function BuildingPage({
 
         {/* KPI stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
-          {[
-            { label: 'Total complaints', value: building.total_complaints },
-            { label: 'Active',           value: building.open_complaints },
-            { label: 'Priority A',       value: building.priority_a_complaints },
-            { label: 'Priority A+B',     value: building.priority_ab_complaints },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 8, padding: '14px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
-                {label}
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 30, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                {value.toLocaleString()}
-              </div>
-            </div>
-          ))}
+          <StatCard label="Total complaints" value={building.total_complaints} />
+          <StatCard label="Active"           value={building.open_complaints} />
+          <StatCard label="Priority A"       value={building.priority_a_complaints} />
+          <StatCard label="Priority A+B"     value={building.priority_ab_complaints} />
         </div>
 
         {/* Chart cards */}
@@ -520,26 +472,7 @@ export default async function BuildingPage({
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 1.25rem', borderTop: '0.5px solid #E5E5E5' }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
-                Page {page} of {totalPages}
-              </p>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {page > 1 && (
-                  <Link href={pageUrl(page - 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none' }}>
-                    ← Prev
-                  </Link>
-                )}
-                {page < totalPages && (
-                  <Link href={pageUrl(page + 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none' }}>
-                    Next →
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} prevHref={pageUrl(page - 1)} nextHref={pageUrl(page + 1)} />
         </div>
 
       </main>

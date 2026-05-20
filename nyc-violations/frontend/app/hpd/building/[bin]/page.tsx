@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import TooltipIcon from '@/components/TooltipIcon'
+import { fmtDate } from '@/lib/fmt'
 import RankViz from '@/components/RankViz'
 import {
   getHpdBuilding, getHpdTimeline, getHpdBreakdown,
@@ -9,19 +9,15 @@ import {
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
 import BuildingCrossLinks from '@/components/BuildingCrossLinks'
+import InsightCard from '@/components/InsightCard'
+import StatCard from '@/components/StatCard'
+import Pagination from '@/components/Pagination'
+import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
 import type { TimelinePoint, HpdViolation, HpdComplaint } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string | null | undefined) {
-  if (!iso) return '—'
-  try {
-    const [y, m, d] = iso.split('-').map(Number)
-    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch { return iso }
-}
 
 function stripLegalPrefix(s: string | null | undefined): string | null {
   if (!s) return null
@@ -257,35 +253,6 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
   )
 }
 
-// ── insight card ──────────────────────────────────────────────────────────────
-
-function InsightCard({ eyebrow, aside, headline, sub, tooltip, children }: {
-  eyebrow: string; aside?: string; headline: string; sub: string; tooltip?: string; children?: React.ReactNode
-}) {
-  return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
-          {eyebrow}
-          {tooltip && <TooltipIcon text={tooltip} />}
-        </span>
-        {aside && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
-            {aside}
-          </span>
-        )}
-      </div>
-      <div style={{ fontSize: 15, fontWeight: 500, color: '#111111', marginBottom: 4, lineHeight: 1.3 }}>
-        {headline}
-      </div>
-      <div style={{ fontSize: 12, color: '#525252', marginBottom: 16, lineHeight: 1.5 }}>
-        {sub}
-      </div>
-      {children}
-    </div>
-  )
-}
-
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default async function HpdOverviewPage({
@@ -497,21 +464,6 @@ export default async function HpdOverviewPage({
     return `/hpd/building/${bin}?${q}#log-controls`
   }
 
-  const FilterPill = ({ label, active, href }: { label: string; active: boolean; href: string }) => (
-    <Link
-      href={href}
-      style={{
-        display: 'inline-block', padding: '4px 10px', borderRadius: 20,
-        fontSize: 11, fontFamily: 'var(--font-mono)', textDecoration: 'none',
-        background: active ? '#111111' : '#F5F5F5',
-        color: active ? '#FFFFFF' : '#525252',
-        border: `0.5px solid ${active ? '#111111' : '#E5E5E5'}`,
-      }}
-    >
-      {label}
-    </Link>
-  )
-
   // Top complaint categories for filter pills
   const topComplaintCategories = Array.from(
     complaintBreakdown.reduce((acc, d) => {
@@ -568,21 +520,10 @@ export default async function HpdOverviewPage({
             HPD Violations
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            {[
-              { label: 'Total violations',              value: totalViolations },
-              { label: 'Open violations',               value: openViolations },
-              { label: 'Open Class C (immed. haz.)',    value: openClassC },
-              { label: 'Open rent-impairing',            value: rentImpairing },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
-                  {label}
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {value.toLocaleString()}
-                </div>
-              </div>
-            ))}
+            <StatCard label="Total violations"           value={totalViolations} />
+            <StatCard label="Open violations"            value={openViolations} />
+            <StatCard label="Open Class C (immed. haz.)" value={openClassC} />
+            <StatCard label="Open rent-impairing"        value={rentImpairing} />
           </div>
         </div>
 
@@ -591,21 +532,10 @@ export default async function HpdOverviewPage({
             HPD Complaints (tenant-reported)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            {[
-              { label: 'Total complaints', value: totalComplaints },
-              { label: 'Open complaints',  value: openComplaints },
-              { label: 'Open emergency',   value: emergencyComplaints },
-              { label: 'Heat/hot water',   value: heatComplaints },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
-                  {label}
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {value.toLocaleString()}
-                </div>
-              </div>
-            ))}
+            <StatCard label="Total complaints" value={totalComplaints} />
+            <StatCard label="Open complaints"  value={openComplaints} />
+            <StatCard label="Open emergency"   value={emergencyComplaints} />
+            <StatCard label="Heat/hot water"   value={heatComplaints} />
           </div>
         </div>
 
@@ -725,25 +655,7 @@ export default async function HpdOverviewPage({
                 </tbody>
               </table>
             </div>
-            {violTotalPages > 1 && (
-              <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
-                  Page {vpage} of {violTotalPages}
-                </span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {vpage > 1 && (
-                    <Link href={violPageUrl(vpage - 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
-                      ← Prev
-                    </Link>
-                  )}
-                  {vpage < violTotalPages && (
-                    <Link href={violPageUrl(vpage + 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
-                      Next →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
+            <Pagination page={vpage} totalPages={violTotalPages} prevHref={violPageUrl(vpage - 1)} nextHref={violPageUrl(vpage + 1)} />
           </div>
         )}
 
@@ -797,25 +709,7 @@ export default async function HpdOverviewPage({
                 </tbody>
               </table>
             </div>
-            {complTotalPages > 1 && (
-              <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
-                  Page {cpage} of {complTotalPages}
-                </span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {cpage > 1 && (
-                    <Link href={complPageUrl(cpage - 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
-                      ← Prev
-                    </Link>
-                  )}
-                  {cpage < complTotalPages && (
-                    <Link href={complPageUrl(cpage + 1)} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}>
-                      Next →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
+            <Pagination page={cpage} totalPages={complTotalPages} prevHref={complPageUrl(cpage - 1)} nextHref={complPageUrl(cpage + 1)} />
           </div>
         )}
 

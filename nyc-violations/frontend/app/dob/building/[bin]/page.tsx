@@ -2,8 +2,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
-import BuildingExplainer from '@/components/BuildingExplainer'
 import BuildingGate from '@/components/BuildingGate'
+import BuildingHero from '@/components/BuildingHero'
+import BuildingCrossLinks from '@/components/BuildingCrossLinks'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
@@ -269,19 +270,15 @@ export default async function BuildingPage({
       <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
         <BuildingGate bin={bin}>
-          <div style={{ padding: '40px 32px 36px', background: '#FAFAFA', borderBottom: '0.5px solid #E5E5E5' }}>
-            <div style={{ maxWidth: 1260, margin: '0 auto' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>
-                Few complaints
-              </div>
-              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 44, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>
-                {toTitleCase(building.address ?? '')}
-              </h1>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginTop: 8 }}>
-                {building.borough} · ZIP {building.zip_code} · BIN {building.bin}
-                {building.construction_year && ` · Built ${building.construction_year}`}
-              </p>
-            </div>
+          <div style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 0' }}>
+            <BuildingHero
+              address={building.address ?? ''}
+              meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
+              explainerLabel="Data Source: NYC Department of Buildings"
+              explainerText="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
+              badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>Few complaints</div>}
+              bordered
+            />
           </div>
           <main style={{ maxWidth: 640, margin: '0 auto', padding: '4rem 1.5rem', textAlign: 'center' }}>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
@@ -321,7 +318,7 @@ export default async function BuildingPage({
     sp.set('page', String(p))
     if (status) sp.set('status', status)
     if (category) sp.set('category', category)
-    return `/building/${bin}?${sp}`
+    return `/dob/building/${bin}?${sp}`
   }
 
   // ── insight card data ────────────────────────────────────────────────────
@@ -376,48 +373,27 @@ export default async function BuildingPage({
       <BuildingNavBar backHref={backHref} backLabel={backLabel} />
       <BuildingGate bin={bin}>
 
-      {/* Hero */}
-      <div style={{ padding: '40px 32px 36px', background: '#FAFAFA', borderBottom: '0.5px solid #E5E5E5' }}>
-        <div style={{ maxWidth: 1260, margin: '0 auto' }}>
-        {/* Cross-links */}
-        <div style={{ marginBottom: 20 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
-            Building Safety
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
-          <Link href={`/hpd-overview/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
-            Housing Conditions
-          </Link>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 48 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: eyebrow.color, marginBottom: 6 }}>
-              {eyebrow.text}
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 44, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>
-              {toTitleCase(building.address ?? '')}
-            </h1>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginTop: 8, marginBottom: 0 }}>
-              {building.borough} · ZIP {building.zip_code} · BIN {building.bin}
-              {neighborhood?.nta_name && ` · ${neighborhood.nta_name}`}
-              {building.first_complaint_date && ` · On record since ${formatDate(building.first_complaint_date)}`}
-              {building.construction_year && ` · Built ${building.construction_year}`}
-            </p>
-            <BuildingExplainer
-              label="Data Source: NYC Department of Buildings"
-              text="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
-            />
-          </div>
-          {!insufficient && !notComparable && (
-            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontStyle: 'italic', fontWeight: 400, color: '#111111', lineHeight: 1.45, maxWidth: 360, flexShrink: 0, margin: 0 }}>
-              {headline3}
-            </p>
-          )}
-        </div>
-        </div>
-      </div>
+      <main style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 80px' }}>
 
-      <main style={{ maxWidth: 1260, margin: '0 auto', padding: '1.75rem 1.5rem' }}>
+        <BuildingCrossLinks items={[
+          { label: 'Building Safety' },
+          { label: 'Housing Conditions', href: `/hpd/building/${bin}` },
+        ]} />
+
+        <BuildingHero
+          address={building.address ?? ''}
+          meta={[
+            building.borough,
+            `ZIP ${building.zip_code}`,
+            `BIN ${building.bin}`,
+            neighborhood?.nta_name,
+            building.first_complaint_date && `On record since ${formatDate(building.first_complaint_date)}`,
+            building.construction_year && `Built ${building.construction_year}`,
+          ].filter(Boolean).join(' · ')}
+          explainerLabel="Data Source: NYC Department of Buildings"
+          explainerText="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
+          bordered
+        />
 
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
@@ -493,7 +469,7 @@ export default async function BuildingPage({
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <Link
-                href={`/building/${bin}?status=ACTIVE`}
+                href={`/dob/building/${bin}?status=ACTIVE`}
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',
@@ -506,7 +482,7 @@ export default async function BuildingPage({
                 Active only
               </Link>
               <Link
-                href={`/building/${bin}`}
+                href={`/dob/building/${bin}`}
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',

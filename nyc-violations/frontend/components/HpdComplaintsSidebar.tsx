@@ -98,7 +98,7 @@ export default function HpdComplaintsSidebar({ building, onClose }: Props) {
       </div>
 
       <Link
-        href={`/hpd-overview/building/${building.bin}`}
+        href={`/hpd/building/${building.bin}`}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 13, fontWeight: 500, color: '#111111',

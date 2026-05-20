@@ -14,12 +14,12 @@ export type SelectedBuilding = {
 }
 
 const RISK_TIER_MAP: Record<string, { label: string; color: string }> = {
-  'Very low':          { label: 'Very few complaints',  color: '#525252' },
-  'Low':               { label: 'Few complaints',       color: '#525252' },
-  'Moderate':          { label: 'Moderate complaints',  color: '#525252' },
-  'High':              { label: 'High # of complaints',  color: '#7F1D1D' },
-  'Very high':         { label: 'Extreme # of complaints', color: '#7F1D1D' },
-  'Insufficient data': { label: 'Few complaints', color: '#737373' },
+  'Very low':          { label: 'Very low',  color: '#525252' },
+  'Low':               { label: 'Low',       color: '#525252' },
+  'Moderate':          { label: 'Moderate',  color: '#525252' },
+  'High':              { label: 'High',  color: '#7F1D1D' },
+  'Very high':         { label: 'Very high', color: '#7F1D1D' },
+  'Insufficient data': { label: 'Very low', color: '#737373' },
   'Not comparable':    { label: 'Not comparable', color: '#737373' },
 }
 
@@ -104,7 +104,7 @@ export default function BuildingSidebar({ building, onClose }: Props) {
       </div>
 
       <Link
-        href={`/building/${building.bin}`}
+        href={`/dob/building/${building.bin}`}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: 13, fontWeight: 500, color: '#7F1D1D',

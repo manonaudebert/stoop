@@ -22,7 +22,7 @@ type ViolationSummary = {
 }
 
 const RISK_LEVEL_META: Record<string, { label: string; color: string }> = {
-  'Very low':  { label: 'Very',  color: '#525252' },
+  'Very low':  { label: 'Very low',  color: '#525252' },
   'Low':       { label: 'Low',       color: '#525252' },
   'Moderate':  { label: 'Moderate',  color: '#92400E' },
   'High':      { label: 'High',      color: '#7F1D1D' },
@@ -147,21 +147,20 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         </div>
       </div>
 
-      <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12 }}>
-        <Link
-          href={`/hpd-overview/building/${building.bin}`}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontSize: 11, fontWeight: 500, color: '#111111',
-            textDecoration: 'none',
-          }}
-        >
-          <span>Housing Conditions Report</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h14M13 6l6 6-6 6"/>
-          </svg>
-        </Link>
-      </div>
+      <Link
+        href={`/hpd/building/${building.bin}`}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          fontSize: 13, fontWeight: 500, color: '#7F1D1D',
+          paddingTop: 12, borderTop: '0.5px solid #E5E5E5',
+          textDecoration: 'none',
+        }}
+      >
+        <span>View full record</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </Link>
     </div>
   )
 }

@@ -34,7 +34,7 @@ function BuildingRow({
 
   return (
     <Link
-      href={`/building/${building.bin}?from=leaderboard`}
+      href={`/dob/building/${building.bin}?from=leaderboard`}
       style={{ textDecoration: 'none', display: 'block' }}
     >
       <div

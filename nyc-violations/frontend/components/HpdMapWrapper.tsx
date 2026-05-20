@@ -155,17 +155,6 @@ export default function HpdMapWrapper() {
               />
             </div>
             <Link
-              href="/hpd-complaints"
-              className="hidden sm:inline"
-              style={{
-                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-                textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-                whiteSpace: 'nowrap', flexShrink: 0,
-              }}
-            >
-              HPD complaints
-            </Link>
-            <Link
               href="/"
               className="hidden sm:inline"
               style={{

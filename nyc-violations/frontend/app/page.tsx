@@ -1,9 +1,14 @@
-import MapWrapper from '@/components/MapWrapper'
+import UnifiedMapWrapper from '@/components/UnifiedMapWrapper'
 
-export default function HomePage() {
+type SearchParams = Promise<{ mode?: string }>
+
+export default async function HomePage({ searchParams }: { searchParams: SearchParams }) {
+  const { mode } = await searchParams
+  const initialMode = mode === 'hpd' ? 'HPD' : 'DOB'
+
   return (
     <div className="w-screen h-screen overflow-hidden">
-      <MapWrapper />
+      <UnifiedMapWrapper initialMode={initialMode} />
     </div>
   )
 }

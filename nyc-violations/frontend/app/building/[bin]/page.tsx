@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import BuildingExplainer from '@/components/BuildingExplainer'
 import BuildingGate from '@/components/BuildingGate'
 import ComplaintTimeline from '@/components/ComplaintTimeline'
 import ComplaintBreakdown from '@/components/ComplaintBreakdown'
@@ -415,6 +416,10 @@ export default async function BuildingPage({
               {building.first_complaint_date && ` · On record since ${formatDate(building.first_complaint_date)}`}
               {building.construction_year && ` · Built ${building.construction_year}`}
             </p>
+            <BuildingExplainer
+              label="About DOB complaints"
+              text="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
+            />
           </div>
           {!insufficient && !notComparable && (
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontStyle: 'italic', fontWeight: 400, color: '#111111', lineHeight: 1.45, maxWidth: 360, flexShrink: 0, margin: 0 }}>

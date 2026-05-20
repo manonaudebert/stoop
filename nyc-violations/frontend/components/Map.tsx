@@ -77,6 +77,8 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
   onNtaSelectRef.current = onNtaSelect
   const onNtaListLoadRef = useRef(onNtaListLoad)
   onNtaListLoadRef.current = onNtaListLoad
+  const clustersUrlRef = useRef(clustersUrl)
+  clustersUrlRef.current = clustersUrl
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawDataRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,7 +136,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const b = map.getBounds()
     if (!b) return
     const zoom = map.getZoom()
-    const url = `${clustersUrl}?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
+    const url = `${clustersUrlRef.current}?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
     const res = await fetch(url)
     if (!res.ok) {
       console.error('Failed to load map data:', res.status)
@@ -146,6 +148,16 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
     if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current)
   }, [])
+
+  // Reload building data when the clusters endpoint changes (dataset toggle)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
+    if (src) src.setData({ type: 'FeatureCollection', features: [] })
+    rawDataRef.current = null
+    loadClusters(map)
+  }, [clustersUrl, loadClusters])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return

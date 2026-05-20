@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getHpdBuilding, getHpdTimeline, getHpdBreakdown } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationBreakdown from '@/components/ViolationBreakdown'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
@@ -205,6 +206,10 @@ export default async function HpdBuildingPage({
             {building.borough}{building.zip_code ? ` · ${building.zip_code}` : ''} · BIN {bin}
             {building.nta_name ? ` · ${building.nta_name}` : ''}
           </p>
+          <BuildingExplainer
+            label="About HPD violations"
+            text="NYC Housing Preservation & Development (HPD) tracks housing conditions that impact tenant safety and quality of life. Violations are issued after HPD inspectors verify that a building condition violates NYC housing law. Class C violations are immediately hazardous and must be corrected within 24 hours."
+          />
         </div>
 
         {/* KPI cards */}

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
 import ComplaintTypeBreakdown from '@/components/ComplaintTypeBreakdown'
@@ -208,6 +209,10 @@ export default async function HpdComplaintsBuildingPage({
             {building.borough}{building.zip_code ? ` · ${building.zip_code}` : ''} · BIN {bin}
             {building.nta_name ? ` · ${building.nta_name}` : ''}
           </p>
+          <BuildingExplainer
+            label="About HPD complaints"
+            text="NYC Housing Preservation & Development (HPD) tracks housing conditions reported by tenants and residents. Complaints trigger HPD inspections — if a condition is confirmed, a violation is issued. Emergency complaints require a response within 24 hours."
+          />
         </div>
 
         {/* KPI cards */}

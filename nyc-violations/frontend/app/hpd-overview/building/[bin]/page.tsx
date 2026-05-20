@@ -5,6 +5,7 @@ import {
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
 } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
 import ViolationDescription from '@/components/ViolationDescription'
@@ -511,11 +512,11 @@ export default async function HpdOverviewPage({
         {/* Cross-links */}
         <div style={{ marginBottom: 20 }}>
           <Link href={`/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
-            DOB complaints
+            Building Safety
           </Link>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', fontWeight: 500 }}>
-            HPD overview
+            Housing Conditions
           </span>
         </div>
 
@@ -538,6 +539,10 @@ export default async function HpdOverviewPage({
             {latestViolDate && ` · Last violation ${fmtDate(latestViolDate)}`}
             {latestComplDate && ` · Last complaint ${fmtDate(latestComplDate)}`}
           </p>
+          <BuildingExplainer
+            label="About HPD"
+            text="NYC Housing Preservation & Development (HPD) tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants or residents, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law."
+          />
         </div>
 
         {/* Three insight cards */}

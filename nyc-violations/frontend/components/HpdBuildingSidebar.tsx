@@ -22,11 +22,11 @@ type ViolationSummary = {
 }
 
 const RISK_LEVEL_META: Record<string, { label: string; color: string }> = {
-  'Very low':  { label: 'Very low risk',  color: '#525252' },
-  'Low':       { label: 'Low risk',       color: '#525252' },
-  'Moderate':  { label: 'Moderate risk',  color: '#92400E' },
-  'High':      { label: 'High risk',      color: '#7F1D1D' },
-  'Very high': { label: 'Very high risk', color: '#7F1D1D' },
+  'Very low':  { label: 'Very',  color: '#525252' },
+  'Low':       { label: 'Low',       color: '#525252' },
+  'Moderate':  { label: 'Moderate',  color: '#92400E' },
+  'High':      { label: 'High',      color: '#7F1D1D' },
+  'Very high': { label: 'Very high', color: '#7F1D1D' },
 }
 
 function getRiskMeta(level: string | null) {
@@ -156,7 +156,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
             textDecoration: 'none',
           }}
         >
-          <span>HPD overview</span>
+          <span>Housing Conditions Report</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14M13 6l6 6-6 6"/>
           </svg>

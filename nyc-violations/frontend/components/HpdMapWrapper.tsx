@@ -12,10 +12,10 @@ const Map = dynamic(() => import('./Map'), { ssr: false })
 const HPD_CLUSTERS_URL = '/api/proxy/hpd/map/clusters'
 
 const LEGEND = [
-  { tier: 'very-high', color: '#EF4637', label: 'Emergency'     },
-  { tier: 'high',      color: '#F5A047', label: 'Hazardous'     },
-  { tier: 'moderate',  color: '#FFD930', label: 'Non-hazardous' },
-  { tier: 'low',       color: '#A8E5A0', label: 'Resolved'      },
+  { tier: 'low',       color: '#84A98C', label: 'Resolved'      },
+  { tier: 'moderate',  color: '#E4A11B', label: 'Non-hazardous' },
+  { tier: 'high',      color: '#BC4B33', label: 'Hazardous'     },
+  { tier: 'very-high', color: '#7F1D1D', label: 'Emergency'     },
 ]
 
 type FlyTarget = { lng: number; lat: number; id: number }

@@ -1,4 +1,58 @@
-export default function RankViz({ percentile }: { percentile: number | null }) {
+type Marker = { percentile: number | null; label: string }
+
+const MARKER_COLORS = ['#7F1D1D', '#1D4ED8']
+
+function Track({ y }: { y: number }) {
+  return (
+    <>
+      <rect x="0"   y={y} width="44" height="6" fill="#84A98C" opacity="0.45" />
+      <rect x="44"  y={y} width="44" height="6" fill="#84A98C" opacity="0.7" />
+      <rect x="88"  y={y} width="44" height="6" fill="#E4A11B" opacity="0.6" />
+      <rect x="132" y={y} width="44" height="6" fill="#E4A11B" opacity="0.85" />
+      <rect x="176" y={y} width="44" height="6" fill="#7F1D1D" opacity="0.7" />
+    </>
+  )
+}
+
+export default function RankViz({
+  percentile,
+  markers,
+}: {
+  percentile?: number | null
+  markers?: Marker[]
+}) {
+  if (markers) {
+    return (
+      <svg viewBox="0 0 220 58" style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <Track y={18} />
+        {markers.map((m, i) => {
+          if (m.percentile == null) return null
+          const color = MARKER_COLORS[i] ?? '#111111'
+          const cx = Math.min(Math.max((m.percentile / 100) * 220, 6), 214)
+          return (
+            <g key={i}>
+              <line x1={cx} y1="10" x2={cx} y2="32" stroke={color} strokeWidth="1.5" />
+              <circle cx={cx} cy="21" r="4" fill="#FFFFFF" stroke={color} strokeWidth="1.5" />
+            </g>
+          )
+        })}
+        {/* Legend */}
+        {markers.map((m, i) => {
+          const color = MARKER_COLORS[i] ?? '#111111'
+          const x = i === 0 ? 0 : 112
+          return (
+            <g key={i} transform={`translate(${x}, 40)`}>
+              <line x1="0" y1="4" x2="10" y2="4" stroke={color} strokeWidth="1.5" />
+              <circle cx="5" cy="4" r="2.5" fill="#FFFFFF" stroke={color} strokeWidth="1.5" />
+              <text x="14" y="8" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">{m.label}</text>
+            </g>
+          )
+        })}
+      </svg>
+    )
+  }
+
+  // Single-marker (legacy)
   if (percentile == null) {
     return (
       <svg viewBox="0 0 220 48" style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -9,14 +63,9 @@ export default function RankViz({ percentile }: { percentile: number | null }) {
   }
 
   const markerX = Math.min(Math.max((percentile / 100) * 220, 6), 214)
-
   return (
     <svg viewBox="0 0 220 48" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <rect x="0"   y="26" width="44" height="6" fill="#84A98C" opacity="0.45" />
-      <rect x="44"  y="26" width="44" height="6" fill="#84A98C" opacity="0.7" />
-      <rect x="88"  y="26" width="44" height="6" fill="#E4A11B" opacity="0.6" />
-      <rect x="132" y="26" width="44" height="6" fill="#E4A11B" opacity="0.85" />
-      <rect x="176" y="26" width="44" height="6" fill="#7F1D1D" opacity="0.7" />
+      <Track y={26} />
       <line x1={markerX} y1="18" x2={markerX} y2="40" stroke="#111111" strokeWidth="1.5" />
       <circle cx={markerX} cy="29" r="4" fill="#FFFFFF" stroke="#111111" strokeWidth="1.5" />
     </svg>

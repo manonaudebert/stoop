@@ -387,9 +387,10 @@ WITH base AS (
                 ELSE            1.0
             END *
             CASE
-                WHEN v.nov_issued_date >= CURRENT_DATE - INTERVAL '2 years' THEN 1.00
-                WHEN v.nov_issued_date >= CURRENT_DATE - INTERVAL '5 years' THEN 0.50
-                ELSE                                                              0.25
+                WHEN v.nov_issued_date >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN v.nov_issued_date >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN v.nov_issued_date >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
+                -- older than 10 years: NULL excluded from SUM
             END
         ), 0.0)                                     AS weighted_violation_sum
     FROM hpd_violations v
@@ -474,9 +475,10 @@ WITH base AS (
                 ELSE                             3.0
             END *
             CASE
-                WHEN c.received_date >= CURRENT_DATE - INTERVAL '2 years' THEN 1.00
-                WHEN c.received_date >= CURRENT_DATE - INTERVAL '5 years' THEN 0.50
-                ELSE                                                            0.25
+                WHEN c.received_date >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN c.received_date >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN c.received_date >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
+                -- older than 10 years: NULL excluded from SUM
             END
         ), 0.0)                                     AS weighted_complaint_sum
     FROM hpd_complaints c

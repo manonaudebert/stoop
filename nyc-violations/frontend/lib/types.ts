@@ -182,3 +182,16 @@ export interface ComplaintCategoryBreakdownItem {
   count: number
   open_count: number
 }
+
+export interface ComplaintTypePeriodItem {
+  type: string              // IMMEDIATE EMERGENCY | EMERGENCY | NON EMERGENCY
+  recent_count: number      // last 12 months
+  prior_count: number       // prior 4 years (1–5 years ago)
+}
+
+export interface ComplaintResolutionItem {
+  bucket: string            // open | no_access | partial_no_access | inspected_violation |
+                            // inspected_no_violation | phone_resolved | insufficient_time |
+                            // lead_followup | section_8_failure | unknown
+  count: number
+}

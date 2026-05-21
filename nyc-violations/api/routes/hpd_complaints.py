@@ -12,6 +12,8 @@ from schemas import (
     HpdComplaintBuildingDetailResponse,
     HpdComplaintResponse,
     ComplaintCategoryBreakdownItem,
+    ComplaintTypePeriodItem,
+    ComplaintResolutionItem,
     TimelinePoint,
 )
 
@@ -301,5 +303,96 @@ async def get_hpd_complaint_breakdown(bin: str, db: AsyncSession = Depends(get_d
         )
         for r in rows
     ]
+    cache_set(cache_key, result)
+    return result
+
+
+@router.get("/building/{bin}/type-period-breakdown", response_model=list[ComplaintTypePeriodItem])
+async def get_hpd_complaint_type_period_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_complaint_type_period:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    rows = await db.execute(
+        text("""
+            SELECT
+                COALESCE(type, 'NON EMERGENCY') AS type,
+                COUNT(*) FILTER (
+                    WHERE received_date >= NOW() - INTERVAL '1 year'
+                ) AS recent_count,
+                COUNT(*) FILTER (
+                    WHERE received_date >= NOW() - INTERVAL '5 years'
+                      AND received_date <  NOW() - INTERVAL '1 year'
+                ) AS prior_count
+            FROM hpd_complaints
+            WHERE bin = :bin
+            GROUP BY 1
+        """),
+        {"bin": bin},
+    )
+    result = [
+        ComplaintTypePeriodItem(type=r.type, recent_count=r.recent_count, prior_count=r.prior_count)
+        for r in rows
+    ]
+    cache_set(cache_key, result)
+    return result
+
+
+# Mirrors classify_status() in classify_hpd_status.py — rules applied in the same order.
+_RESOLUTION_CASE = """
+    CASE
+        WHEN LOWER(status_description) LIKE '%not able to gain access to your apartment to inspect for a lack of heat or hot water. however, hpd was able to verify%'
+            THEN 'partial_no_access'
+        WHEN LOWER(status_description) LIKE '%violations were issued. however, hpd also identified potential lead-based paint%'
+            THEN 'inspected_violation'
+        WHEN LOWER(status_description) LIKE '%identified potential lead-based paint conditions. hpd will attempt to contact you to schedule a follow-up%'
+            THEN 'lead_followup'
+        WHEN LOWER(status_description) LIKE '%a section 8 failure was issued%'
+            THEN 'section_8_failure'
+        WHEN LOWER(status_description) LIKE '%did not have enough time to inspect%'
+            THEN 'insufficient_time'
+        WHEN LOWER(status_description) LIKE '%not able to gain access to inspect%'
+          OR LOWER(status_description) LIKE '%not able to gain access to your apartment%'
+          OR LOWER(status_description) LIKE '%unable to access the rooms%'
+          OR LOWER(status_description) LIKE '%unable to complete the inspection%'
+            THEN 'no_access'
+        WHEN LOWER(status_description) LIKE '%did not violate the housing laws%'
+          OR LOWER(status_description) LIKE '%no violations were issued%'
+          OR LOWER(status_description) LIKE '%heat was not required at the time of the inspection%'
+            THEN 'inspected_no_violation'
+        WHEN LOWER(status_description) LIKE '%violations were issued%'
+          OR LOWER(status_description) LIKE '%violations were previously issued%'
+            THEN 'inspected_violation'
+        WHEN LOWER(status_description) LIKE '%called the telephone number on file%'
+          OR LOWER(status_description) LIKE '%verified that the following conditions were corrected%'
+          OR LOWER(status_description) LIKE '%confirmed heat and hot water had been restored%'
+          OR LOWER(status_description) LIKE '%advised by a tenant in the building that heat and hot water had been restored%'
+            THEN 'phone_resolved'
+        WHEN complaint_status = 'Open'
+            THEN 'open'
+        ELSE 'unknown'
+    END
+"""
+
+
+@router.get("/building/{bin}/resolution-breakdown", response_model=list[ComplaintResolutionItem])
+async def get_hpd_complaint_resolution_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_complaint_resolution:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    rows = await db.execute(
+        text(f"""
+            SELECT {_RESOLUTION_CASE} AS bucket, COUNT(*) AS count
+            FROM hpd_complaints
+            WHERE bin = :bin
+            GROUP BY 1
+            ORDER BY count DESC
+        """),
+        {"bin": bin},
+    )
+    result = [ComplaintResolutionItem(bucket=r.bucket, count=r.count) for r in rows]
     cache_set(cache_key, result)
     return result

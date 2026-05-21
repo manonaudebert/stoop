@@ -26,7 +26,7 @@ export default function InsightCard({ eyebrow, aside, headline, sub, tooltip, ch
       <div style={{ fontSize: 15, fontWeight: 500, color: '#111111', marginBottom: 4, lineHeight: 1.3 }}>
         {headline}
       </div>
-      <div style={{ fontSize: 12, color: '#525252', marginBottom: 16, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 12, color: '#525252', marginBottom: 16, lineHeight: 1.5, whiteSpace: 'pre-line' }}>
         {sub}
       </div>
       {children}

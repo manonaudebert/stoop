@@ -1,3 +1,4 @@
+import React from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { fmtDate } from '@/lib/fmt'
@@ -5,6 +6,7 @@ import RankViz from '@/components/RankViz'
 import {
   getHpdBuilding, getHpdTimeline, getHpdBreakdown,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
+  getHpdComplaintTypePeriodBreakdown, getHpdComplaintResolutionBreakdown,
 } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
@@ -15,7 +17,7 @@ import Pagination from '@/components/Pagination'
 import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
-import type { TimelinePoint, HpdViolation, HpdComplaint } from '@/lib/types'
+import type { TimelinePoint, HpdViolation, HpdComplaint, ComplaintTypePeriodItem, ComplaintResolutionItem } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -253,6 +255,127 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
   )
 }
 
+function TotalComplaintsCard({ total, timeline }: { total: number; timeline: TimelinePoint[] }) {
+  const now = new Date()
+  const firstYear = timeline.length > 0 ? parseInt(timeline[0].month.slice(0, 4)) : now.getFullYear()
+  const yearsSpanned = now.getFullYear() - firstYear + 1
+  const avgPerYearRaw = yearsSpanned > 0 ? total / yearsSpanned : 0
+  const avgPerYear = Math.round(avgPerYearRaw)
+  const avgPerYearDisplay = avgPerYearRaw > 0 && avgPerYearRaw < 1 ? '<1' : avgPerYear.toLocaleString()
+
+  const twoYearsAgo  = `${now.getFullYear() - 2}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const fourYearsAgo = `${now.getFullYear() - 4}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const recent = timeline.filter(p => p.month >= twoYearsAgo).reduce((s, p) => s + p.count, 0)
+  const prior  = timeline.filter(p => p.month >= fourYearsAgo && p.month < twoYearsAgo).reduce((s, p) => s + p.count, 0)
+
+  let trendLabel: string
+  let trendColor: string
+  if (avgPerYear < 2) {
+    trendLabel = '— Not enough history to determine trend'
+    trendColor = '#A3A3A3'
+  } else if (prior === 0) {
+    trendLabel = recent > 0 ? '↑ Rising — no prior history' : '— No trend data'
+    trendColor = recent > 0 ? '#92400E' : '#A3A3A3'
+  } else {
+    const pct = Math.round(((recent - prior) / prior) * 100)
+    if (pct >= 10)       { trendLabel = `↑ Up ${pct}% in the last 2 years`;          trendColor = '#7F1D1D' }
+    else if (pct <= -10) { trendLabel = `↓ Down ${Math.abs(pct)}% in the last 2 years`; trendColor = '#166534' }
+    else                 { trendLabel = '→ Stable in the last 2 years';               trendColor = '#737373' }
+  }
+
+  return (
+    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
+        Total complaints since {firstYear}
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
+        {total.toLocaleString()}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+          {avgPerYearDisplay} per year avg.
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: trendColor }}>
+          {trendLabel}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+const RESOLUTION_ROWS: { keys: string[]; label: string }[] = [
+  { keys: ['no_access', 'partial_no_access'],          label: 'No access' },
+  { keys: ['inspected_violation'],                     label: 'Violation issued' },
+  { keys: ['inspected_no_violation'],                  label: 'No violation' },
+  { keys: ['phone_resolved'],                          label: 'Phone resolved' },
+  { keys: ['open', 'insufficient_time', 'lead_followup', 'section_8_failure', 'unknown'], label: 'Other' },
+]
+
+function ComplaintResolutionCard({ data }: { data: ComplaintResolutionItem[] }) {
+  const byBucket = Object.fromEntries(data.map(d => [d.bucket, d.count]))
+  const total = data.reduce((s, d) => s + d.count, 0)
+  const pct = (n: number) => total === 0 ? '—' : `${Math.round((n / total) * 100)}%`
+
+  return (
+    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+        Complaint Resolution
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0 16px' }}>
+        {RESOLUTION_ROWS.map(({ keys, label }) => {
+          const n = keys.reduce((s, k) => s + (byBucket[k] ?? 0), 0)
+          return (
+            <React.Fragment key={label}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(n)}</span>
+            </React.Fragment>
+          )
+        })}
+        <span />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({total.toLocaleString()})</span>
+      </div>
+    </div>
+  )
+}
+
+function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) {
+  const TYPES = [
+    { key: 'IMMEDIATE EMERGENCY', label: 'Immed. Emergency' },
+    { key: 'EMERGENCY',           label: 'Emergency' },
+    { key: 'NON EMERGENCY',       label: 'Non-Emergency' },
+  ]
+  const get = (key: string) => data.find(d => d.type === key) ?? { recent_count: 0, prior_count: 0 }
+  const recentTotal = data.reduce((s, d) => s + d.recent_count, 0)
+  const priorTotal  = data.reduce((s, d) => s + d.prior_count, 0)
+  const pct = (n: number, total: number) => total === 0 ? '—' : `${Math.round((n / total) * 100)}%`
+
+  return (
+    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+        Urgency breakdown
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 16px' }}>
+        <span />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', whiteSpace: 'nowrap' }}>Last 12 mo.</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', whiteSpace: 'nowrap' }}>Prior 4 yr.</span>
+        {TYPES.map(({ key, label }) => {
+          const d = get(key)
+          return (
+            <React.Fragment key={key}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.recent_count, recentTotal)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.prior_count, priorTotal)}</span>
+            </React.Fragment>
+          )
+        })}
+        <span />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({recentTotal.toLocaleString()})</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({priorTotal.toLocaleString()})</span>
+      </div>
+    </div>
+  )
+}
+
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default async function HpdOverviewPage({
@@ -277,13 +400,15 @@ export default async function HpdOverviewPage({
   const ccat = sp.ccat
   const cst = sp.cst
 
-  const [violations, violationTimeline, violationBreakdown, complaints, complaintTimeline, complaintBreakdown] = await Promise.all([
+  const [violations, violationTimeline, violationBreakdown, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution] = await Promise.all([
     getHpdBuilding(bin, 1).catch(() => null),
     getHpdTimeline(bin).catch(() => [] as TimelinePoint[]),
     getHpdBreakdown(bin).catch(() => []),
     getHpdComplaintBuilding(bin, 1).catch(() => null),
     getHpdComplaintTimeline(bin).catch(() => [] as TimelinePoint[]),
     getHpdComplaintBreakdown(bin).catch(() => []),
+    getHpdComplaintTypePeriodBreakdown(bin).catch(() => [] as ComplaintTypePeriodItem[]),
+    getHpdComplaintResolutionBreakdown(bin).catch(() => [] as ComplaintResolutionItem[]),
   ])
 
   if (!violations && !complaints) notFound()
@@ -320,6 +445,8 @@ export default async function HpdOverviewPage({
   const openClassA  = violationBreakdown.filter(d => d.violation_class === 'A').reduce((s, d) => s + d.open_count, 0)
   const totalClassC = violationBreakdown.filter(d => d.violation_class === 'C').reduce((s, d) => s + d.count, 0)
   const totalClassB = violationBreakdown.filter(d => d.violation_class === 'B').reduce((s, d) => s + d.count, 0)
+
+  const violFirstYear = violationTimeline.length > 0 ? violationTimeline[0].month.slice(0, 4) : null
 
   const breakdownOpenC = openViolations > 0 ? openClassC : 0
   const breakdownOpenB = openViolations > 0 ? openClassB : 0
@@ -362,13 +489,13 @@ export default async function HpdOverviewPage({
   const recentTotal   = recentViol + recentCompl
   const historicTotal = historicViol + historicCompl
 
-  const activityHeadline = recentTotal === 0 && historicTotal > 0
-    ? 'Issues are historical — nothing filed recently'
-    : recentTotal > 0 && recentTotal >= historicTotal * 0.5
-    ? 'Active period — significant recent HPD activity'
-    : recentTotal > 0
-    ? 'Some recent activity against a longer history'
-    : 'No HPD timeline history on record'
+  const activityHeadline =
+      historicTotal === 0 && recentTotal === 0 ? 'No HPD activity on record'
+    : recentTotal === 0                         ? 'No recent activity, older records on file'
+    : recentTotal < 5  && historicTotal < 5     ? 'Few HPD records on file'
+    : recentTotal < 5  && historicTotal >= 5    ? 'Mostly historical, limited recent activity'
+    : recentTotal >= 5 && recentTotal >= historicTotal * 0.5 ? 'More activity recently than in past years'
+    :                                             'A steady level of activity over time'
 
   const activitySub = recentTotal + historicTotal > 0
     ? `Last 2 yrs: ${recentViol} violation${recentViol !== 1 ? 's' : ''} · ${recentCompl} complaint${recentCompl !== 1 ? 's' : ''}`
@@ -398,21 +525,35 @@ export default async function HpdOverviewPage({
   const violPct = violations?.violations_density_pct ?? null
   const complPct = complaints?.complaints_density_pct ?? null
 
-  function pctHeadline(vp: number | null, cp: number | null): string {
+function pctHeadline(vp: number | null, cp: number | null): string {
     const primary = vp ?? cp
+    const metric = vp !== null ? 'violations' : 'complaints'
     if (primary === null) return 'Not enough data to compare building size'
     const better = Math.round(100 - primary)
-    if (primary <= 20) return `Fewer issues than ${better}% of nearby buildings`
-    if (primary <= 40) return `Below-average issue rate for the neighborhood`
-    if (primary <= 60) return `Around average for the neighborhood`
-    if (primary <= 80) return `Above-average issue rate for the neighborhood`
-    return `More issues than ${primary}% of nearby buildings`
+    if (primary <= 20) return `Fewer ${metric} than ${better}% of nearby buildings`
+    if (primary <= 40) return `Below-average ${metric} for the neighborhood`
+    if (primary <= 60) return `Around average ${metric} for the neighborhood`
+    if (primary <= 80) return `Above-average ${metric} for the neighborhood`
+    return `More ${metric} than ${primary}% of nearby buildings`
+  }
+
+  function pctPhrase(pct: number, metric: string): string {
+    const r = Math.round(pct)
+    return pct >= 50
+      ? `more ${metric} than ${r}% of buildings`
+      : `fewer ${metric} than ${100 - r}% of buildings`
   }
 
   function pctSub(vp: number | null, cp: number | null, nta: string): string {
     if (vp === null && cp === null)
       return 'Building footprint or height data is missing — size-normalized ranking unavailable.'
-    return `Size-normalized and ranked against residential buildings in ${nta || 'the same neighborhood'}. Adjusts for building scale so a tower and a brownstone are compared fairly.`
+    const loc = nta || 'the neighborhood'
+    const parts: string[] = []
+    if (vp !== null) parts.push(pctPhrase(vp, 'violations'))
+    if (cp !== null) parts.push(pctPhrase(cp, 'complaints'))
+    const joined = parts.join(' and ')
+    const first = joined.charAt(0).toUpperCase() + joined.slice(1)
+    return `${first} in ${loc}.\nSize-normalized against residential buildings in the neighborhood for issues in the last 10 years.`
   }
 
   const neighborhoodHeadline = pctHeadline(violPct, complPct)
@@ -477,7 +618,7 @@ export default async function HpdOverviewPage({
 
   return (
     <>
-      <BuildingNavBar backHref="/hpd" backLabel="← HPD map" />
+      <BuildingNavBar backHref="/hpd" backLabel="← Back to map" />
 
       <main style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 80px' }}>
 
@@ -510,7 +651,10 @@ export default async function HpdOverviewPage({
             <CombinedTrendViz violTimeline={violationTimeline} complTimeline={complaintTimeline} />
           </InsightCard>
           <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
-            <RankViz percentile={violPct ?? complPct} />
+            <RankViz markers={[
+              { percentile: violPct, label: 'Violations' },
+              { percentile: complPct, label: 'Complaints' },
+            ]} />
           </InsightCard>
         </div>
 
@@ -520,7 +664,7 @@ export default async function HpdOverviewPage({
             HPD Violations
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            <StatCard label="Total violations"           value={totalViolations} />
+            <StatCard label={violFirstYear ? `Total violations since ${violFirstYear}` : 'Total violations'} value={totalViolations} />
             <StatCard label="Open violations"            value={openViolations} />
             <StatCard label="Open Class C (immed. haz.)" value={openClassC} tooltip="Verified violations posing immediate danger to occupants, including no heat or hot water, lead paint, mold, rodent/roach infestations, and structural hazards. Default correction window is 24 hours, with longer windows for certain categories (e.g., 21 days for lead and pests)." />
             <StatCard label="Open rent-impairing"        value={rentImpairing} tooltip="A specific subset of violations designated by HPD under Multiple Dwelling Law as constituting a fire hazard or serious threat to life, health, or safety. If left uncorrected for more than six months, the landlord is barred from collecting rent (subject to the tenant following statutory procedures)." />
@@ -532,9 +676,9 @@ export default async function HpdOverviewPage({
             HPD Complaints (tenant-reported)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-            <StatCard label="Total complaints" value={totalComplaints} />
-            <StatCard label="Open complaints"  value={openComplaints} />
-            <StatCard label="Open emergency"   value={emergencyComplaints} tooltip="Active tenant-reported complaints currently flagged for emergency response, typically no heat, no hot water, no gas, major leaks, or hazardous conditions targeted for inspection within ~24 hours." />
+            <TotalComplaintsCard total={totalComplaints} timeline={complaintTimeline} />
+            <ComplaintResolutionCard data={complaintResolution} />
+            <ComplaintTypePeriodCard data={complaintTypePeriod} />
             <StatCard label="Heat/hot water"   value={heatComplaints} />
           </div>
         </div>

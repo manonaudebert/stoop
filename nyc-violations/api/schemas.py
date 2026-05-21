@@ -210,3 +210,16 @@ class ComplaintCategoryBreakdownItem(BaseModel):
     major_category: str
     count: int
     open_count: int
+
+
+class ComplaintTypePeriodItem(BaseModel):
+    type: str                 # IMMEDIATE EMERGENCY / EMERGENCY / NON EMERGENCY
+    recent_count: int         # last 12 months
+    prior_count: int          # prior 4 years (1–5 years ago)
+
+
+class ComplaintResolutionItem(BaseModel):
+    bucket: str               # open | no_access | partial_no_access | inspected_violation |
+                              # inspected_no_violation | phone_resolved | insufficient_time |
+                              # lead_followup | section_8_failure | unknown
+    count: int

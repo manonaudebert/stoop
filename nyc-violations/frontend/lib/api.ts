@@ -113,3 +113,11 @@ export async function getHpdComplaintTimeline(bin: string): Promise<TimelinePoin
 export async function getHpdComplaintBreakdown(bin: string): Promise<ComplaintCategoryBreakdownItem[]> {
   return get(`/hpd-complaints/building/${bin}/breakdown`)
 }
+
+export async function getHpdComplaintTypePeriodBreakdown(bin: string): Promise<ComplaintTypePeriodItem[]> {
+  return get(`/hpd-complaints/building/${bin}/type-period-breakdown`)
+}
+
+export async function getHpdComplaintResolutionBreakdown(bin: string): Promise<ComplaintResolutionItem[]> {
+  return get(`/hpd-complaints/building/${bin}/resolution-breakdown`)
+}

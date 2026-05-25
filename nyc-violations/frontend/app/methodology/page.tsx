@@ -45,7 +45,7 @@ const HPD_VIOLATION_CLASSES = [
     border: '0.5px solid #E5E5E5', examples: 'Administrative notices, permit-related items' },
 ]
 
-const HPD_COMPLAINT_TYPES = [
+const HPD_COMPLAINT_TYPES: { label: string; weight: number; color: string; textColor: string; examples: string; border?: string }[] = [
   { label: 'IMMEDIATE EMERGENCY', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
     examples: 'No heat in winter, gas leak, sewage backup, structural collapse risk' },
   { label: 'EMERGENCY', weight: 8, color: '#FEF3C7', textColor: '#92400E',

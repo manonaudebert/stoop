@@ -223,3 +223,9 @@ class ComplaintResolutionItem(BaseModel):
                               # inspected_no_violation | phone_resolved | insufficient_time |
                               # lead_followup | section_8_failure | unknown
     count: int
+
+
+class ComplaintMinorBreakdownItem(BaseModel):
+    minor_category: str
+    count: int
+    open_count: int

@@ -8,10 +8,14 @@ export type HpdSelectedBuilding = {
   address: string | null
   borough: string | null
   zip_code: string | null
-  risk_level: string | null
+  risk_level?: string | null
+  hpd_risk_tier?: string | null
   total_complaints: number
   open_complaints: number
-  open_emergency_complaints: number
+  open_emergency_complaints?: number
+  priority_a_complaints?: number
+  class_b_violations?: number
+  rent_impairing_count?: number
 }
 
 type ViolationSummary = {
@@ -59,7 +63,7 @@ type Props = {
 }
 
 export default function HpdBuildingSidebar({ building, onClose }: Props) {
-  const meta = getRiskMeta(building.risk_level)
+  const meta = getRiskMeta(building.risk_level ?? null)
   const [violations, setViolations] = useState<ViolationSummary | null | 'loading'>('loading')
 
   useEffect(() => {
@@ -129,7 +133,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <StatCell label="Total"       value={building.total_complaints} />
           <StatCell label="Open"        value={building.open_complaints} />
-          <StatCell label="Open emergency" value={building.open_emergency_complaints} />
+          <StatCell label="Open emergency" value={building.open_emergency_complaints ?? null} />
         </div>
       </div>
 

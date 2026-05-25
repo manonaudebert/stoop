@@ -1,4 +1,4 @@
-import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem } from './types'
+import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem } from './types'
 
 export class ApiError extends Error {
   constructor(public status: number, path: string) {
@@ -112,6 +112,10 @@ export async function getHpdComplaintTimeline(bin: string): Promise<TimelinePoin
 
 export async function getHpdComplaintBreakdown(bin: string): Promise<ComplaintCategoryBreakdownItem[]> {
   return get(`/hpd-complaints/building/${bin}/breakdown`)
+}
+
+export async function getHpdComplaintMinorBreakdown(bin: string): Promise<ComplaintMinorBreakdownItem[]> {
+  return get(`/hpd-complaints/building/${bin}/minor-breakdown`)
 }
 
 export async function getHpdComplaintTypePeriodBreakdown(bin: string): Promise<ComplaintTypePeriodItem[]> {

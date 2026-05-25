@@ -6,8 +6,10 @@ import RankViz from '@/components/RankViz'
 import {
   getHpdBuilding, getHpdTimeline, getHpdBreakdown,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
+  getHpdComplaintMinorBreakdown,
   getHpdComplaintTypePeriodBreakdown, getHpdComplaintResolutionBreakdown,
 } from '@/lib/api'
+import { MINOR_TO_GROUP } from '@/lib/constants'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
 import BuildingCrossLinks from '@/components/BuildingCrossLinks'
@@ -400,7 +402,7 @@ export default async function HpdOverviewPage({
   const ccat = sp.ccat
   const cst = sp.cst
 
-  const [violations, violationTimeline, violationBreakdown, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution] = await Promise.all([
+  const [violations, violationTimeline, violationBreakdown, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution, minorBreakdown] = await Promise.all([
     getHpdBuilding(bin, 1).catch(() => null),
     getHpdTimeline(bin).catch(() => [] as TimelinePoint[]),
     getHpdBreakdown(bin).catch(() => []),
@@ -409,6 +411,7 @@ export default async function HpdOverviewPage({
     getHpdComplaintBreakdown(bin).catch(() => []),
     getHpdComplaintTypePeriodBreakdown(bin).catch(() => [] as ComplaintTypePeriodItem[]),
     getHpdComplaintResolutionBreakdown(bin).catch(() => [] as ComplaintResolutionItem[]),
+    getHpdComplaintMinorBreakdown(bin).catch(() => []),
   ])
 
   if (!violations && !complaints) notFound()
@@ -438,6 +441,19 @@ export default async function HpdOverviewPage({
   const openComplaints      = complaints?.open_complaints ?? 0
   const emergencyComplaints = complaints?.open_emergency_complaints ?? 0
   const heatComplaints      = complaints?.heat_complaints ?? 0
+
+  const COMPLAINT_BREAKDOWN_GROUPS = [
+    { key: 'heating_hot_water',               label: 'Heat / hot water' },
+    { key: 'water_damage_plumbing',           label: 'Water & plumbing' },
+    { key: 'mold_pests_sanitation',           label: 'Mold & pests' },
+    { key: 'building_maintenance_operations', label: 'Bldg maintenance' },
+  ] as const
+
+  const groupCounts = minorBreakdown.reduce<Record<string, number>>((acc, item) => {
+    const group = MINOR_TO_GROUP[item.minor_category]
+    if (group) acc[group] = (acc[group] ?? 0) + item.count
+    return acc
+  }, {})
   const latestComplDate     = complaints?.latest_complaint_date ?? null
 
   const openClassC  = violationBreakdown.filter(d => d.violation_class === 'C').reduce((s, d) => s + d.open_count, 0)
@@ -679,7 +695,26 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             <TotalComplaintsCard total={totalComplaints} timeline={complaintTimeline} />
             <ComplaintResolutionCard data={complaintResolution} />
             <ComplaintTypePeriodCard data={complaintTypePeriod} />
-            <StatCard label="Heat/hot water"   value={heatComplaints} />
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+                Top categories (past 5 yrs)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {COMPLAINT_BREAKDOWN_GROUPS.map(({ key, label }) => {
+                  const count = groupCounts[key] ?? 0
+                  const pct = totalComplaints > 0 ? Math.round(count / totalComplaints * 100) : 0
+                  return (
+                    <div key={key} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
+                      <span style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>({count.toLocaleString()})</span>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

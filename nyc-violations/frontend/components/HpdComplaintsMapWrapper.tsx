@@ -118,7 +118,7 @@ export default function HpdComplaintsMapWrapper() {
   return (
     <div className="relative w-full h-full">
       <Map
-        onBuildingSelect={handleMapSelect as Parameters<typeof Map>[0]['onBuildingSelect']}
+        onBuildingSelect={handleMapSelect as any}
         flyTarget={flyTarget}
         selectedBin={selected?.bin ?? null}
         visibleTiers={visibleTiersArray}

@@ -12,6 +12,7 @@ from schemas import (
     HpdComplaintBuildingDetailResponse,
     HpdComplaintResponse,
     ComplaintCategoryBreakdownItem,
+    ComplaintMinorBreakdownItem,
     ComplaintTypePeriodItem,
     ComplaintResolutionItem,
     TimelinePoint,
@@ -298,6 +299,40 @@ async def get_hpd_complaint_breakdown(bin: str, db: AsyncSession = Depends(get_d
         ComplaintCategoryBreakdownItem(
             type=r.type,
             major_category=r.major_category,
+            count=r.count,
+            open_count=r.open_count,
+        )
+        for r in rows
+    ]
+    cache_set(cache_key, result)
+    return result
+
+
+@router.get("/building/{bin}/minor-breakdown", response_model=list[ComplaintMinorBreakdownItem])
+async def get_hpd_complaint_minor_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_complaint_minor_breakdown:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    rows = await db.execute(
+        text("""
+            SELECT
+                minor_category,
+                COUNT(*)                                                 AS count,
+                COUNT(*) FILTER (WHERE complaint_status = 'Open')        AS open_count
+            FROM hpd_complaints
+            WHERE bin = :bin
+              AND minor_category IS NOT NULL
+              AND received_date >= NOW() - INTERVAL '5 years'
+            GROUP BY minor_category
+            ORDER BY count DESC
+        """),
+        {"bin": bin},
+    )
+    result = [
+        ComplaintMinorBreakdownItem(
+            minor_category=r.minor_category,
             count=r.count,
             open_count=r.open_count,
         )

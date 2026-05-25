@@ -195,3 +195,9 @@ export interface ComplaintResolutionItem {
                             // lead_followup | section_8_failure | unknown
   count: number
 }
+
+export interface ComplaintMinorBreakdownItem {
+  minor_category: string
+  count: number
+  open_count: number
+}

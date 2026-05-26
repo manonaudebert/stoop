@@ -201,3 +201,8 @@ export interface ComplaintMinorBreakdownItem {
   count: number
   open_count: number
 }
+
+export interface ViolationAgeBucketItem {
+  bucket: string  // <30d | 30-90d | 3-12mo | 1-3yr | 3yr+
+  count: number
+}

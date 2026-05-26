@@ -230,7 +230,7 @@ export default async function HpdComplaintsBuildingPage({
           {/* Complaint breakdown by renter-facing group */}
           <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
-              Top categories (past 5 yrs)
+              Top groups (past 5 yrs)
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {BREAKDOWN_GROUPS.map(({ key, label }) => {

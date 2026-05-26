@@ -12,6 +12,7 @@ from schemas import (
     HpdBuildingDetailResponse,
     HpdViolationResponse,
     ViolationClassBreakdownItem,
+    ViolationAgeBucketItem,
     TimelinePoint,
 )
 
@@ -293,6 +294,80 @@ async def get_hpd_timeline(bin: str, db: AsyncSession = Depends(get_db)):
         {"bin": bin},
     )
     result = [TimelinePoint(month=r.month, count=r.count) for r in rows]
+    cache_set(cache_key, result)
+    return result
+
+
+@router.get("/building/{bin}/open-ages", response_model=list[ViolationAgeBucketItem])
+async def get_hpd_open_violation_ages(bin: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_open_ages:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    rows = await db.execute(
+        text("""
+            SELECT
+                CASE
+                    WHEN NOW() - nov_issued_date < INTERVAL '30 days'  THEN '<30d'
+                    WHEN NOW() - nov_issued_date < INTERVAL '90 days'  THEN '30-90d'
+                    WHEN NOW() - nov_issued_date < INTERVAL '1 year'   THEN '3-12mo'
+                    WHEN NOW() - nov_issued_date < INTERVAL '3 years'  THEN '1-3yr'
+                    ELSE '3yr+'
+                END AS bucket,
+                COUNT(*) AS count
+            FROM hpd_violations
+            WHERE bin = :bin
+              AND violation_status = 'Open'
+              AND nov_issued_date IS NOT NULL
+            GROUP BY bucket
+            ORDER BY MIN(nov_issued_date)
+        """),
+        {"bin": bin},
+    )
+    bucket_order = ['<30d', '30-90d', '3-12mo', '1-3yr', '3yr+']
+    by_bucket = {r.bucket: r.count for r in rows}
+    result = [
+        ViolationAgeBucketItem(bucket=b, count=by_bucket[b])
+        for b in bucket_order if b in by_bucket
+    ]
+    cache_set(cache_key, result)
+    return result
+
+
+@router.get("/building/{bin}/breakdown-recent", response_model=list[ViolationClassBreakdownItem])
+async def get_hpd_breakdown_recent(bin: str, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_breakdown_recent:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    rows = await db.execute(
+        text("""
+            SELECT
+                v.violation_class,
+                o.category,
+                COUNT(*)                                              AS count,
+                COUNT(*) FILTER (WHERE v.violation_status = 'Open')  AS open_count
+            FROM hpd_violations v
+            LEFT JOIN hpd_order_numbers o ON v.order_number = o.order_number
+            WHERE v.bin = :bin
+              AND v.violation_class IS NOT NULL
+              AND v.nov_issued_date >= NOW() - INTERVAL '5 years'
+            GROUP BY v.violation_class, o.category
+            ORDER BY count DESC
+        """),
+        {"bin": bin},
+    )
+    result = [
+        ViolationClassBreakdownItem(
+            violation_class=r.violation_class,
+            category=r.category,
+            count=r.count,
+            open_count=r.open_count,
+        )
+        for r in rows
+    ]
     cache_set(cache_key, result)
     return result
 

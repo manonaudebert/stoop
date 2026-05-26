@@ -229,3 +229,8 @@ class ComplaintMinorBreakdownItem(BaseModel):
     minor_category: str
     count: int
     open_count: int
+
+
+class ViolationAgeBucketItem(BaseModel):
+    bucket: str   # <30d | 30-90d | 3-12mo | 1-3yr | 3yr+
+    count: int

@@ -36,7 +36,6 @@ export interface BuildingSummary {
   closed_5yr_complaints: number
   first_complaint_date: string | null
   latest_complaint_date: string | null
-  score: number | null
   construction_year: string | null
   nta_code: string | null
   nta_name: string | null
@@ -46,20 +45,15 @@ export interface BuildingSummary {
   trend_direction: string | null
   recent_complaint_count: number | null
   prior_complaint_count: number | null
-  neighborhood_percentile: number | null
+  normalized_percentile: number | null
 }
 
 export interface NeighborhoodData {
   nta_code: string
   nta_name: string
   building_count: number
-  avg_score: number | null
-  median_score: number | null
-  p25_score: number | null
-  p75_score: number | null
   nta_percentile: number | null
   median_serious_rate: number | null
-  peer_scores: number[]
 }
 
 export interface BuildingDetail extends BuildingSummary {

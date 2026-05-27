@@ -112,25 +112,6 @@ function BuildingRow({
             </p>
           </div>
 
-          {/* Score */}
-          <div style={{
-            borderLeft: `3px solid ${barColor}`,
-            borderRadius: 4,
-            paddingLeft: 10,
-            textAlign: 'left',
-            minWidth: 48,
-            flexShrink: 0,
-          }}>
-            <p style={{
-              fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 500,
-              color: '#111111', margin: 0, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-            }}>
-              {building.score != null ? building.score.toFixed(0) : '—'}
-            </p>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#737373', margin: '2px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              score
-            </p>
-          </div>
         </div>
       </div>
     </Link>

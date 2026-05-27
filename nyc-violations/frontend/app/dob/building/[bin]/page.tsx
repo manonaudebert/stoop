@@ -414,15 +414,15 @@ export default async function BuildingPage({
   // Card 3: Rank
   const headline3 = insufficient  ? `Too few complaints to rank against ${ntaName}`
     : notComparable              ? 'Neighborhood comparison not available'
-    : (building.neighborhood_percentile ?? 0) >= 90 ? `Among the most complained-about buildings in ${ntaName}`
-    : (building.neighborhood_percentile ?? 0) >= 70 ? `Worse than most buildings in ${ntaName}`
-    : (building.neighborhood_percentile ?? 0) >= 40 ? `About average for ${ntaName}`
+    : (building.normalized_percentile ?? 0) >= 90 ? `Among the most complained-about buildings in ${ntaName}`
+    : (building.normalized_percentile ?? 0) >= 70 ? `Worse than most buildings in ${ntaName}`
+    : (building.normalized_percentile ?? 0) >= 40 ? `About average for ${ntaName}`
     : `Better than most buildings in ${ntaName}`
   const sub3 = insufficient
     ? 'Buildings need at least 10 complaints and 2 years of history to rank.'
     : notComparable
     ? 'This building is in a park, airport, cemetery, or other non-residential area.'
-    : `More complaints than ${Math.round(building.neighborhood_percentile!)}% of residential buildings in ${ntaName} over the last 10 years.`
+    : `More complaints than ${Math.round(building.normalized_percentile!)}% of residential buildings in ${ntaName} over the last 10 years.`
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -456,7 +456,7 @@ export default async function BuildingPage({
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
           <InsightCard eyebrow="Neighborhood" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3}>
-            <RankViz percentile={notComparable || insufficient ? null : building.neighborhood_percentile} />
+            <RankViz percentile={notComparable || insufficient ? null : building.normalized_percentile} />
           </InsightCard>
           <InsightCard eyebrow="Activity Trends" aside="Last 5 years" headline={headline2} sub={sub2}>
             <TrendViz timeline={timeline} />
@@ -500,7 +500,7 @@ export default async function BuildingPage({
                 tooltip="Serious but non-imminent complaints (e.g., illegal conversions, work without a permit, inadequate scaffolding). DOB's target is to inspect within 40 days. Count includes all complaints ever filed, not just active ones."
               />
               <StatCard
-                label="Unable to access (past 5 yrs)"
+                label="No Access for Inspection (past 5 yrs)"
                 value={`${noAccessPct}%`}
                 sub={`${building.no_access_count_5yr.toLocaleString()} complaint${building.no_access_count_5yr !== 1 ? 's' : ''}`}
                 tooltip="Share of closed complaints in the past 5 years where the DOB inspector was unable to gain access to the building or unit (disposition codes C1–C8 and WB). A high rate may indicate the landlord is blocking inspections."

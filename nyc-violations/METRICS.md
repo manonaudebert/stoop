@@ -65,17 +65,6 @@ recency_weight:   ≤2yr ago → 1.00
                   >10yr ago → 0 (excluded)
 ```
 
-#### `score_numeric`
-
-Exponential decay of `weighted_complaint_sum`. Used in the leaderboard only;
-not displayed on building detail pages.
-
-```
-score_numeric = ROUND(100 × exp(−weighted_complaint_sum / 40), 1)
-```
-
-Score of 100 = no complaints. Score approaches 0 as complaint weight grows.
-
 ### Percentiles (within NTA, residential buildings only)
 
 All percentiles are computed with `PERCENT_RANK()` partitioned by `nta_code` and
@@ -84,8 +73,7 @@ restricted to `nta_type = 0` (residential neighbourhoods).
 | Column | Ranked by | Used on |
 |---|---|---|
 | `serious_rate_percentile` | `serious_rate` ASC | DOB Severity card |
-| `neighborhood_percentile` | `score_numeric` DESC | DOB Rank card |
-| `normalized_percentile` | `weighted_complaint_sum / building_volume` ASC | Not currently displayed |
+| `normalized_percentile` | `weighted_complaint_sum / building_volume` ASC | DOB Rank card, map `risk_level` |
 
 `nta_stats` also stores `median_serious_rate` (the NTA-level median `serious_rate` across
 residential peers), exposed via the `/building/{bin}/neighborhood` endpoint and displayed
@@ -143,9 +131,10 @@ side by side in the Rank viz.
 ## Cross-cutting rules
 
 - **Residential filter**: percentile comparisons (`serious_rate_percentile`,
-  `neighborhood_percentile`, `violations_density_pct`, `complaints_density_pct`)
-  are computed only within `nta_type = 0` neighbourhoods. Parks, airports, and
-  industrial zones are excluded; their `risk_level` shows as `Not comparable`.
+  `neighborhood_percentile`, `normalized_percentile`, `violations_density_pct`,
+  `complaints_density_pct`) are computed only within `nta_type = 0` neighbourhoods.
+  Parks, airports, and industrial zones are excluded; their DOB `risk_level` shows
+  as `Not comparable` (triggered by `normalized_percentile IS NULL`).
 - **Minimum data threshold**: DOB buildings with fewer than 10 total complaints
   *and* less than 2 years of history are flagged `Insufficient data` and excluded
   from Severity/Rank comparisons.

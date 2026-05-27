@@ -24,17 +24,6 @@ class ComplaintResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class PriorityTierDetail(BaseModel):
-    count: int
-    weighted_deduction: float
-
-
-class ScoreDetail(BaseModel):
-    score: float
-    by_priority: dict[str, PriorityTierDetail]
-    by_recency: dict[str, int]
-
-
 class BuildingSummaryResponse(BaseModel):
     bin: str
     address: str | None
@@ -53,7 +42,6 @@ class BuildingSummaryResponse(BaseModel):
     closed_5yr_complaints: int = 0
     first_complaint_date: date | None
     latest_complaint_date: date | None
-    score: float | None
     construction_year: str | None = None
     nta_code: str | None = None
     nta_name: str | None = None
@@ -63,13 +51,12 @@ class BuildingSummaryResponse(BaseModel):
     trend_direction: str | None = None
     recent_complaint_count: int | None = None
     prior_complaint_count: int | None = None
-    neighborhood_percentile: float | None = None
+    normalized_percentile: float | None = None
 
     model_config = {"from_attributes": True}
 
 
 class BuildingDetailResponse(BuildingSummaryResponse):
-    score_detail: ScoreDetail | None
     complaints: list[ComplaintResponse]
     total_count: int
     page: int
@@ -93,13 +80,8 @@ class NeighborhoodResponse(BaseModel):
     nta_name: str
     nta_type: int | None
     building_count: int
-    avg_score: float | None
-    median_score: float | None
-    p25_score: float | None
-    p75_score: float | None
-    nta_percentile: float | None        # 0–100: pct of NTA buildings this building scores better than
+    nta_percentile: float | None        # 0–100: normalized_percentile for this building within its NTA
     median_serious_rate: float | None   # median Priority A+B rate/yr among NTA residential peers
-    peer_scores: list[float]            # sampled scores for dot plot (≤200)
 
 
 # ── HPD violations ────────────────────────────────────────────────────────────

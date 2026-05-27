@@ -28,7 +28,7 @@ RISK_COLORS: dict[str, str] = {
 _BOROUGH_SQL = text("""
     SELECT bin, address, borough, zip_code,
            total_complaints, open_complaints, priority_a_complaints,
-           score_numeric, risk_level, nta_code, latitude, longitude
+           risk_level, nta_code, latitude, longitude
     FROM building_summary
     WHERE borough = :borough
       AND latitude  BETWEEN :south AND :north
@@ -41,7 +41,7 @@ _BOROUGH_SQL = text("""
 _BBOX_SQL = text("""
     SELECT bin, address, borough, zip_code,
            total_complaints, open_complaints, priority_a_complaints,
-           score_numeric, risk_level, nta_code, latitude, longitude
+           risk_level, nta_code, latitude, longitude
     FROM building_summary
     WHERE latitude  BETWEEN :south AND :north
       AND longitude BETWEEN :west  AND :east
@@ -94,7 +94,6 @@ async def get_clusters(
                 "total_complaints": r.total_complaints,
                 "open_complaints": r.open_complaints,
                 "priority_a_complaints": r.priority_a_complaints,
-                "score_numeric": float(r.score_numeric) if r.score_numeric is not None else None,
                 "risk_level": risk,
                 "risk_color": RISK_COLORS.get(risk, RISK_COLORS["Insufficient data"]),
                 "nta_code": r.nta_code,

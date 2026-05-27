@@ -5,47 +5,12 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
-from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse, ScoreDetail, PriorityTierDetail
-from services.scoring import compute_score
+from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
 from cache import cache_get, cache_set
 
 router = APIRouter(prefix="/building", tags=["building"])
 
 PAGE_SIZE = 50
-
-SCORING_QUERY = """
-    SELECT COALESCE(cc.priority, 'C') AS priority, c.date_entered
-    FROM complaints c
-    LEFT JOIN complaint_categories cc ON c.complaint_category = cc.code
-    WHERE c.bin = :bin
-"""
-
-BATCH_SCORING_QUERY = """
-    SELECT c.bin, COALESCE(cc.priority, 'C') AS priority, c.date_entered
-    FROM complaints c
-    LEFT JOIN complaint_categories cc ON c.complaint_category = cc.code
-    WHERE c.bin = ANY(:bins)
-"""
-
-
-async def _score_building(bin: str, db: AsyncSession):
-    rows = await db.execute(text(SCORING_QUERY), {"bin": bin})
-    return compute_score([{"priority": r.priority, "date_entered": r.date_entered} for r in rows])
-
-
-async def _score_buildings_batch(bins: list[str], db: AsyncSession) -> dict[str, object]:
-    """Returns {bin: ScoreResult} for all bins in one query."""
-    rows = await db.execute(text(BATCH_SCORING_QUERY), {"bins": bins})
-    by_bin: dict[str, list[dict]] = {b: [] for b in bins}
-    for r in rows:
-        by_bin[r.bin].append({"priority": r.priority, "date_entered": r.date_entered})
-    return {bin: compute_score(complaints) for bin, complaints in by_bin.items()}
-
-
-def _summary_row_to_response(row, score_result) -> BuildingSummaryResponse:
-    d = dict(row._mapping)
-    d["score"] = score_result.score
-    return BuildingSummaryResponse(**d)
 
 
 def _complaint_row_to_response(row) -> ComplaintResponse:
@@ -57,8 +22,7 @@ LEADERBOARD_QUERY = """
     SELECT bin, address, zip_code, borough, latitude, longitude,
            total_complaints, open_complaints, closed_complaints,
            priority_a_complaints, priority_ab_complaints,
-           first_complaint_date, latest_complaint_date,
-           score_numeric AS score
+           first_complaint_date, latest_complaint_date
     FROM building_summary
     WHERE total_complaints > 0 {borough_clause}
     ORDER BY total_complaints DESC
@@ -152,10 +116,7 @@ async def search_buildings(
         cache_set(cache_key, [], ttl_seconds=600)
         return []
 
-    bins = [str(r.bin) for r in summary_rows]
-    scores = await _score_buildings_batch(bins, db)
-
-    results = [_summary_row_to_response(r, scores[r.bin]) for r in summary_rows]
+    results = [BuildingSummaryResponse(**dict(r._mapping)) for r in summary_rows]
     cache_set(cache_key, results, ttl_seconds=600)
     return results
 
@@ -168,7 +129,6 @@ async def get_building(
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    # Summary row + score (runs in parallel via two awaits — both are fast)
     summary_row = await db.execute(
         text("""
             SELECT bs.*, b.construction_year
@@ -181,8 +141,6 @@ async def get_building(
     summary = summary_row.first()
     if not summary:
         raise HTTPException(status_code=404, detail="Building not found")
-
-    score_result = await _score_building(bin, db)
 
     # Complaints count (with optional filters)
     count_q = """
@@ -226,25 +184,8 @@ async def get_building(
     rows = await db.execute(text(complaints_q), params)
     complaints = [_complaint_row_to_response(r) for r in rows]
 
-    d = dict(summary._mapping)
-    score_numeric = float(summary.score_numeric) if summary.score_numeric is not None else 0.0
-    d["score"] = score_numeric
-
-    score_detail = ScoreDetail(
-        score=score_numeric,
-        by_priority={
-            p: PriorityTierDetail(
-                count=tier.count,
-                weighted_deduction=tier.weighted_deduction,
-            )
-            for p, tier in score_result.by_priority.items()
-        },
-        by_recency=score_result.by_recency,
-    )
-
     return BuildingDetailResponse(
-        **d,
-        score_detail=score_detail,
+        **dict(summary._mapping),
         complaints=complaints,
         total_count=total_count,
         page=page,
@@ -317,11 +258,11 @@ async def get_neighborhood(bin: str, db: AsyncSession = Depends(get_db)):
     if cached:
         return cached
 
-    # Building's NTA info + stored neighborhood_percentile
+    # Building's NTA info + normalized_percentile
     bldg_row = await db.execute(
         text("""
             SELECT b.nta_code, b.nta_name, b.nta_type,
-                   bs.score_numeric AS score, bs.neighborhood_percentile
+                   bs.normalized_percentile
             FROM buildings b
             LEFT JOIN building_summary bs ON b.bin = bs.bin
             WHERE b.bin = :bin
@@ -337,43 +278,22 @@ async def get_neighborhood(bin: str, db: AsyncSession = Depends(get_db)):
 
     # NTA-level stats from the materialized view
     stats_row = await db.execute(
-        text("SELECT building_count, avg_score, median_score, p25_score, p75_score, nta_type, median_serious_rate FROM nta_stats WHERE nta_code = :nta_code"),
+        text("SELECT building_count, nta_type, median_serious_rate FROM nta_stats WHERE nta_code = :nta_code"),
         {"nta_code": nta_code},
     )
     stats = stats_row.first()
     if not stats:
         raise HTTPException(status_code=404, detail="No NTA stats for this building")
 
-    nta_percentile = round(float(bldg.neighborhood_percentile), 1) if bldg.neighborhood_percentile is not None else None
-
-    # Sample of peer scores for the dot-plot — residential peers only (nta_type = 0)
-    sample_rows = await db.execute(
-        text("""
-            SELECT score_numeric AS score
-            FROM building_summary
-            WHERE nta_code = :nta_code
-              AND nta_type = 0
-              AND score_numeric IS NOT NULL
-              AND bin != :bin
-            ORDER BY RANDOM()
-            LIMIT 200
-        """),
-        {"nta_code": nta_code, "bin": bin},
-    )
-    peer_scores = sorted(float(r.score) for r in sample_rows)
+    nta_percentile = round(float(bldg.normalized_percentile), 1) if bldg.normalized_percentile is not None else None
 
     result = NeighborhoodResponse(
         nta_code=nta_code,
         nta_name=nta_name,
         nta_type=int(stats.nta_type) if stats.nta_type is not None else None,
         building_count=int(stats.building_count),
-        avg_score=float(stats.avg_score) if stats.avg_score is not None else None,
-        median_score=float(stats.median_score) if stats.median_score is not None else None,
-        p25_score=float(stats.p25_score) if stats.p25_score is not None else None,
-        p75_score=float(stats.p75_score) if stats.p75_score is not None else None,
         nta_percentile=nta_percentile,
         median_serious_rate=float(stats.median_serious_rate) if stats.median_serious_rate is not None else None,
-        peer_scores=peer_scores,
     )
     cache_set(cache_key, result, ttl_seconds=3600)
     return result

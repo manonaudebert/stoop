@@ -31,3 +31,17 @@ When adding statistics or analytics for HPD violations, prioritize information t
 All computed metrics — percentile methodologies, time windows, decay weights, and which SQL views power which cards — are documented in [`METRICS.md`](METRICS.md).
 
 **If you change metric methodology in any SQL migration, update `METRICS.md` to match.** This includes: time window changes, weighting adjustments, new percentile columns, or changes to which view a page reads from.
+
+## Running migrations
+
+Migrations are plain SQL files in the repo root (`migrate_*.sql`). Run them with `psql` using the `DATABASE_URL` from `.env`:
+
+```bash
+! export $(grep DATABASE_URL .env | xargs)
+! psql "$DATABASE_URL" -f /path/to/migrate_<name>.sql
+```
+
+**Notes:**
+- There is no migration framework — git history is the record of which migrations have been applied. Running a migration twice will error on the `CREATE UNIQUE INDEX` (no `IF NOT EXISTS`), which is a safe signal that it was already applied.
+- Migrations that `DROP / CREATE MATERIALIZED VIEW` do a full recompute and take a few minutes. The API serves stale cache data during that window, then picks up the new view automatically — no restart needed.
+- Always update `schema.sql` to match whenever a migration changes a view definition, so the canonical schema stays in sync.

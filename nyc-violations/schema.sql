@@ -247,9 +247,8 @@ base AS (
     WHERE c.bin IS NOT NULL AND c.bin NOT IN ('0', '0000000', '')
     GROUP BY c.bin
 ),
-with_scores AS (
+with_scale AS (
     SELECT *,
-        ROUND((100.0 * EXP(-weighted_complaint_sum / 40.0))::numeric, 1) AS score_numeric,
         CASE
             WHEN footprint_area > 0 AND height_roof > 0
             THEN footprint_area * GREATEST(height_roof / 12.0, 1.0)
@@ -269,20 +268,16 @@ with_trend AS (
                - (prior_complaint_count::float / 3.0) >  1 THEN 'worsening'
             ELSE 'stable'
         END AS trend_direction
-    FROM with_scores
+    FROM with_scale
 ),
--- Raw score percentiles among residential peers (nta_type = 0)
+-- Percentiles among residential peers (nta_type = 0) within each NTA
 residential_percentiles AS (
     SELECT
         bin,
         ROUND((
             PERCENT_RANK() OVER (PARTITION BY nta_code ORDER BY serious_rate ASC)
             * 100
-        )::numeric, 1) AS serious_rate_percentile,
-        ROUND((
-            PERCENT_RANK() OVER (PARTITION BY nta_code ORDER BY score_numeric DESC)
-            * 100
-        )::numeric, 1) AS neighborhood_percentile
+        )::numeric, 1) AS serious_rate_percentile
     FROM with_trend
     WHERE nta_type = 0 AND nta_code IS NOT NULL
 ),
@@ -300,7 +295,6 @@ final AS (
     SELECT
         wt.*,
         rp.serious_rate_percentile,
-        rp.neighborhood_percentile,
         np.normalized_percentile,
         COALESCE(h.hpd_open_violations,    0) AS hpd_open_violations,
         COALESCE(h.hpd_class_a_violations, 0) AS hpd_class_a_violations,
@@ -324,13 +318,11 @@ SELECT
     open_priority_a_complaints, open_priority_b_complaints,
     no_access_count_5yr, closed_5yr_complaints,
     first_complaint_date, latest_complaint_date,
-    score_numeric,
     serious_rate,
     serious_rate_percentile,
     recent_complaint_count,
     prior_complaint_count,
     trend_direction,
-    neighborhood_percentile,
     estimated_scale,
     normalized_complaint_density,
     normalized_percentile,
@@ -348,12 +340,12 @@ SELECT
             first_complaint_date IS NULL
             OR (CURRENT_DATE - first_complaint_date)::float / 365.25 < 2
           ) THEN 'Insufficient data'
-        WHEN neighborhood_percentile IS NULL THEN 'Not comparable'
-        WHEN neighborhood_percentile < 15    THEN 'Very low'
-        WHEN neighborhood_percentile < 40    THEN 'Low'
-        WHEN neighborhood_percentile < 70    THEN 'Moderate'
-        WHEN neighborhood_percentile < 90    THEN 'High'
-        ELSE                                      'Very high'
+        WHEN normalized_percentile IS NULL THEN 'Not comparable'
+        WHEN normalized_percentile < 15    THEN 'Very low'
+        WHEN normalized_percentile < 40    THEN 'Low'
+        WHEN normalized_percentile < 70    THEN 'Moderate'
+        WHEN normalized_percentile < 90    THEN 'High'
+        ELSE                                    'Very high'
     END AS risk_level
 FROM final;
 
@@ -371,15 +363,11 @@ SELECT
     b.nta_code,
     b.nta_name,
     b.nta_type,
-    COUNT(*)                                                                              AS building_count,
-    ROUND(AVG(bs.score_numeric)::numeric, 1)                                              AS avg_score,
-    ROUND((PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS p25_score,
-    ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS median_score,
-    ROUND((PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS p75_score,
-    ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY bs.serious_rate))::numeric, 2)   AS median_serious_rate
+    COUNT(*)                                                                            AS building_count,
+    ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY bs.serious_rate))::numeric, 2) AS median_serious_rate
 FROM building_summary bs
 JOIN buildings b ON bs.bin = b.bin
-WHERE b.nta_code IS NOT NULL AND bs.score_numeric IS NOT NULL
+WHERE b.nta_code IS NOT NULL
 GROUP BY b.nta_code, b.nta_name, b.nta_type;
 
 CREATE UNIQUE INDEX IF NOT EXISTS nta_stats_code_idx ON nta_stats(nta_code);

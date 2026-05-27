@@ -52,6 +52,7 @@ class BuildingSummaryResponse(BaseModel):
     recent_complaint_count: int | None = None
     prior_complaint_count: int | None = None
     normalized_percentile: float | None = None
+    normalized_serious_rate_percentile: float | None = None
 
     model_config = {"from_attributes": True}
 

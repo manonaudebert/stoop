@@ -260,6 +260,11 @@ with_trend AS (
         CASE WHEN estimated_scale > 0
              THEN ROUND((weighted_complaint_sum / estimated_scale * 10000)::numeric, 4)
         END AS normalized_complaint_density,
+        -- Size-normalized serious rate: Priority A+B per year per unit of building volume.
+        -- NULL when no footprint/height data (same condition as normalized_complaint_density).
+        CASE WHEN estimated_scale > 0
+             THEN ROUND((serious_rate / estimated_scale * 10000)::numeric, 4)
+        END AS normalized_serious_density,
         (recent_complaint_count::float / 2.0) - (prior_complaint_count::float / 3.0) AS trend,
         CASE
             WHEN (recent_complaint_count::float / 2.0)
@@ -281,7 +286,7 @@ residential_percentiles AS (
     FROM with_trend
     WHERE nta_type = 0 AND nta_code IS NOT NULL
 ),
--- Size-normalized percentiles (only buildings with footprint + height data)
+-- Size-normalized overall complaint density percentiles
 normalized_percentiles AS (
     SELECT bin,
         ROUND((
@@ -291,11 +296,22 @@ normalized_percentiles AS (
     FROM with_trend
     WHERE nta_type = 0 AND nta_code IS NOT NULL AND normalized_complaint_density IS NOT NULL
 ),
+-- Size-normalized serious-rate percentiles (Priority A+B per yr per building volume)
+normalized_serious_percentiles AS (
+    SELECT bin,
+        ROUND((
+            PERCENT_RANK() OVER (PARTITION BY nta_code ORDER BY normalized_serious_density ASC)
+            * 100
+        )::numeric, 1) AS normalized_serious_rate_percentile
+    FROM with_trend
+    WHERE nta_type = 0 AND nta_code IS NOT NULL AND normalized_serious_density IS NOT NULL
+),
 final AS (
     SELECT
         wt.*,
         rp.serious_rate_percentile,
         np.normalized_percentile,
+        nsp.normalized_serious_rate_percentile,
         COALESCE(h.hpd_open_violations,    0) AS hpd_open_violations,
         COALESCE(h.hpd_class_a_violations, 0) AS hpd_class_a_violations,
         COALESCE(h.hpd_class_b_violations, 0) AS hpd_class_b_violations,
@@ -305,10 +321,11 @@ final AS (
         COALESCE(hc.hpd_heat_complaints,   0) AS hpd_heat_complaints,
         hc.hpd_latest_complaint_date
     FROM with_trend wt
-    LEFT JOIN residential_percentiles rp  ON wt.bin = rp.bin
-    LEFT JOIN normalized_percentiles   np ON wt.bin = np.bin
-    LEFT JOIN hpd_agg h                   ON wt.bin = h.bin
-    LEFT JOIN hpd_complaints_agg hc       ON wt.bin = hc.bin
+    LEFT JOIN residential_percentiles        rp  ON wt.bin = rp.bin
+    LEFT JOIN normalized_percentiles         np  ON wt.bin = np.bin
+    LEFT JOIN normalized_serious_percentiles nsp ON wt.bin = nsp.bin
+    LEFT JOIN hpd_agg h                          ON wt.bin = h.bin
+    LEFT JOIN hpd_complaints_agg hc              ON wt.bin = hc.bin
 )
 SELECT
     bin, address, zip_code, borough, latitude, longitude,
@@ -326,6 +343,8 @@ SELECT
     estimated_scale,
     normalized_complaint_density,
     normalized_percentile,
+    normalized_serious_density,
+    normalized_serious_rate_percentile,
     hpd_open_violations,
     hpd_class_a_violations,
     hpd_class_b_violations,
@@ -356,6 +375,7 @@ CREATE INDEX IF NOT EXISTS building_summary_total_idx                 ON buildin
 CREATE INDEX IF NOT EXISTS building_summary_open_idx                  ON building_summary(open_complaints DESC);
 CREATE INDEX IF NOT EXISTS building_summary_priority_a_idx            ON building_summary(priority_a_complaints DESC);
 CREATE INDEX IF NOT EXISTS building_summary_normalized_density_idx    ON building_summary(normalized_complaint_density);
+CREATE INDEX IF NOT EXISTS building_summary_normalized_serious_idx    ON building_summary(normalized_serious_rate_percentile);
 
 -- NTA-level aggregates for neighborhood context
 CREATE MATERIALIZED VIEW IF NOT EXISTS nta_stats AS

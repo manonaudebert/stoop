@@ -74,6 +74,11 @@ restricted to `nta_type = 0` (residential neighbourhoods).
 |---|---|---|
 | `serious_rate_percentile` | `serious_rate` ASC | DOB Severity card |
 | `normalized_percentile` | `weighted_complaint_sum / building_volume` ASC | DOB Rank card, map `risk_level` |
+| `normalized_serious_rate_percentile` | `serious_rate / building_volume` ASC | DOB leaderboard tiebreaker |
+
+`normalized_serious_rate_percentile` combines the rate-per-year focus of `serious_rate_percentile`
+with size normalization: `serious_rate / estimated_scale × 10000`, ranked by `PERCENT_RANK()`
+within the NTA. Buildings without footprint/height data get NULL (same as `normalized_percentile`).
 
 `nta_stats` also stores `median_serious_rate` (the NTA-level median `serious_rate` across
 residential peers), exposed via the `/building/{bin}/neighborhood` endpoint and displayed

@@ -46,6 +46,7 @@ export interface BuildingSummary {
   recent_complaint_count: number | null
   prior_complaint_count: number | null
   normalized_percentile: number | null
+  normalized_serious_rate_percentile: number | null
 }
 
 export interface NeighborhoodData {

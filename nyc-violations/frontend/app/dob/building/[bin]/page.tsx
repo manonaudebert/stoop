@@ -293,8 +293,6 @@ export default async function BuildingPage({
     if (err instanceof ApiError && err.status === 404) notFound()
     throw err
   }
-  neighborhood = await getNeighborhood(bin)
-
   const backHref  = from === 'leaderboard' ? '/leaderboard' : '/'
   const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
   const eyebrow = tierEyebrow(building.risk_level)
@@ -311,13 +309,13 @@ export default async function BuildingPage({
               meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
               explainerLabel="Data Source: NYC Department of Buildings"
               explainerText="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
-              badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>Few complaints</div>}
+              badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>No DOB complaints on record</div>}
               bordered
             />
           </div>
           <main style={{ maxWidth: 640, margin: '0 auto', padding: '4rem 1.5rem', textAlign: 'center' }}>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
-              No complaints on record
+              No building complaint records with the Department of Buildings
             </h2>
             <p style={{ fontSize: 15, color: '#525252', lineHeight: 1.7, marginBottom: 32 }}>
               This doesn&apos;t mean no issues have ever existed — complaints may have been filed under a different BIN,
@@ -345,6 +343,8 @@ export default async function BuildingPage({
       </div>
     )
   }
+
+  neighborhood = await getNeighborhood(bin)
 
   const totalPages = Math.ceil(building.total_count / building.page_size)
 
@@ -455,7 +455,7 @@ export default async function BuildingPage({
 
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-          <InsightCard eyebrow="Neighborhood" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3}>
+          <InsightCard eyebrow="Neighborhood" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3} tooltip="Size-normalized against residential buildings in the neighborhood for issues in the last 10 years.">
             <RankViz percentile={notComparable || insufficient ? null : building.normalized_percentile} />
           </InsightCard>
           <InsightCard eyebrow="Activity Trends" aside="Last 5 years" headline={headline2} sub={sub2}>

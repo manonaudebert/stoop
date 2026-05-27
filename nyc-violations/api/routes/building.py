@@ -140,7 +140,55 @@ async def get_building(
     )
     summary = summary_row.first()
     if not summary:
-        raise HTTPException(status_code=404, detail="Building not found")
+        # Building not in building_summary (no DOB complaints) — check buildings table.
+        # Return a zero-complaint stub so the frontend can render an empty state
+        # instead of a generic 404 (common for buildings that only have HPD data).
+        fallback_row = await db.execute(
+            text("""
+                SELECT
+                    b.bin,
+                    MAX(v.house_number || ' ' || v.street_name) AS address,
+                    MAX(v.zip_code)     AS zip_code,
+                    b.borough,
+                    b.latitude,
+                    b.longitude,
+                    b.nta_code,
+                    b.nta_name,
+                    b.construction_year
+                FROM buildings b
+                LEFT JOIN hpd_violations v ON b.bin = v.bin
+                WHERE b.bin = :bin
+                GROUP BY b.bin, b.borough, b.latitude, b.longitude,
+                         b.nta_code, b.nta_name, b.construction_year
+            """),
+            {"bin": bin},
+        )
+        fallback = fallback_row.first()
+        if not fallback:
+            raise HTTPException(status_code=404, detail="Building not found")
+        fb = dict(fallback._mapping)
+        return BuildingDetailResponse(
+            bin=fb["bin"],
+            address=fb.get("address"),
+            zip_code=fb.get("zip_code"),
+            borough=fb.get("borough"),
+            latitude=fb.get("latitude"),
+            longitude=fb.get("longitude"),
+            nta_code=fb.get("nta_code"),
+            nta_name=fb.get("nta_name"),
+            construction_year=fb.get("construction_year"),
+            total_complaints=0,
+            open_complaints=0,
+            closed_complaints=0,
+            priority_a_complaints=0,
+            priority_ab_complaints=0,
+            first_complaint_date=None,
+            latest_complaint_date=None,
+            complaints=[],
+            total_count=0,
+            page=page,
+            page_size=PAGE_SIZE,
+        )
 
     # Complaints count (with optional filters)
     count_q = """

@@ -47,6 +47,10 @@ class BuildingSummaryResponse(BaseModel):
     closed_complaints: int
     priority_a_complaints: int
     priority_ab_complaints: int
+    open_priority_a_complaints: int = 0
+    open_priority_b_complaints: int = 0
+    no_access_count_5yr: int = 0
+    closed_5yr_complaints: int = 0
     first_complaint_date: date | None
     latest_complaint_date: date | None
     score: float | None

@@ -30,6 +30,10 @@ export interface BuildingSummary {
   closed_complaints: number
   priority_a_complaints: number
   priority_ab_complaints: number
+  open_priority_a_complaints: number
+  open_priority_b_complaints: number
+  no_access_count_5yr: number
+  closed_5yr_complaints: number
   first_complaint_date: string | null
   latest_complaint_date: string | null
   score: number | null

@@ -190,6 +190,19 @@ base AS (
         COUNT(*) FILTER (WHERE c.status = 'CLOSED')     AS closed_complaints,
         COUNT(*) FILTER (WHERE cc.priority = 'A')                       AS priority_a_complaints,
         COUNT(*) FILTER (WHERE cc.priority IN ('A','B'))                 AS priority_ab_complaints,
+        -- Active (open) counts by priority for the KPI cards
+        COUNT(*) FILTER (WHERE cc.priority = 'A' AND c.status = 'ACTIVE')         AS open_priority_a_complaints,
+        COUNT(*) FILTER (WHERE cc.priority = 'B' AND c.status = 'ACTIVE')         AS open_priority_b_complaints,
+        -- Unable-to-access (past 5 yrs): inspector couldn't gain entry (disposition codes C1–C8, WB)
+        -- Denominator is closed complaints in the same 5-yr window (active excluded).
+        COUNT(*) FILTER (
+            WHERE c.disposition_code IN ('C1','C2','C3','C4','C5','C6','C7','C8','WB')
+              AND c.date_entered >= CURRENT_DATE - INTERVAL '5 years'
+        )                                               AS no_access_count_5yr,
+        COUNT(*) FILTER (
+            WHERE c.status = 'CLOSED'
+              AND c.date_entered >= CURRENT_DATE - INTERVAL '5 years'
+        )                                               AS closed_5yr_complaints,
         MIN(c.date_entered)                             AS first_complaint_date,
         MAX(c.date_entered)                             AS latest_complaint_date,
         COUNT(*) FILTER (
@@ -308,6 +321,8 @@ SELECT
     nta_code, nta_name, nta_type,
     total_complaints, open_complaints, closed_complaints,
     priority_a_complaints, priority_ab_complaints,
+    open_priority_a_complaints, open_priority_b_complaints,
+    no_access_count_5yr, closed_5yr_complaints,
     first_complaint_date, latest_complaint_date,
     score_numeric,
     serious_rate,

@@ -63,7 +63,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
     <div className="relative w-full">
       <div
         className="flex items-center px-3"
-        style={{ background: '#FFFFFF', borderRadius: 8, height: 40 }}
+        style={{ background: '#FFFFFF', borderRadius: 6, height: 36, border: '0.5px solid #A3A3A3' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 8 }}>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -86,7 +86,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
       {open && results.length > 0 && (
         <ul
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto"
-          style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+          style={{ background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
           {results.map(b => {
             const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? null

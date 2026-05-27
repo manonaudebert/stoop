@@ -280,7 +280,7 @@ export default async function BuildingPage({
   const { bin } = await params
   const { page: pageStr, status, category, from, bw } = await searchParams
   const page = Number(pageStr ?? 1)
-  const breakdownYears = bw === '5yr' ? 5 : undefined
+  const breakdownYears = bw === 'all' ? undefined : 5
 
   let building, timeline, breakdown, neighborhood
   try {
@@ -471,12 +471,43 @@ export default async function BuildingPage({
         </div>
 
         {/* KPI stat cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
-          <StatCard label={firstYear ? `Total complaints since ${firstYear}` : 'Total complaints'} value={building.total_complaints} />
-          <StatCard label="Active"           value={building.open_complaints} />
-          <StatCard label="Priority A"       value={building.priority_a_complaints} tooltip="The highest-severity DOB complaints, alleging conditions that present an imminent risk to public safety (e.g., structural instability, collapse risk, shaking buildings). DOB's target is to inspect within 24 hours. Count includes all complaints ever filed, not just active ones." />
-          <StatCard label="Priority A+B"     value={building.priority_ab_complaints} tooltip="Combined count of Priority A complaints (imminent safety risks, 24-hour target) and Priority B complaints (serious but non-imminent, e.g., illegal conversions, work without a permit, inadequate scaffolding, 40-day target). Includes all complaints ever filed." />
-        </div>
+        {(() => {
+          const priorityB    = building.priority_ab_complaints - building.priority_a_complaints
+          const openPriorityB = building.open_priority_b_complaints
+          const noAccessPct  = building.closed_5yr_complaints > 0
+            ? Math.round(building.no_access_count_5yr / building.closed_5yr_complaints * 100)
+            : 0
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+              <StatCard
+                label={firstYear ? `Total complaints since ${firstYear}` : 'Total complaints'}
+                value={building.total_complaints}
+                sub={`${building.open_complaints.toLocaleString()} active`}
+                subColor={building.open_complaints > 0 ? '#7F1D1D' : '#166534'}
+              />
+              <StatCard
+                label="Total Priority A"
+                value={building.priority_a_complaints}
+                sub={building.open_priority_a_complaints > 0 ? `${building.open_priority_a_complaints.toLocaleString()} active` : undefined}
+                subColor="#7F1D1D"
+                tooltip="The highest-severity DOB complaints, alleging conditions that present an imminent risk to public safety (e.g., structural instability, collapse risk, shaking buildings). DOB's target is to inspect within 24 hours. Count includes all complaints ever filed, not just active ones."
+              />
+              <StatCard
+                label="Total Priority B"
+                value={priorityB}
+                sub={openPriorityB > 0 ? `${openPriorityB.toLocaleString()} active` : undefined}
+                subColor="#7F1D1D"
+                tooltip="Serious but non-imminent complaints (e.g., illegal conversions, work without a permit, inadequate scaffolding). DOB's target is to inspect within 40 days. Count includes all complaints ever filed, not just active ones."
+              />
+              <StatCard
+                label="Unable to access (past 5 yrs)"
+                value={`${noAccessPct}%`}
+                sub={`${building.no_access_count_5yr.toLocaleString()} complaint${building.no_access_count_5yr !== 1 ? 's' : ''}`}
+                tooltip="Share of closed complaints in the past 5 years where the DOB inspector was unable to gain access to the building or unit (disposition codes C1–C8 and WB). A high rate may indicate the landlord is blocking inspections."
+              />
+            </div>
+          )
+        })()}
 
         {/* Chart cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -500,27 +531,27 @@ export default async function BuildingPage({
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
                 <Link
-                  href={`/dob/building/${bin}?bw=5yr`}
-                  scroll={false}
-                  style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
-                    padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
-                    background: bw === '5yr' ? '#111111' : 'transparent',
-                    color: bw === '5yr' ? '#FFFFFF' : '#737373',
-                    border: bw === '5yr' ? 'none' : '0.5px solid #D4D4D4',
-                  }}
-                >
-                  5 yrs
-                </Link>
-                <Link
                   href={`/dob/building/${bin}`}
                   scroll={false}
                   style={{
                     fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
                     padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
-                    background: !bw ? '#111111' : 'transparent',
-                    color: !bw ? '#FFFFFF' : '#737373',
-                    border: !bw ? 'none' : '0.5px solid #D4D4D4',
+                    background: bw !== 'all' ? '#111111' : 'transparent',
+                    color: bw !== 'all' ? '#FFFFFF' : '#737373',
+                    border: bw !== 'all' ? 'none' : '0.5px solid #D4D4D4',
+                  }}
+                >
+                  5 yrs
+                </Link>
+                <Link
+                  href={`/dob/building/${bin}?bw=all`}
+                  scroll={false}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
+                    padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
+                    background: bw === 'all' ? '#111111' : 'transparent',
+                    color: bw === 'all' ? '#FFFFFF' : '#737373',
+                    border: bw === 'all' ? 'none' : '0.5px solid #D4D4D4',
                   }}
                 >
                   All time

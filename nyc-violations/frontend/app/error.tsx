@@ -1,8 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function Error({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const router = useRouter()
+
+  function handleRetry() {
+    router.refresh()   // invalidate server component cache
+    reset()            // re-render the error boundary
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF7', display: 'flex', flexDirection: 'column' }}>
       <header style={{ background: '#0601B4', padding: '0 24px', height: 44, display: 'flex', alignItems: 'center' }}>
@@ -23,7 +31,7 @@ export default function Error({ reset }: { error: Error & { digest?: string }; r
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
-            onClick={reset}
+            onClick={handleRetry}
             style={{
               fontSize: 13, fontWeight: 500, padding: '10px 20px',
               background: '#0601B4', color: '#FFFFFF',

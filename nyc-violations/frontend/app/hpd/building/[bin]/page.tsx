@@ -284,7 +284,7 @@ function OpenViolationsCard({ open, classC, classB, rentImpairing }: {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {rows.map(({ label, value, alert, tooltip }) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
               {label}
               {tooltip && <TooltipIcon text={tooltip} />}
             </span>
@@ -419,8 +419,8 @@ function ComplaintResolutionCard({ data }: { data: ComplaintResolutionItem[] }) 
           const n = keys.reduce((s, k) => s + (byBucket[k] ?? 0), 0)
           return (
             <React.Fragment key={label}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(n)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(n)}</span>
             </React.Fragment>
           )
         })}
@@ -455,9 +455,9 @@ function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) 
           const d = get(key)
           return (
             <React.Fragment key={key}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.recent_count, recentTotal)}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.prior_count, priorTotal)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.recent_count, recentTotal)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#737373', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.prior_count, priorTotal)}</span>
             </React.Fragment>
           )
         })}
@@ -478,6 +478,7 @@ export default async function HpdOverviewPage({
   params: Promise<{ bin: string }>
   searchParams: Promise<{
     show?: string
+    charts?: string
     vpage?: string; vcls?: string; vst?: string
     cpage?: string; ccat?: string; cst?: string
   }>
@@ -486,6 +487,7 @@ export default async function HpdOverviewPage({
   const sp = await searchParams
 
   const show = sp.show  // 'violations' | 'complaints' | undefined
+  const showCharts = sp.charts === '1'
   const vpage = Number(sp.vpage ?? 1)
   const vcls = sp.vcls
   const vst = sp.vst
@@ -634,7 +636,7 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
   const recentViolTotal = violationBreakdownRecent.reduce((s, d) => s + d.count, 0)
   const topViolCategoriesRecent = Array.from(recentViolByCategory.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
+    .slice(0, 5)
 
   const complByCategory = new Map<string, { count: number; open_count: number }>()
   for (const d of complaintBreakdown) {
@@ -688,6 +690,13 @@ function pctHeadline(vp: number | null, cp: number | null): string {
   const metaLine   = [borough, zipCode && `ZIP ${zipCode}`, `BIN ${bin}`, ntaName].filter(Boolean).join(' · ')
 
   // ── filter/page URL helpers ────────────────────────────────────────────────
+
+  function chartsToggleUrl() {
+    const q = new URLSearchParams()
+    if (!showCharts) q.set('charts', '1')
+    const qs = q.toString()
+    return `/hpd/building/${bin}${qs ? `?${qs}` : ''}`
+  }
 
   function violFilterUrl(updates: Record<string, string | undefined>) {
     const q = new URLSearchParams()
@@ -767,8 +776,22 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         />
 
         {/* Three insight cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-          <InsightCard eyebrow="Activity" aside="Last 5 years" headline={activityHeadline} sub={activitySub}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: showCharts ? 0 : 12 }}>
+          <InsightCard
+            eyebrow="Activity"
+            aside="Last 5 years"
+            headline={activityHeadline}
+            sub={activitySub}
+            footer={
+              <Link
+                href={chartsToggleUrl()}
+                scroll={false}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                {showCharts ? '▲ Hide all activity' : '▼ View all activity'}
+              </Link>
+            }
+          >
             <CombinedTrendViz violTimeline={violationTimeline} complTimeline={complaintTimeline} />
           </InsightCard>
           <InsightCard eyebrow="Severity" aside="open violations" headline={hazardHeadline} sub={hazardSub} tooltip="HPD violations are categorized by severity, from Class A (non-hazardous) to Class C (immediately hazardous conditions requiring urgent correction).">
@@ -781,6 +804,24 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             ]} />
           </InsightCard>
         </div>
+
+        {/* Expandable charts — toggled from Activity card */}
+        {showCharts && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, margin: '12px 0' }}>
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
+              <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
+                Violations over time
+              </h2>
+              <ViolationTimeline data={violationTimeline} latestDate={latestViolDate} />
+            </div>
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
+              <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
+                Complaints over time
+              </h2>
+              <ViolationTimeline data={complaintTimeline} latestDate={latestComplDate} />
+            </div>
+          </div>
+        )}
 
         {/* KPI rows */}
         <div style={{ marginBottom: 4 }}>
@@ -832,7 +873,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[...COMPLAINT_BREAKDOWN_GROUPS]
                   .sort((a, b) => (groupCounts[b.key] ?? 0) - (groupCounts[a.key] ?? 0))
-                  .slice(0, 4)
+                  .slice(0, 5)
                   .map(({ key, label }) => {
                   const count = groupCounts[key] ?? 0
                   const pct = fiveYearComplaintTotal > 0 ? Math.round(count / fiveYearComplaintTotal * 100) : 0
@@ -851,22 +892,6 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 })}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Timelines */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-            <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-              Violations over time
-            </h2>
-            <ViolationTimeline data={violationTimeline} latestDate={latestViolDate} />
-          </div>
-          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-            <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-              Complaints over time
-            </h2>
-            <ViolationTimeline data={complaintTimeline} latestDate={latestComplDate} />
           </div>
         </div>
 

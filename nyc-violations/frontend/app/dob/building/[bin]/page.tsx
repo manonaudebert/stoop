@@ -84,8 +84,8 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
   const years = Object.keys(byYear).map(Number).sort()
   if (years.length < 2) {
     return (
-      <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <line x1="0" y1="48" x2="220" y2="48" stroke="#E5E5E5" strokeWidth="0.5" />
+      <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <line x1="0" y1="50" x2="220" y2="50" stroke="#E5E5E5" strokeWidth="0.5" />
         <text x="110" y="30" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not enough history</text>
       </svg>
     )
@@ -93,34 +93,26 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
 
   const vals = years.map(y => byYear[y])
   const maxVal = Math.max(...vals, 1)
-  const baseY = 48
+  const baseY = 50
   const padX = 8
 
   const points = vals.map((v, i) => ({
     x: padX + (i / (vals.length - 1)) * (220 - 2 * padX),
-    y: baseY - Math.round((v / maxVal) * (baseY - 12)),
+    y: baseY - Math.round((v / maxVal) * (baseY - 10)),
   }))
 
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-  const areaPath = `${linePath} L ${points[points.length - 1].x},${baseY} L ${points[0].x},${baseY} Z`
-
-  const peakIdx = vals.indexOf(Math.max(...vals))
-  const peakPt = points[peakIdx]
   const lastPt = points[points.length - 1]
 
   return (
-    <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
+    <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
       <line x1="0" y1={baseY} x2="220" y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
-      <path d={areaPath} fill="#111111" opacity="0.08" />
-      <path d={linePath} fill="none" stroke="#111111" strokeWidth="1.25" strokeLinejoin="round" />
-      <circle cx={lastPt.x} cy={lastPt.y} r="3" fill="#111111" />
-      <text x={peakPt.x} y={Math.min(peakPt.y - 5, 10)} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#525252">
-        peak: {Math.max(...vals)}
-      </text>
-      <text x={points[0].x} y="62" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">
+      <path d={linePath} fill="none" stroke="#111111" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx={lastPt.x} cy={lastPt.y} r="2.5" fill="#111111" />
+      <text x={points[0].x} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[0]).slice(2)}
       </text>
-      <text x={lastPt.x} y="62" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">
+      <text x={lastPt.x} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
     </svg>
@@ -381,7 +373,7 @@ export default async function BuildingPage({
 
         {/* Chart cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 8, padding: '14px' }}>
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
                 Complaints over time
@@ -394,7 +386,7 @@ export default async function BuildingPage({
               lastDate={building.latest_complaint_date}
             />
           </div>
-          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 8, padding: '14px' }}>
+          <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
                 Top complaint types

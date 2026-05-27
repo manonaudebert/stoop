@@ -88,10 +88,10 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
           const color = AGE_BUCKET_COLORS[bucket] ?? '#525252'
           return (
             <div key={bucket} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color }}>
                 ▪ {AGE_BUCKET_LABELS[bucket] ?? bucket}
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#525252', fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', fontVariantNumeric: 'tabular-nums' }}>
                 {pct}% <span style={{ color: '#A3A3A3' }}>({count})</span>
               </span>
             </div>

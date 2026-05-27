@@ -276,25 +276,26 @@ async def get_timeline(bin: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{bin}/breakdown", response_model=list[CategoryBreakdownItem])
-async def get_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
-    cache_key = f"breakdown:{bin}"
+async def get_breakdown(bin: str, years: int | None = Query(None, ge=1, le=100), db: AsyncSession = Depends(get_db)):
+    cache_key = f"breakdown:{bin}:{years or 'all'}"
     cached = cache_get(cache_key)
     if cached:
         return cached
 
+    date_filter = "AND c.date_entered >= NOW() - (:years * INTERVAL '1 year')" if years else ""
     rows = await db.execute(
-        text("""
+        text(f"""
             SELECT c.complaint_category AS category,
                    cc.description,
                    cc.priority,
                    COUNT(*) AS count
             FROM complaints c
             LEFT JOIN complaint_categories cc ON c.complaint_category = cc.code
-            WHERE c.bin = :bin
+            WHERE c.bin = :bin {date_filter}
             GROUP BY 1, 2, 3
             ORDER BY count DESC
         """),
-        {"bin": bin},
+        {"bin": bin, "years": years},
     )
     result = [
         CategoryBreakdownItem(
@@ -336,7 +337,7 @@ async def get_neighborhood(bin: str, db: AsyncSession = Depends(get_db)):
 
     # NTA-level stats from the materialized view
     stats_row = await db.execute(
-        text("SELECT building_count, avg_score, median_score, p25_score, p75_score, nta_type FROM nta_stats WHERE nta_code = :nta_code"),
+        text("SELECT building_count, avg_score, median_score, p25_score, p75_score, nta_type, median_serious_rate FROM nta_stats WHERE nta_code = :nta_code"),
         {"nta_code": nta_code},
     )
     stats = stats_row.first()
@@ -371,6 +372,7 @@ async def get_neighborhood(bin: str, db: AsyncSession = Depends(get_db)):
         p25_score=float(stats.p25_score) if stats.p25_score is not None else None,
         p75_score=float(stats.p75_score) if stats.p75_score is not None else None,
         nta_percentile=nta_percentile,
+        median_serious_rate=float(stats.median_serious_rate) if stats.median_serious_rate is not None else None,
         peer_scores=peer_scores,
     )
     cache_set(cache_key, result, ttl_seconds=3600)

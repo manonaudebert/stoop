@@ -777,8 +777,14 @@ function pctHeadline(vp: number | null, cp: number | null): string {
 
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: showCharts ? 0 : 12 }}>
+          <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
+            <RankViz markers={[
+              { percentile: violPct, label: 'Violations' },
+              { percentile: complPct, label: 'Complaints' },
+            ]} />
+          </InsightCard>
           <InsightCard
-            eyebrow="Activity"
+            eyebrow="Activity Trends"
             aside="Last 5 years"
             headline={activityHeadline}
             sub={activitySub}
@@ -788,7 +794,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 scroll={false}
                 style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
-                {showCharts ? '▲ Hide all activity' : '▼ View all activity'}
+                {showCharts ? '▲ Hide all activity over time' : '▼ View all activity over time'}
               </Link>
             }
           >
@@ -796,12 +802,6 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           </InsightCard>
           <InsightCard eyebrow="Severity" aside="open violations" headline={hazardHeadline} sub={hazardSub} tooltip="HPD violations are categorized by severity, from Class A (non-hazardous) to Class C (immediately hazardous conditions requiring urgent correction).">
             <HazardViz openC={breakdownOpenC} openB={breakdownOpenB} />
-          </InsightCard>
-          <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
-            <RankViz markers={[
-              { percentile: violPct, label: 'Violations' },
-              { percentile: complPct, label: 'Complaints' },
-            ]} />
           </InsightCard>
         </div>
 

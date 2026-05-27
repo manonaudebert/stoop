@@ -40,33 +40,92 @@ function tierEyebrow(riskLevel: string | null): { text: string; color: string } 
 
 // ── inline SVG visualizations ────────────────────────────────────────────────
 
-// Fixed dot positions for the distribution chart (right-skewed, most buildings = few serious complaints)
-const DIST_DOTS: Array<{ x: number; y: number }> = [
-  { x: 6, y: 42 }, { x: 12, y: 40 }, { x: 18, y: 38 }, { x: 24, y: 34 }, { x: 30, y: 32 },
-  { x: 36, y: 28 }, { x: 42, y: 32 }, { x: 48, y: 36 }, { x: 54, y: 34 },
-  { x: 60, y: 38 }, { x: 66, y: 36 }, { x: 74, y: 40 }, { x: 84, y: 38 },
-  { x: 94, y: 40 }, { x: 106, y: 42 }, { x: 118, y: 40 }, { x: 130, y: 42 },
-  { x: 144, y: 42 }, { x: 158, y: 42 }, { x: 174, y: 42 }, { x: 186, y: 42 },
-]
+// Percentile track: 0 (fewest) → 100 (most).
+// Shows rate/yr, Nth-pct, and (med. X.X/yr) in a stacked label above the marker.
+function ordinal(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  return `${n}${ ['th','st','nd','rd'][n % 10] ?? 'th' }`
+}
 
-function SeverityViz({ count }: { count: number }) {
-  const markerX = Math.min(Math.max((count / 30) * 218 + 2, 6), 214)
+function SeverityViz({ rate, percentile, medianRate }: {
+  rate: number | null
+  percentile: number | null
+  medianRate: number | null
+}) {
+  // Vertical layout (Y = track centre):
+  //   y=14  rate label (line 1, 9px)
+  //   y=25  percentile label (line 2, 8px)
+  //   y=36  median label (line 3, 7.5px)
+  //   -- 4px gap --
+  //   y=40  stem top
+  //   y=50  stem bottom / circle top  (r=5)
+  //   y=55  track centre (Y)
+  //   y=75  axis labels
+  const L = 12, W = 196, Y = 55
+
+  if (percentile === null) {
+    return (
+      <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <rect x={L} y={Y - 2} width={W} height="4" rx="2" fill="#F5F5F5" />
+      </svg>
+    )
+  }
+
+  const pct     = Math.max(0, Math.min(percentile, 100))
+  const markerX = L + (pct / 100) * W
+
+  // Keep labels inside the viewBox at the edges
+  const nearLeft  = markerX < L + 28
+  const nearRight = markerX > L + W - 28
+  const labelX    = nearLeft ? L : nearRight ? L + W : markerX
+  const anchor    = nearLeft ? 'start' : nearRight ? 'end' : 'middle'
+
   return (
-    <svg viewBox="0 0 220 64" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <line x1="0" y1="44" x2="220" y2="44" stroke="#E5E5E5" strokeWidth="0.5" />
-      <g fill="#737373" opacity="0.5">
-        {DIST_DOTS.map(({ x, y }, i) => (
-          <circle key={i} cx={x} cy={y} r="1.6" />
-        ))}
-      </g>
-      <line x1={markerX} y1="20" x2={markerX} y2="44" stroke="#7F1D1D" strokeWidth="1.5" />
-      <circle cx={markerX} cy="42" r="3.5" fill="#7F1D1D" />
-      <text x={markerX} y="14" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#7F1D1D" fontWeight="500">{count}</text>
-      <text x="2" y="58" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">0</text>
-      <text x="110" y="58" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">median</text>
-      <text x="218" y="58" textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="8" fill="#737373">30+</text>
+    <svg viewBox="0 0 220 86" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {/* Track */}
+      <rect x={L} y={Y - 2} width={W} height="4" rx="2" fill="#F5F5F5" />
+      {/* Filled portion */}
+      <rect x={L} y={Y - 2} width={(pct / 100) * W} height="4" rx="2" fill="#7F1D1D" opacity="0.18" />
+      {/* Median tick */}
+      <line x1={L + W / 2} y1={Y - 7} x2={L + W / 2} y2={Y + 7} stroke="#D4D4D4" strokeWidth="1" />
+      {/* Marker */}
+      <circle cx={markerX} cy={Y} r="5" fill="#7F1D1D" />
+      {/* Stem — from circle top (Y-5=50) up to y=40, below all labels */}
+      <line x1={markerX} y1={Y - 5} x2={markerX} y2={40} stroke="#7F1D1D" strokeWidth="1" />
+      {/* Rate — line 1, y=14 */}
+      {rate !== null && (
+        <text x={labelX} y={14} textAnchor={anchor as 'start' | 'middle' | 'end'}
+          fontFamily="'JetBrains Mono'" fontSize="9" fill="#7F1D1D" fontWeight="500">
+          {rate.toFixed(1)}/yr
+        </text>
+      )}
+      {/* Percentile — line 2, y=25 */}
+      <text x={labelX} y={25} textAnchor={anchor as 'start' | 'middle' | 'end'}
+        fontFamily="'JetBrains Mono'" fontSize="8" fill="#7F1D1D" opacity="0.7">
+        {ordinal(Math.round(pct))} pct
+      </text>
+      {/* Median — line 3, y=36 */}
+      {medianRate !== null && (
+        <text x={labelX} y={36} textAnchor={anchor as 'start' | 'middle' | 'end'}
+          fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">
+          (med. {medianRate.toFixed(1)}/yr)
+        </text>
+      )}
+      {/* Axis labels */}
+      <text x={L}         y={Y + 20} fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">fewer</text>
+      <text x={L + W / 2} y={Y + 20} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">median</text>
+      <text x={L + W}     y={Y + 20} textAnchor="end"    fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">most</text>
     </svg>
   )
+}
+
+function niceMax(v: number): number {
+  if (v <= 5)  return 5
+  if (v <= 10) return 10
+  if (v <= 20) return 20
+  if (v <= 50) return 50
+  return Math.ceil(v / 10) * 10
 }
 
 function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
@@ -82,37 +141,57 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
   }
 
   const years = Object.keys(byYear).map(Number).sort()
+
+  // Layout constants
+  const VW = 220, VH = 100
+  const PL = 26, PR = 8, PT = 10, PB = 22   // left/right/top/bottom padding
+  const baseY = VH - PB                      // y=78  (zero line)
+  const topY  = PT                           // y=10  (max line)
+  const chartH = baseY - topY               // 68px
+  const chartW = VW - PL - PR               // 186px
+
   if (years.length < 2) {
     return (
-      <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <line x1="0" y1="50" x2="220" y2="50" stroke="#E5E5E5" strokeWidth="0.5" />
-        <text x="110" y="30" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not enough history</text>
+      <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <line x1={PL} y1={baseY} x2={VW - PR} y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
+        <text x={PL + chartW / 2} y={topY + chartH / 2 + 4} textAnchor="middle"
+          fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not enough history</text>
       </svg>
     )
   }
 
-  const vals = years.map(y => byYear[y])
-  const maxVal = Math.max(...vals, 1)
-  const baseY = 50
-  const padX = 8
+  const vals  = years.map(y => byYear[y])
+  const yMax  = niceMax(Math.max(...vals, 1))
+  const midVal = yMax / 2
 
-  const points = vals.map((v, i) => ({
-    x: padX + (i / (vals.length - 1)) * (220 - 2 * padX),
-    y: baseY - Math.round((v / maxVal) * (baseY - 10)),
-  }))
+  const toY = (v: number) => baseY - (v / yMax) * chartH
+  const toX = (i: number) => PL + (i / (vals.length - 1)) * chartW
 
+  const points  = vals.map((v, i) => ({ x: toX(i), y: toY(v) }))
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-  const lastPt = points[points.length - 1]
+  const lastPt  = points[points.length - 1]
 
   return (
-    <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <line x1="0" y1={baseY} x2="220" y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
+    <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {/* Grid lines */}
+      <line x1={PL} y1={topY}       x2={VW - PR} y2={topY}       stroke="#F0F0F0" strokeWidth="0.5" />
+      <line x1={PL} y1={toY(midVal)} x2={VW - PR} y2={toY(midVal)} stroke="#F0F0F0" strokeWidth="0.5" />
+      <line x1={PL} y1={baseY}      x2={VW - PR} y2={baseY}      stroke="#E5E5E5" strokeWidth="0.5" />
+
+      {/* Y axis labels */}
+      <text x={PL - 4} y={topY + 3}        textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">{yMax}</text>
+      <text x={PL - 4} y={toY(midVal) + 3} textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">{midVal}</text>
+      <text x={PL - 4} y={baseY + 3}       textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">0</text>
+
+      {/* Line + end dot */}
       <path d={linePath} fill="none" stroke="#111111" strokeWidth="1.5" strokeLinejoin="round" />
       <circle cx={lastPt.x} cy={lastPt.y} r="2.5" fill="#111111" />
-      <text x={points[0].x} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+
+      {/* X labels */}
+      <text x={points[0].x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[0]).slice(2)}
       </text>
-      <text x={lastPt.x} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+      <text x={lastPt.x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
     </svg>
@@ -196,18 +275,19 @@ export default async function BuildingPage({
   searchParams,
 }: {
   params: Promise<{ bin: string }>
-  searchParams: Promise<{ page?: string; status?: string; category?: string; from?: string }>
+  searchParams: Promise<{ page?: string; status?: string; category?: string; from?: string; bw?: string }>
 }) {
   const { bin } = await params
-  const { page: pageStr, status, category, from } = await searchParams
+  const { page: pageStr, status, category, from, bw } = await searchParams
   const page = Number(pageStr ?? 1)
+  const breakdownYears = bw === '5yr' ? 5 : undefined
 
   let building, timeline, breakdown, neighborhood
   try {
     ;[building, timeline, breakdown] = await Promise.all([
       getBuilding(bin, page, status, category),
       getTimeline(bin),
-      getBreakdown(bin),
+      getBreakdown(bin, breakdownYears),
     ])
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) notFound()
@@ -279,6 +359,7 @@ export default async function BuildingPage({
   // ── insight card data ────────────────────────────────────────────────────
   const ntaName        = building.nta_name ?? neighborhood?.nta_name ?? 'this neighborhood'
   const years          = Math.round(yearsOnRecord(building.first_complaint_date))
+  const firstYear      = building.first_complaint_date?.slice(0, 4) ?? null
   const rl             = building.risk_level
   const insufficient   = rl === 'Insufficient data'
   const notComparable  = rl === 'Not comparable'
@@ -302,11 +383,33 @@ export default async function BuildingPage({
     : building.trend_direction === 'improving' ? 'Complaints have decreased in recent years'
     : building.trend_direction === 'worsening' ? 'Complaints have increased in the last 2 years'
     : 'Complaint rate has been consistent over time'
+
+  const recent2 = building.recent_complaint_count ?? 0
+  const prior3  = building.prior_complaint_count  ?? 0
+  const prior2  = Math.round(prior3 * 2 / 3)   // normalise prior 3-yr window → 2-yr equiv for fair comparison
+
   const sub2 = insufficient
-    ? `${building.recent_complaint_count ?? 0} complaint${(building.recent_complaint_count ?? 0) !== 1 ? 's' : ''} in the last 2 years.`
+    ? `${recent2} complaint${recent2 !== 1 ? 's' : ''} in the last 2 years.`
     : notComparable
     ? 'Complaint trends are only tracked for residential buildings.'
-    : `${building.recent_complaint_count} in the last 2 years vs ${building.prior_complaint_count} in the 3 years before.`
+    : prior2 === 0
+    ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: recent2 > 0 ? '#92400E' : '#A3A3A3' }}>
+        {recent2 > 0 ? '↑ Rising — no prior history' : '— No trend data'}
+      </span>
+    : (() => {
+        const pct = Math.round(((recent2 - prior2) / prior2) * 100)
+        const counts = `(${recent2} vs ${prior2} prior 2 yrs)`
+        const [arrow, label, color] = pct >= 10
+          ? ['↑', `Up ${pct}% in the last 2 years`, '#7F1D1D']
+          : pct <= -10
+          ? ['↓', `Down ${Math.abs(pct)}% in the last 2 years`, '#166534']
+          : ['→', 'Stable in the last 2 years', '#737373']
+        return (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color }}>
+            {arrow} {label} {counts}
+          </span>
+        )
+      })()
 
   // Card 3: Rank
   const headline3 = insufficient  ? `Too few complaints to rank against ${ntaName}`
@@ -319,7 +422,7 @@ export default async function BuildingPage({
     ? 'Buildings need at least 10 complaints and 2 years of history to rank.'
     : notComparable
     ? 'This building is in a park, airport, cemetery, or other non-residential area.'
-    : `More complaints than ${Math.round(building.neighborhood_percentile!)}% of residential buildings in ${ntaName}.`
+    : `More complaints than ${Math.round(building.neighborhood_percentile!)}% of residential buildings in ${ntaName} over the last 10 years.`
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -352,20 +455,24 @@ export default async function BuildingPage({
 
         {/* Three insight cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-          <InsightCard eyebrow="Severity" aside="Pri A+B" headline={headline1} sub={sub1} tooltip="DOB complaints are prioritized from Priority A (most urgent safety concerns) through lower-priority categories based on severity and potential public risk.">
-            <SeverityViz count={building.priority_ab_complaints} />
+          <InsightCard eyebrow="Neighborhood" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3}>
+            <RankViz percentile={notComparable || insufficient ? null : building.neighborhood_percentile} />
           </InsightCard>
-          <InsightCard eyebrow="Trend" aside="Last 5 years" headline={headline2} sub={sub2}>
+          <InsightCard eyebrow="Activity Trends" aside="Last 5 years" headline={headline2} sub={sub2}>
             <TrendViz timeline={timeline} />
           </InsightCard>
-          <InsightCard eyebrow="Rank" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3}>
-            <RankViz percentile={notComparable || insufficient ? null : building.neighborhood_percentile} />
+          <InsightCard eyebrow="Complaint Severity" aside="Last 10 years" headline={headline1} sub={sub1} tooltip="DOB complaints are prioritized from Priority A (most urgent safety concerns) through lower-priority categories based on severity and potential public risk. The chart shows this building's Priority A+B rate per year relative to other residential buildings in the same neighborhood, based on the last 10 years of complaints.">
+            <SeverityViz
+              rate={insufficient || notComparable ? null : building.serious_rate}
+              percentile={insufficient || notComparable ? null : building.serious_rate_percentile}
+              medianRate={insufficient || notComparable ? null : (neighborhood?.median_serious_rate ?? null)}
+            />
           </InsightCard>
         </div>
 
         {/* KPI stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
-          <StatCard label="Total complaints" value={building.total_complaints} />
+          <StatCard label={firstYear ? `Total complaints since ${firstYear}` : 'Total complaints'} value={building.total_complaints} />
           <StatCard label="Active"           value={building.open_complaints} />
           <StatCard label="Priority A"       value={building.priority_a_complaints} tooltip="The highest-severity DOB complaints, alleging conditions that present an imminent risk to public safety (e.g., structural instability, collapse risk, shaking buildings). DOB's target is to inspect within 24 hours. Count includes all complaints ever filed, not just active ones." />
           <StatCard label="Priority A+B"     value={building.priority_ab_complaints} tooltip="Combined count of Priority A complaints (imminent safety risks, 24-hour target) and Priority B complaints (serious but non-imminent, e.g., illegal conversions, work without a permit, inadequate scaffolding, 40-day target). Includes all complaints ever filed." />
@@ -391,7 +498,34 @@ export default async function BuildingPage({
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
                 Top complaint types
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>by volume</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <Link
+                  href={`/dob/building/${bin}?bw=5yr`}
+                  scroll={false}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
+                    padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
+                    background: bw === '5yr' ? '#111111' : 'transparent',
+                    color: bw === '5yr' ? '#FFFFFF' : '#737373',
+                    border: bw === '5yr' ? 'none' : '0.5px solid #D4D4D4',
+                  }}
+                >
+                  5 yrs
+                </Link>
+                <Link
+                  href={`/dob/building/${bin}`}
+                  scroll={false}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
+                    padding: '4px 9px', borderRadius: 6, textDecoration: 'none',
+                    background: !bw ? '#111111' : 'transparent',
+                    color: !bw ? '#FFFFFF' : '#737373',
+                    border: !bw ? 'none' : '0.5px solid #D4D4D4',
+                  }}
+                >
+                  All time
+                </Link>
+              </div>
             </div>
             <ComplaintBreakdown data={breakdown} />
           </div>

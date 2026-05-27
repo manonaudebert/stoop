@@ -25,3 +25,9 @@ When adding statistics or analytics for HPD violations, prioritize information t
 - Show trend direction (↑/↓/→) alongside raw numbers so a tenant can judge trajectory, not just snapshot
 - Where a number is alarming (open Class C, rent-impairing), surface it prominently and explain what it means for the tenant in plain language via tooltips
 - Avoid metrics that only make sense to inspectors or policy researchers unless they can be translated into tenant-relevant language
+
+## Metric definitions
+
+All computed metrics — percentile methodologies, time windows, decay weights, and which SQL views power which cards — are documented in [`METRICS.md`](METRICS.md).
+
+**If you change metric methodology in any SQL migration, update `METRICS.md` to match.** This includes: time window changes, weighting adjustments, new percentile columns, or changes to which view a page reads from.

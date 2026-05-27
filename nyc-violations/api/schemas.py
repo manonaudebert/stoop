@@ -93,8 +93,9 @@ class NeighborhoodResponse(BaseModel):
     median_score: float | None
     p25_score: float | None
     p75_score: float | None
-    nta_percentile: float | None   # 0–100: pct of NTA buildings this building scores better than
-    peer_scores: list[float]       # sampled scores for dot plot (≤200)
+    nta_percentile: float | None        # 0–100: pct of NTA buildings this building scores better than
+    median_serious_rate: float | None   # median Priority A+B rate/yr among NTA residential peers
+    peer_scores: list[float]            # sampled scores for dot plot (≤200)
 
 
 # ── HPD violations ────────────────────────────────────────────────────────────

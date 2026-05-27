@@ -199,7 +199,9 @@ base AS (
             WHERE c.date_entered >= CURRENT_DATE - INTERVAL '5 years'
               AND c.date_entered <  CURRENT_DATE - INTERVAL '2 years'
         )                                               AS prior_complaint_count,
-        -- Weighted sum exposed separately so it can be used for normalization
+        -- Weighted sum exposed separately so it can be used for normalization.
+        -- Hard 10-year cutoff: complaints older than 10 years contribute nothing,
+        -- matching the HPD methodology in hpd_building_summary.
         COALESCE(SUM(
             CASE COALESCE(cc.priority, 'C')
                 WHEN 'A' THEN 15.0
@@ -208,15 +210,22 @@ base AS (
                 ELSE            1.0
             END *
             CASE
-                WHEN c.date_entered >= CURRENT_DATE - INTERVAL '2 years' THEN 1.00
-                WHEN c.date_entered >= CURRENT_DATE - INTERVAL '5 years' THEN 0.50
-                ELSE                                                           0.25
+                WHEN c.date_entered >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN c.date_entered >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN c.date_entered >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
             END
         ), 0.0)                                         AS weighted_complaint_sum,
-        -- Serious rate: priority A+B per year, floored at 1 year
-        COUNT(*) FILTER (WHERE cc.priority IN ('A','B'))::numeric
+        -- Serious rate: priority A+B per year, 10-year window, floored at 1 year.
+        -- Only complaints within the last 10 years are counted; denominator is
+        -- capped at 10 so old and new buildings are compared on the same horizon.
+        -- Matches the HPD methodology used in hpd_building_summary.
+        COUNT(*) FILTER (WHERE cc.priority IN ('A','B')
+                           AND c.date_entered >= CURRENT_DATE - INTERVAL '10 years')::numeric
             / GREATEST(
-                (CURRENT_DATE - MIN(c.date_entered))::float / 365.25,
+                LEAST(
+                    (CURRENT_DATE - MIN(c.date_entered))::float / 365.25,
+                    10.0
+                ),
                 1.0
             )                                           AS serious_rate
     FROM complaints c
@@ -351,7 +360,8 @@ SELECT
     ROUND(AVG(bs.score_numeric)::numeric, 1)                                              AS avg_score,
     ROUND((PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS p25_score,
     ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS median_score,
-    ROUND((PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS p75_score
+    ROUND((PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY bs.score_numeric))::numeric, 1)  AS p75_score,
+    ROUND((PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY bs.serious_rate))::numeric, 2)   AS median_serious_rate
 FROM building_summary bs
 JOIN buildings b ON bs.bin = b.bin
 WHERE b.nta_code IS NOT NULL AND bs.score_numeric IS NOT NULL

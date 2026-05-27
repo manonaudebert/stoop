@@ -16,7 +16,25 @@ export default function ComplaintBreakdown({ data }: { data: CategoryBreakdownIt
   const top = data.slice(0, 8)
   const max = Math.max(...top.map(d => d.count))
 
+  const LEGEND = [
+    { priority: 'A', label: 'Imminent' },
+    { priority: 'B', label: 'Serious'  },
+    { priority: 'C', label: 'Standard' },
+    { priority: 'D', label: 'Minor'    },
+  ]
+
   return (
+    <>
+    <div style={{ display: 'flex', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+      {LEGEND.map(({ priority, label }) => (
+        <span key={priority} style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0,
+            background: PRIORITY_COLORS[priority] ?? '#D4D4D4' }} />
+          {priority} — {label}
+        </span>
+      ))}
+    </div>
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={top} layout="vertical" margin={{ top: 0, right: 8, left: 4, bottom: 0 }} barCategoryGap="30%">
         <XAxis
@@ -57,5 +75,6 @@ export default function ComplaintBreakdown({ data }: { data: CategoryBreakdownIt
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </>
   )
 }

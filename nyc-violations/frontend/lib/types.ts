@@ -54,6 +54,7 @@ export interface NeighborhoodData {
   p25_score: number | null
   p75_score: number | null
   nta_percentile: number | null
+  median_serious_rate: number | null
   peer_scores: number[]
 }
 

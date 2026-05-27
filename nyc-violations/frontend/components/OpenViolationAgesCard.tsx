@@ -11,11 +11,20 @@ const AGE_BUCKET_LABELS: Record<string, string> = {
 }
 
 const AGE_BUCKET_COLORS: Record<string, string> = {
-  '<30d':   '#525252',
-  '30-90d': '#92400E',
-  '3-12mo': '#B45309',
-  '1-3yr':  '#991B1B',
+  '<30d':   '#D4D4D4',
+  '30-90d': '#A3A3A3',
+  '3-12mo': '#737373',
+  '1-3yr':  '#7F1D1D',
   '3yr+':   '#7F1D1D',
+}
+
+// Bar-fill opacity — grays at full, reds muted like the RankViz track
+const AGE_BUCKET_OPACITY: Record<string, number> = {
+  '<30d':   1,
+  '30-90d': 1,
+  '3-12mo': 1,
+  '1-3yr':  0.55,
+  '3yr+':   0.85,
 }
 
 export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBucketItem[] }) {
@@ -50,7 +59,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
               x={`${offset}%`} y="0"
               width={`${pct}%`} height="12"
               fill={AGE_BUCKET_COLORS[bucket] ?? '#525252'}
-              opacity={hovered === null || hovered === bucket ? 1 : 0.35}
+              opacity={(AGE_BUCKET_OPACITY[bucket] ?? 1) * (hovered === null || hovered === bucket ? 1 : 0.35)}
               onMouseEnter={() => setHovered(bucket)}
               onMouseLeave={() => setHovered(null)}
             />
@@ -88,8 +97,8 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
           const color = AGE_BUCKET_COLORS[bucket] ?? '#525252'
           return (
             <div key={bucket} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color }}>
-                ▪ {AGE_BUCKET_LABELS[bucket] ?? bucket}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+                <span style={{ color, opacity: AGE_BUCKET_OPACITY[bucket] ?? 1 }}>▪</span> {AGE_BUCKET_LABELS[bucket] ?? bucket}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', fontVariantNumeric: 'tabular-nums' }}>
                 {pct}% <span style={{ color: '#A3A3A3' }}>({count})</span>

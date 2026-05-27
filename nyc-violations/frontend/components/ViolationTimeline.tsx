@@ -127,7 +127,7 @@ export default function ViolationTimeline({
             />
           )}
           <Area type="monotone" dataKey="old"    stackId="a" stroke="none" fill="#E5E5E5" fillOpacity={1} dot={false} />
-          <Area type="monotone" dataKey="recent" stackId="a" stroke="none" fill="#EF4637" fillOpacity={0.75} dot={false} />
+          <Area type="monotone" dataKey="recent" stackId="a" stroke="none" fill="#7F1D1D" fillOpacity={0.75} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </>

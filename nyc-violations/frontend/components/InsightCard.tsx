@@ -1,13 +1,14 @@
+import type { ReactNode } from 'react'
 import TooltipIcon from './TooltipIcon'
 
 type Props = {
   eyebrow: string
   aside?: string
   headline: string
-  sub: string
+  sub: ReactNode
   tooltip?: string
-  children?: React.ReactNode
-  footer?: React.ReactNode
+  children?: ReactNode
+  footer?: ReactNode
 }
 
 export default function InsightCard({ eyebrow, aside, headline, sub, tooltip, children, footer }: Props) {

@@ -45,8 +45,9 @@ export async function getTimeline(bin: string): Promise<TimelinePoint[]> {
   return get(`/building/${bin}/timeline`)
 }
 
-export async function getBreakdown(bin: string): Promise<CategoryBreakdownItem[]> {
-  return get(`/building/${bin}/breakdown`)
+export async function getBreakdown(bin: string, years?: number): Promise<CategoryBreakdownItem[]> {
+  const params = years ? `?years=${years}` : ''
+  return get(`/building/${bin}/breakdown${params}`)
 }
 
 export async function getNeighborhood(bin: string): Promise<NeighborhoodData | null> {

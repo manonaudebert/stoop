@@ -9,7 +9,7 @@ import {
   getHpdComplaintMinorBreakdown,
   getHpdComplaintTypePeriodBreakdown, getHpdComplaintResolutionBreakdown,
 } from '@/lib/api'
-import { MINOR_TO_GROUP, FILTER_GROUP_DESCRIPTIONS, VIOLATION_CATEGORY_TOOLTIPS } from '@/lib/constants'
+import { MINOR_TO_GROUP, FILTER_GROUP_DESCRIPTIONS, VIOLATION_CATEGORY_TOOLTIPS, type RenterFacingGroup } from '@/lib/constants'
 import TooltipIcon from '@/components/TooltipIcon'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
@@ -881,7 +881,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                     <div key={key} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
-                        <TooltipIcon text={FILTER_GROUP_DESCRIPTIONS[key]} />
+                        <TooltipIcon text={FILTER_GROUP_DESCRIPTIONS[key as RenterFacingGroup]} />
                       </span>
                       <span style={{ textAlign: 'right', flexShrink: 0 }}>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>

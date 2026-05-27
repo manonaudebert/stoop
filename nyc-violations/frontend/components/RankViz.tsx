@@ -1,5 +1,11 @@
 type Marker = { percentile: number | null; label: string }
 
+function ordinal(n: number): string {
+  const mod100 = n % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
+  return `${n}${ ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th' }`
+}
+
 const MARKER_COLORS = ['#7F1D1D', '#1D4ED8']
 
 function Track({ y }: { y: number }) {
@@ -62,12 +68,21 @@ export default function RankViz({
     )
   }
 
-  const markerX = Math.min(Math.max((percentile / 100) * 220, 6), 214)
+  const markerX   = Math.min(Math.max((percentile / 100) * 220, 6), 214)
+  const nearLeft  = markerX < 28
+  const nearRight = markerX > 192
+  const labelX    = nearLeft ? 0 : nearRight ? 220 : markerX
+  const anchor    = nearLeft ? 'start' : nearRight ? 'end' : 'middle'
   return (
-    <svg viewBox="0 0 220 48" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <Track y={26} />
-      <line x1={markerX} y1="18" x2={markerX} y2="40" stroke="#111111" strokeWidth="1.5" />
-      <circle cx={markerX} cy="29" r="4" fill="#FFFFFF" stroke="#111111" strokeWidth="1.5" />
+    <svg viewBox="0 0 220 58" style={{ width: '100%', height: 'auto', display: 'block' }}>
+      {/* Percentile label — above the stem */}
+      <text x={labelX} y={10} textAnchor={anchor as 'start' | 'middle' | 'end'}
+        fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">
+        {ordinal(Math.round(percentile))} pct
+      </text>
+      <Track y={36} />
+      <line x1={markerX} y1="14" x2={markerX} y2="50" stroke="#111111" strokeWidth="1.5" />
+      <circle cx={markerX} cy="39" r="4" fill="#FFFFFF" stroke="#111111" strokeWidth="1.5" />
     </svg>
   )
 }

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
 import { Map, ChevronLeft } from 'lucide-react'
 import SearchBar from './SearchBar'
 import type { BuildingSummary } from '@/lib/types'
@@ -11,7 +10,6 @@ type Props = { backHref: string; backLabel: string }
 
 export default function BuildingNavBar({ backHref, backLabel }: Props) {
   const router  = useRouter()
-  const { data: session } = useSession()
 
   // strip leading arrow/prefix so callers can still pass "← Map", "← Back to map", or "Map"
   const rawLabel = backLabel.replace(/^←\s*(Back to\s*)?/i, '')
@@ -84,19 +82,6 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
         >
           Methodology
         </Link>
-        {session && (
-          <button
-            onClick={() => signOut({ callbackUrl: '/' })}
-            className="hidden sm:inline"
-            style={{
-              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-              textTransform: 'uppercase', color: '#A3A3A3', background: 'none',
-              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, padding: 0,
-            }}
-          >
-            Sign out
-          </button>
-        )}
       </div>
     </header>
   )

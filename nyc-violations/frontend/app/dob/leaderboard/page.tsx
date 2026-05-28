@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getLeaderboardRecent } from '@/lib/api'
 import type { BuildingSummary } from '@/lib/types'
+import BuildingNavBar from '@/components/BuildingNavBar'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
 
@@ -153,29 +154,7 @@ export default async function DobLeaderboardPage({
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
 
-      {/* Nav */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        background: '#111111',
-        padding: '10px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-      }}>
-        <Link href="/" style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-          whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          ← Map
-        </Link>
-        <span style={{
-          fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
-          color: '#FFFFFF', letterSpacing: '-0.015em',
-        }}>
-          stoop
-        </span>
-      </header>
+      <BuildingNavBar backHref="/" backLabel="Map" />
 
       {/* Page header */}
       <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>

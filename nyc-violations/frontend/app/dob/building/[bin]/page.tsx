@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
 import { fmtDate } from '@/lib/fmt'
 import BuildingNavBar from '@/components/BuildingNavBar'
-import BuildingGate from '@/components/BuildingGate'
 import BuildingHero from '@/components/BuildingHero'
 import BuildingCrossLinks from '@/components/BuildingCrossLinks'
 import InsightCard from '@/components/InsightCard'
@@ -302,8 +301,7 @@ export default async function BuildingPage({
     return (
       <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
-        <BuildingGate bin={bin}>
-          <div style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 0' }}>
+        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 0' }}>
             <BuildingHero
               address={building.address ?? ''}
               meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
@@ -339,7 +337,6 @@ export default async function BuildingPage({
               </svg>
             </a>
           </main>
-        </BuildingGate>
       </div>
     )
   }
@@ -429,7 +426,6 @@ export default async function BuildingPage({
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
 
       <BuildingNavBar backHref={backHref} backLabel={backLabel} />
-      <BuildingGate bin={bin}>
 
       <main style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 80px' }}>
 
@@ -633,7 +629,6 @@ export default async function BuildingPage({
         </div>
 
       </main>
-      </BuildingGate>
     </div>
   )
 }

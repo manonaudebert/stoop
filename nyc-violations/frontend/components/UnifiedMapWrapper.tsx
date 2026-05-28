@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
@@ -60,7 +61,6 @@ const DATASET_CONFIG = {
 
 export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode?: Dataset }) {
   const router = useRouter()
-
   const [dataset,         setDataset]         = useState<Dataset>(initialMode)
   const [selected,        setSelected]        = useState<UnifiedSelected | null>(null)
   const [flyTarget,       setFlyTarget]       = useState<FlyTarget | null>(null)
@@ -231,9 +231,9 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
           style={{ background: '#111111', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14 }}
           className="pointer-events-auto"
         >
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.015em', flexShrink: 0 }}>
+          <Link href="/" style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.015em', flexShrink: 0, textDecoration: 'none' }}>
             stoop
-          </span>
+          </Link>
 
           <span
             className="hidden sm:inline"
@@ -258,7 +258,7 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
                 />
               )}
             </div>
-            <a
+            <Link
               href="/dob/leaderboard"
               className="hidden sm:inline"
               style={{
@@ -268,7 +268,18 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
               }}
             >
               Leaderboard
-            </a>
+            </Link>
+            <Link
+              href="/methodology"
+              className="hidden sm:inline"
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+                textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}
+            >
+              Methodology
+            </Link>
           </div>
         </div>
       </div>

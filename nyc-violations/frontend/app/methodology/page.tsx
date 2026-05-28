@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import BuildingNavBar from '@/components/BuildingNavBar'
 
 export const metadata: Metadata = {
   title: 'Methodology — stoop',
@@ -169,36 +170,7 @@ export default function MethodologyPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
 
-      {/* Nav */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        background: '#111111',
-        padding: '10px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-      }}>
-        <Link href="/" style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-          whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          ← Map
-        </Link>
-        <span style={{
-          fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
-          color: '#FFFFFF', letterSpacing: '-0.015em',
-        }}>
-          stoop
-        </span>
-        <div style={{ flex: 1 }} />
-        <Link href="/dob/leaderboard" style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-        }}>
-          Leaderboard
-        </Link>
-      </header>
+      <BuildingNavBar backHref="/" backLabel="Map" />
 
       {/* Page header */}
       <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '2rem 1.5rem' }}>

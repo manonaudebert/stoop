@@ -1,8 +1,11 @@
 'use client'
 import { useState } from 'react'
 
-export default function TooltipIcon({ text }: { text: string }) {
+export default function TooltipIcon({ text, direction = 'up' }: { text: string; direction?: 'up' | 'down' }) {
   const [visible, setVisible] = useState(false)
+  const placement = direction === 'down'
+    ? { top: 'calc(100% + 6px)', bottom: 'auto' }
+    : { bottom: 'calc(100% + 6px)', top: 'auto' }
   return (
     <span
       style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
@@ -14,7 +17,7 @@ export default function TooltipIcon({ text }: { text: string }) {
       </span>
       {visible && (
         <span style={{
-          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          position: 'absolute', ...placement, left: '50%',
           transform: 'translateX(-50%)',
           background: '#111111', color: '#FFFFFF',
           fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400,

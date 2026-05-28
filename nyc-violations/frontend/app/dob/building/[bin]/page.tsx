@@ -293,7 +293,7 @@ export default async function BuildingPage({
     if (err instanceof ApiError && err.status === 404) notFound()
     throw err
   }
-  const backHref  = from === 'leaderboard' ? '/leaderboard' : '/'
+  const backHref  = from === 'leaderboard' ? '/dob/leaderboard' : '/'
   const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
   const eyebrow = tierEyebrow(building.risk_level)
 
@@ -367,15 +367,15 @@ export default async function BuildingPage({
   // Card 1: Severity
   const headline1 = insufficient  ? 'Very few serious complaints on record'
     : notComparable              ? 'Serious complaint rate not available'
-    : (building.serious_rate_percentile ?? 0) >= 90 ? 'Among the highest rates of serious complaints nearby'
-    : (building.serious_rate_percentile ?? 0) >= 70 ? 'More serious complaints than most buildings nearby'
-    : (building.serious_rate_percentile ?? 0) >= 40 ? 'About as many serious complaints as similar buildings'
+    : (building.normalized_serious_rate_percentile ?? 0) >= 90 ? 'Among the highest rates of serious complaints nearby'
+    : (building.normalized_serious_rate_percentile ?? 0) >= 70 ? 'More serious complaints than most buildings nearby'
+    : (building.normalized_serious_rate_percentile ?? 0) >= 40 ? 'About as many serious complaints as similar buildings'
     : 'Fewer serious complaints than most buildings nearby'
   const sub1 = insufficient
     ? `${building.priority_ab_complaints} Priority A and B complaint${building.priority_ab_complaints !== 1 ? 's' : ''} on record — not enough to establish a rate.`
     : notComparable
     ? 'This building is not in a residential NTA and cannot be compared to residential peers.'
-    : `${building.priority_ab_complaints} Priority A and B complaints over ${years} year${years !== 1 ? 's' : ''} — ${(building.serious_rate ?? 0).toFixed(1)} per year on average.`
+    : `${building.priority_ab_complaints} Priority A and B complaints over ${years} year${years !== 1 ? 's' : ''} — ${(building.serious_rate ?? 0).toFixed(1)} per year on average. Size-normalized by building volume.`
 
   // Card 2: Trend
   const headline2 = insufficient  ? 'Very little complaint activity on record'
@@ -422,7 +422,7 @@ export default async function BuildingPage({
     ? 'Buildings need at least 10 complaints and 2 years of history to rank.'
     : notComparable
     ? 'This building is in a park, airport, cemetery, or other non-residential area.'
-    : `More complaints than ${Math.round(building.normalized_percentile!)}% of residential buildings in ${ntaName} over the last 10 years.`
+    : `More complaints than ${Math.round(building.normalized_percentile!)}% of residential buildings in ${ntaName} over the last 10 years. Size-normalized by building volume.`
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -461,10 +461,10 @@ export default async function BuildingPage({
           <InsightCard eyebrow="Activity Trends" aside="Last 5 years" headline={headline2} sub={sub2}>
             <TrendViz timeline={timeline} />
           </InsightCard>
-          <InsightCard eyebrow="Complaint Severity" aside="Last 10 years" headline={headline1} sub={sub1} tooltip="DOB complaints are prioritized from Priority A (most urgent safety concerns) through lower-priority categories based on severity and potential public risk. The chart shows this building's Priority A+B rate per year relative to other residential buildings in the same neighborhood, based on the last 10 years of complaints.">
+          <InsightCard eyebrow="Complaint Severity" aside="Last 10 years" headline={headline1} sub={sub1} tooltip="DOB complaints are prioritized from Priority A (most urgent safety concerns) through lower-priority categories based on severity and potential public risk. The chart shows this building's Priority A+B rate per year, size-normalized by building volume and ranked against other residential buildings in the same neighborhood, based on the last 10 years of complaints.">
             <SeverityViz
               rate={insufficient || notComparable ? null : building.serious_rate}
-              percentile={insufficient || notComparable ? null : building.serious_rate_percentile}
+              percentile={insufficient || notComparable ? null : building.normalized_serious_rate_percentile}
               medianRate={insufficient || notComparable ? null : (neighborhood?.median_serious_rate ?? null)}
             />
           </InsightCard>

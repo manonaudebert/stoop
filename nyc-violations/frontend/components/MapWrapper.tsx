@@ -144,7 +144,7 @@ export default function MapWrapper() {
               HPD violations
             </Link>
             <Link
-              href="/leaderboard"
+              href="/dob/leaderboard"
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',

@@ -30,6 +30,7 @@ export interface BuildingSummary {
   closed_complaints: number
   priority_a_complaints: number
   priority_ab_complaints: number
+  priority_ab_2yr: number
   open_priority_a_complaints: number
   open_priority_b_complaints: number
   no_access_count_5yr: number

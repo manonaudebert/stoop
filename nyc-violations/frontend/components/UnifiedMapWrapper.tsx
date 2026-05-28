@@ -259,7 +259,7 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
               )}
             </div>
             <a
-              href="/leaderboard"
+              href="/dob/leaderboard"
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',

@@ -192,7 +192,7 @@ export default function MethodologyPage() {
           stoop
         </span>
         <div style={{ flex: 1 }} />
-        <Link href="/leaderboard" style={{
+        <Link href="/dob/leaderboard" style={{
           fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
           textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
         }}>

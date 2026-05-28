@@ -1,36 +1,34 @@
 import Link from 'next/link'
-import { getLeaderboard } from '@/lib/api'
+import { getLeaderboardRecent } from '@/lib/api'
 import type { BuildingSummary } from '@/lib/types'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
 
-const RISK_DOT: Record<string, string> = {
-  'Very low':          '#C5E0C8',
-  'Low':               '#84A98C',
-  'Moderate':          '#E4A11B',
-  'High':              '#BC4B33',
-  'Very high':         '#7F1D1D',
-  'Insufficient data': '#C5E0C8',
-  'Not comparable':    '#C5E0C8',
+const TREND: Record<string, string> = {
+  worsening:  '↑',
+  stable:     '→',
+  improving:  '↓',
 }
-function riskDot(level: string | null): string {
-  return RISK_DOT[level ?? ''] ?? '#A3A3A3'
+const TREND_COLOR: Record<string, string> = {
+  worsening:  '#BC4B33',
+  stable:     '#A3A3A3',
+  improving:  '#84A98C',
 }
 
 function BuildingRow({
   rank,
   building,
-  maxComplaints,
+  maxRecent,
 }: {
   rank: number
   building: BuildingSummary
-  maxComplaints: number
+  maxRecent: number
 }) {
-  const dot = riskDot(building.risk_level)
-  const barPct = maxComplaints > 0 ? (building.total_complaints / maxComplaints) * 100 : 0
-  // Shade the bar from deep oxblood (#7F1D1D) at #1 down to a lighter red at the bottom
+  const recent2yr = building.recent_complaint_count ?? 0
+  const barPct = maxRecent > 0 ? (recent2yr / maxRecent) * 100 : 0
   const barColor = barPct > 66 ? '#7F1D1D' : barPct > 33 ? '#BC4B33' : '#D97B65'
   const rankColor = rank <= 3 ? '#7F1D1D' : rank <= 10 ? '#BC4B33' : '#A3A3A3'
+  const trend = building.trend_direction ?? ''
 
   return (
     <Link
@@ -58,8 +56,12 @@ function BuildingRow({
           </span>
         </div>
 
-        {/* Tier dot */}
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+        {/* Trend arrow */}
+        <div style={{ width: 14, flexShrink: 0, textAlign: 'center' }}>
+          <span style={{ fontSize: 12, color: TREND_COLOR[trend] ?? '#A3A3A3' }}>
+            {TREND[trend] ?? '·'}
+          </span>
+        </div>
 
         {/* Building info */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -76,10 +78,10 @@ function BuildingRow({
           }}>
             {building.borough}
             {building.zip_code ? ` · ${building.zip_code}` : ''}
-            {building.bin ? ` · ${building.bin}` : ''}
+            {building.nta_name ? ` · ${building.nta_name}` : ''}
           </p>
 
-          {/* Complaint bar */}
+          {/* Recent complaint bar */}
           <div style={{ marginTop: 8, background: '#F5F5F5', borderRadius: 3, height: 4, overflow: 'hidden' }}>
             <div style={{ width: `${barPct}%`, height: '100%', background: barColor, borderRadius: 3, minWidth: 4 }} />
           </div>
@@ -87,18 +89,20 @@ function BuildingRow({
 
         {/* Stats */}
         <div style={{ display: 'flex', gap: 24, flexShrink: 0, alignItems: 'center' }}>
+          {/* 2yr complaints — primary sort */}
           <div style={{ textAlign: 'right' }}>
             <p style={{
               fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500,
               color: barColor, margin: 0, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
             }}>
-              {building.total_complaints.toLocaleString()}
+              {recent2yr.toLocaleString()}
             </p>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#737373', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              complaints
+              last 2yr
             </p>
           </div>
 
+          {/* Open complaints — tiebreaker 1 */}
           <div style={{ textAlign: 'right' }}>
             <p style={{
               fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500,
@@ -112,25 +116,38 @@ function BuildingRow({
             </p>
           </div>
 
+          {/* Priority A+B last 2yr — tiebreaker 2 */}
+          <div style={{ textAlign: 'right' }}>
+            <p style={{
+              fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500,
+              color: building.priority_ab_2yr > 0 ? '#525252' : '#A3A3A3',
+              margin: 0, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+            }}>
+              {building.priority_ab_2yr.toLocaleString()}
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#737373', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              serious 2yr
+            </p>
+          </div>
         </div>
       </div>
     </Link>
   )
 }
 
-export default async function LeaderboardPage({
+export default async function DobLeaderboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ borough?: string }>
 }) {
   const { borough } = await searchParams
-  const buildings = await getLeaderboard(borough)
-  const maxComplaints = buildings[0]?.total_complaints ?? 1
+  const buildings = await getLeaderboardRecent(borough)
+  const maxRecent = buildings[0]?.recent_complaint_count ?? 1
 
   function boroughUrl(b?: string) {
     const sp = new URLSearchParams()
     if (b) sp.set('borough', b)
-    return `/leaderboard${sp.size ? `?${sp}` : ''}`
+    return `/dob/leaderboard${sp.size ? `?${sp}` : ''}`
   }
 
   return (
@@ -158,30 +175,28 @@ export default async function LeaderboardPage({
         }}>
           stoop
         </span>
-        <div style={{ flex: 1 }} />
-        <Link href="/methodology" style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
-          whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          Methodology
-        </Link>
       </header>
 
       {/* Page header */}
       <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 12 }}>
             <h1 style={{
               fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
               color: '#111111', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.1,
             }}>
-              Most complained buildings
+              Most active buildings
             </h1>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
-              Top {buildings.length}{borough ? ` · ${borough}` : ' · citywide'}
+              Top {buildings.length}{borough ? ` · ${borough}` : ' · all boroughs'}
             </span>
           </div>
+          <p style={{
+            fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252',
+            lineHeight: 1.6, margin: '0 0 20px', maxWidth: 640,
+          }}>
+            Ranked by complaints filed in the last 2 years. Ties broken by open complaints, then serious complaints (Priority A+B) in the same window. The trend arrow shows whether the annual complaint rate is rising or falling compared to the prior 3 years.
+          </p>
 
           {/* Borough tabs */}
           <div style={{ display: 'flex', gap: 0, borderBottom: '0.5px solid #E5E5E5', marginBottom: -1 }}>
@@ -220,7 +235,7 @@ export default async function LeaderboardPage({
             background: '#FAFAFA',
           }}>
             <div style={{ width: 32, flexShrink: 0 }} />
-            <div style={{ width: 8, flexShrink: 0 }} />
+            <div style={{ width: 14, flexShrink: 0 }} />
             <p style={{
               flex: 1,
               fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
@@ -230,13 +245,13 @@ export default async function LeaderboardPage({
             </p>
             <div style={{ display: 'flex', gap: 24 }}>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, textAlign: 'right' }}>
-                Total
+                Last 2yr
               </p>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 40, textAlign: 'right' }}>
                 Active
               </p>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, textAlign: 'center' }}>
-                Score
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 64, textAlign: 'right' }}>
+                Serious 2yr
               </p>
             </div>
           </div>
@@ -251,7 +266,7 @@ export default async function LeaderboardPage({
                 key={b.bin}
                 rank={i + 1}
                 building={b}
-                maxComplaints={maxComplaints}
+                maxRecent={maxRecent}
               />
             ))
           )}

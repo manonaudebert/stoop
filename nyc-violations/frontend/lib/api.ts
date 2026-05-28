@@ -58,9 +58,9 @@ export async function getNeighborhood(bin: string): Promise<NeighborhoodData | n
   }
 }
 
-export async function getLeaderboard(borough?: string): Promise<BuildingSummary[]> {
+export async function getLeaderboardRecent(borough?: string): Promise<BuildingSummary[]> {
   const params = borough ? `?borough=${encodeURIComponent(borough)}` : ''
-  return get(`/building/leaderboard${params}`)
+  return get(`/building/leaderboard-recent${params}`)
 }
 
 // ── HPD violations ────────────────────────────────────────────────────────────

@@ -190,6 +190,10 @@ base AS (
         COUNT(*) FILTER (WHERE c.status = 'CLOSED')     AS closed_complaints,
         COUNT(*) FILTER (WHERE cc.priority = 'A')                       AS priority_a_complaints,
         COUNT(*) FILTER (WHERE cc.priority IN ('A','B'))                 AS priority_ab_complaints,
+        COUNT(*) FILTER (WHERE cc.priority IN ('A','B')
+                           AND c.date_entered >= CURRENT_DATE - INTERVAL '5 years') AS priority_ab_5yr,
+        COUNT(*) FILTER (WHERE cc.priority IN ('A','B')
+                           AND c.date_entered >= CURRENT_DATE - INTERVAL '2 years') AS priority_ab_2yr,
         -- Active (open) counts by priority for the KPI cards
         COUNT(*) FILTER (WHERE cc.priority = 'A' AND c.status = 'ACTIVE')         AS open_priority_a_complaints,
         COUNT(*) FILTER (WHERE cc.priority = 'B' AND c.status = 'ACTIVE')         AS open_priority_b_complaints,
@@ -331,7 +335,7 @@ SELECT
     bin, address, zip_code, borough, latitude, longitude,
     nta_code, nta_name, nta_type,
     total_complaints, open_complaints, closed_complaints,
-    priority_a_complaints, priority_ab_complaints,
+    priority_a_complaints, priority_ab_complaints, priority_ab_5yr, priority_ab_2yr,
     open_priority_a_complaints, open_priority_b_complaints,
     no_access_count_5yr, closed_5yr_complaints,
     first_complaint_date, latest_complaint_date,

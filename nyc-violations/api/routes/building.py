@@ -18,24 +18,32 @@ def _complaint_row_to_response(row) -> ComplaintResponse:
 
 
 LEADERBOARD_LIMIT = 100
-LEADERBOARD_QUERY = """
+LEADERBOARD_RECENT_QUERY = """
     SELECT bin, address, zip_code, borough, latitude, longitude,
            total_complaints, open_complaints, closed_complaints,
-           priority_a_complaints, priority_ab_complaints,
-           first_complaint_date, latest_complaint_date
+           priority_a_complaints, priority_ab_complaints, priority_ab_2yr,
+           open_priority_a_complaints, open_priority_b_complaints,
+           first_complaint_date, latest_complaint_date,
+           recent_complaint_count, prior_complaint_count,
+           trend_direction, risk_level, nta_code, nta_name,
+           normalized_percentile
     FROM building_summary
-    WHERE total_complaints > 0 {borough_clause}
-    ORDER BY total_complaints DESC
+    WHERE recent_complaint_count > 0
+      AND total_complaints >= 10
+      AND nta_type = 0 {borough_clause}
+    ORDER BY recent_complaint_count DESC,
+             open_complaints DESC,
+             priority_ab_2yr DESC
     LIMIT {limit}
 """
 
 
-@router.get("/leaderboard", response_model=list[BuildingSummaryResponse])
-async def get_leaderboard(
+@router.get("/leaderboard-recent", response_model=list[BuildingSummaryResponse])
+async def get_leaderboard_recent(
     borough: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    cache_key = f"leaderboard:{borough or 'all'}"
+    cache_key = f"leaderboard-recent:{borough or 'all'}"
     cached = cache_get(cache_key)
     if cached:
         return cached
@@ -43,7 +51,7 @@ async def get_leaderboard(
     clause = "AND UPPER(borough) = UPPER(:borough)" if borough else ""
     params: dict = {"borough": borough} if borough else {}
     rows = await db.execute(
-        text(LEADERBOARD_QUERY.format(borough_clause=clause, limit=LEADERBOARD_LIMIT)),
+        text(LEADERBOARD_RECENT_QUERY.format(borough_clause=clause, limit=LEADERBOARD_LIMIT)),
         params,
     )
     result = [BuildingSummaryResponse(**dict(r._mapping)) for r in rows]

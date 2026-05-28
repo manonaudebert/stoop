@@ -11,14 +11,14 @@
 # ── cron alternative ─────────────────────────────────────────────────────────
 # Add to crontab (run every Sunday at 2 AM):
 #   crontab -e
-#   0 2 * * 0 /path/to/nycb/weekly_sync.sh
+#   0 2 * * 0 /path/to/stoop/weekly_sync.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INGEST_DIR="$SCRIPT_DIR/stoop/ingest"
-DATA_DIR="$SCRIPT_DIR/stoop/data"
-VENV="$SCRIPT_DIR/stoop/.venv/bin/activate"
+INGEST_DIR="$SCRIPT_DIR/ingest"
+DATA_DIR="$SCRIPT_DIR/data"
+VENV="$SCRIPT_DIR/.venv/bin/activate"
 
 mkdir -p "$DATA_DIR"
 

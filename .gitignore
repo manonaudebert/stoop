@@ -1,56 +1,24 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
-*.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+!.env.example
+frontend/.env.local
+!frontend/.env.local.example
 
-# env files (can opt-in for committing if needed)
-.env*
-!.env*.example
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
 .venv/
+.pytest_cache/
 
-# data files (large, not for version control)
-nyc-violations/data/raw/
-nyc-violations/data/clean/
-nyc-violations/data/sync.log
-nyc-violations/data/.last_sync
+# ── Data files (large / generated — not part of source) ───────────────────────
+data/raw/
+data/clean/
+data/sync.log
+data/.last_sync
 
-# ide
-.claude/
+# ── Claude Code local settings ────────────────────────────────────────────────
+.claude/settings.local.json

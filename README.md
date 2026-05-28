@@ -24,50 +24,45 @@ A web app that helps NYC renters research building complaint and violation histo
 ## Repository structure
 
 ```
-nycb/
-├── stoop/
-│   ├── .env                         # DATABASE_URL (copy from .env.example)
-│   ├── schema.sql                   # Full database schema + materialized views
-│   ├── migrate_add_normalization.sql # Migration: adds footprint/height columns + rebuilds views
-│   │
-│   ├── ingest/                      # Python data pipeline
-│   │   ├── config.py                # Dataset URLs, column maps, borough normalisation
-│   │   ├── fetch_buildings.py       # Building centroids, footprint area, roof height
-│   │   ├── enrich_nta.py            # Point-in-polygon NTA assignment via shapely STRtree
-│   │   ├── download.py              # Bulk CSV download (DOB complaints)
-│   │   ├── clean.py                 # Normalise, deduplicate, validate
-│   │   ├── load.py                  # asyncpg bulk insert (DOB complaints)
-│   │   ├── sync.py                  # Incremental weekly sync (DOB complaints)
-│   │   ├── sync_hpd.py              # Incremental weekly sync (HPD violations)
-│   │   ├── sync_hpd_complaints.py   # Incremental weekly sync (HPD complaints)
-│   │   ├── aggregate.py             # REFRESH all materialized views
-│   │   ├── seed_categories.py       # Seed DOB complaint category lookup
-│   │   └── seed_disposition_codes.py
-│   │
-│   ├── api/                         # FastAPI backend
-│   │   ├── main.py
-│   │   ├── database.py
-│   │   ├── schemas.py
-│   │   ├── cache.py
-│   │   └── routes/
-│   │       ├── building.py          # DOB complaint endpoints
-│   │       ├── hpd.py               # HPD violation endpoints
-│   │       ├── hpd_complaints.py    # HPD tenant complaint endpoints
-│   │       └── map.py               # Map cluster / heatmap endpoints
-│   │
-│   └── frontend/                    # Next.js app
-│       └── app/
-│           ├── page.tsx             # Landing: map + search
-│           ├── leaderboard/         # Worst-offender buildings list
-│           ├── building/[bin]/      # DOB complaint detail page
-│           ├── hpd/building/[bin]/  # HPD violation detail page
-│           ├── hpd-complaints/building/[bin]/  # HPD complaint detail page
-│           ├── hpd-overview/building/[bin]/    # Combined HPD overview
-│           └── methodology/         # How scores are calculated
+stoop/
+├── .env                         # DATABASE_URL (copy from .env.example)
+├── schema.sql                   # Full database schema + materialized views
+├── weekly_sync.sh               # Shell wrapper for all sync scripts
 │
-├── weekly_sync.sh                   # Shell wrapper for all sync scripts
-├── weekly_sync.plist                # macOS launchd job (every Sunday at 2am)
-└── WEEKLY_SYNC.md                   # Sync setup and tuning docs
+├── ingest/                      # Python data pipeline
+│   ├── config.py                # Dataset URLs, column maps, borough normalisation
+│   ├── fetch_buildings.py       # Building centroids, footprint area, roof height
+│   ├── enrich_nta.py            # Point-in-polygon NTA assignment via shapely STRtree
+│   ├── download.py              # Bulk CSV download (DOB complaints)
+│   ├── clean.py                 # Normalise, deduplicate, validate
+│   ├── load.py                  # asyncpg bulk insert (DOB complaints)
+│   ├── sync.py                  # Incremental weekly sync (DOB complaints)
+│   ├── sync_hpd.py              # Incremental weekly sync (HPD violations)
+│   ├── sync_hpd_complaints.py   # Incremental weekly sync (HPD complaints)
+│   ├── aggregate.py             # REFRESH all materialized views
+│   ├── seed_categories.py       # Seed DOB complaint category lookup
+│   └── seed_disposition_codes.py
+│
+├── api/                         # FastAPI backend
+│   ├── main.py
+│   ├── database.py
+│   ├── schemas.py
+│   ├── cache.py
+│   └── routes/
+│       ├── building.py          # DOB complaint endpoints
+│       ├── hpd.py               # HPD violation endpoints
+│       ├── hpd_complaints.py    # HPD tenant complaint endpoints
+│       └── map.py               # Map cluster / heatmap endpoints
+│
+└── frontend/                    # Next.js app
+    └── app/
+        ├── page.tsx             # Landing: map + search
+        ├── leaderboard/         # Worst-offender buildings list
+        ├── building/[bin]/      # DOB complaint detail page
+        ├── hpd/building/[bin]/  # HPD violation detail page
+        ├── hpd-complaints/building/[bin]/  # HPD complaint detail page
+        ├── hpd-overview/building/[bin]/    # Combined HPD overview
+        └── methodology/         # How scores are calculated
 ```
 
 ## Database schema
@@ -105,10 +100,10 @@ nycb/
 ### Environment variables
 
 ```bash
-# stoop/.env
+# .env
 DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/nycdb?sslmode=require
 
-# stoop/frontend/.env.local
+# frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
 ```
@@ -153,7 +148,7 @@ python aggregate.py
 ### Run the API
 
 ```bash
-cd stoop/api
+cd api
 uvicorn main:app --reload --port 8000
 ```
 
@@ -162,7 +157,7 @@ API docs: `http://localhost:8000/docs`
 ### Run the frontend
 
 ```bash
-cd stoop/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -246,7 +241,7 @@ Each density is then percentile-ranked within the building's NTA (residential bu
 
 ```bash
 # Run all syncs manually
-cd stoop/ingest
+cd ingest
 source ../.venv/bin/activate
 python sync.py               # DOB complaints
 python sync_hpd.py           # HPD violations

@@ -34,6 +34,7 @@ BUILDING_SUMMARY_ROW = {
     "closed_complaints": 7,
     "priority_a_complaints": 2,
     "priority_ab_complaints": 5,
+    "priority_ab_2yr": 3,
     "open_priority_a_complaints": 1,
     "open_priority_b_complaints": 2,
     "no_access_count_5yr": 0,
@@ -46,10 +47,12 @@ BUILDING_SUMMARY_ROW = {
     "risk_level": "High",
     "serious_rate": 0.4,
     "serious_rate_percentile": 70.0,
-    "trend_direction": "↑",
+    # DB stores "worsening" / "improving" / "stable"; the frontend maps these to arrows
+    "trend_direction": "worsening",
     "recent_complaint_count": 4,
     "prior_complaint_count": 3,
     "normalized_percentile": 75.0,
+    "normalized_serious_rate_percentile": 68.0,
 }
 
 COMPLAINT_ROW = {
@@ -344,3 +347,97 @@ class TestGetNeighborhood:
             app.dependency_overrides.pop(get_db, None)
 
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# API tests: GET /building/leaderboard-recent
+# ---------------------------------------------------------------------------
+
+# Minimal leaderboard row — only columns the query SELECTs (others use Pydantic defaults)
+LEADERBOARD_ROW = {
+    "bin": SAMPLE_BIN,
+    "address": "123 TEST ST",
+    "zip_code": "10001",
+    "borough": "MANHATTAN",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "total_complaints": 20,
+    "open_complaints": 5,
+    "closed_complaints": 15,
+    "priority_a_complaints": 3,
+    "priority_ab_complaints": 8,
+    "priority_ab_2yr": 4,
+    "open_priority_a_complaints": 1,
+    "open_priority_b_complaints": 2,
+    "first_complaint_date": date(2015, 1, 1),
+    "latest_complaint_date": date(2024, 6, 1),
+    "recent_complaint_count": 6,
+    "prior_complaint_count": 4,
+    "trend_direction": "worsening",
+    "risk_level": "High",
+    "nta_code": "MN2501",
+    "nta_name": "Hudson Yards",
+    "normalized_percentile": 82.0,
+}
+
+
+class TestGetLeaderboardRecent:
+    async def test_returns_ranked_list(self, client):
+        rows = [
+            MockRow({**LEADERBOARD_ROW, "bin": "1000001", "recent_complaint_count": 8}),
+            MockRow({**LEADERBOARD_ROW, "bin": "1000002", "recent_complaint_count": 6}),
+        ]
+        mock_db = make_mock_db(MockResult(rows))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 2
+        # First row has higher recent_complaint_count — leaderboard is ordered DESC
+        assert data[0]["recent_complaint_count"] == 8
+        assert data[1]["recent_complaint_count"] == 6
+
+    async def test_includes_trend_and_priority_fields(self, client):
+        mock_db = make_mock_db(MockResult([MockRow(LEADERBOARD_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        data = resp.json()
+        assert len(data) == 1
+        row = data[0]
+        assert row["trend_direction"] == "worsening"
+        assert row["priority_ab_2yr"] == 4
+        assert row["normalized_percentile"] == pytest.approx(82.0)
+
+    async def test_returns_empty_list_when_no_results(self, client):
+        mock_db = make_mock_db(MockResult([]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_borough_filter_is_accepted(self, client):
+        rows = [MockRow({**LEADERBOARD_ROW, "borough": "BROOKLYN"})]
+        mock_db = make_mock_db(MockResult(rows))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/leaderboard-recent?borough=Brooklyn")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["borough"] == "BROOKLYN"

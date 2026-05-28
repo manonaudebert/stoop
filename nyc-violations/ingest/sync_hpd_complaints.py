@@ -80,9 +80,9 @@ def fetch_since(since: date) -> pd.DataFrame:
     log.info("Fetching HPD complaints received/updated since %s", since)
 
     @retry(
-        retry=retry_if_exception_type(httpx.HTTPStatusError),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
-        stop=stop_after_attempt(4),
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TransportError)),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(5),
         reraise=True,
     )
     def _get_page(client: httpx.Client, offset: int) -> list[dict]:
@@ -99,7 +99,7 @@ def fetch_since(since: date) -> pd.DataFrame:
         return r.json()
 
     headers = {"X-App-Token": SOCRATA_APP_TOKEN} if SOCRATA_APP_TOKEN else {}
-    with httpx.Client(timeout=120, headers=headers) as client:
+    with httpx.Client(timeout=300, headers=headers) as client:
         while True:
             page: list[dict] = _get_page(client, offset)
             if not page:
@@ -176,6 +176,8 @@ async def refresh_views(conn: asyncpg.Connection) -> int:
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_complaints_building_summary")
     log.info("Refreshing building_summary…")
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY building_summary")
+    log.info("Refreshing nta_stats…")
+    await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY nta_stats")
     row = await conn.fetchrow("SELECT COUNT(*) AS n FROM building_summary")
     return row["n"]
 

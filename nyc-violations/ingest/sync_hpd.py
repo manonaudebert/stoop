@@ -86,9 +86,10 @@ def fetch_since(since: date) -> pd.DataFrame:
     log.info("Fetching HPD violations issued/updated since %s", since)
 
     @retry(
-        retry=retry_if_exception_type(httpx.HTTPStatusError),
-        wait=wait_exponential(multiplier=1, min=2, max=30),
-        stop=stop_after_attempt(4),
+        # Retry on HTTP 4xx/5xx AND on network/transport errors (ReadTimeout, ConnectError, …)
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TransportError)),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(5),
         reraise=True,
     )
     def _get_page(client: httpx.Client, offset: int) -> list[dict]:
@@ -105,7 +106,9 @@ def fetch_since(since: date) -> pd.DataFrame:
         return r.json()
 
     headers = {"X-App-Token": SOCRATA_APP_TOKEN} if SOCRATA_APP_TOKEN else {}
-    with httpx.Client(timeout=120, headers=headers) as client:
+    # 300 s per request: the OR filter (novissueddate OR currentstatusdate) is expensive
+    # on large HPD datasets and a single page can take well over 2 minutes to return.
+    with httpx.Client(timeout=300, headers=headers) as client:
         while True:
             page: list[dict] = _get_page(client, offset)
             if not page:
@@ -136,6 +139,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     bin_col = df.get("bin", pd.Series(dtype=str)).fillna("").astype(str).str.strip()
     df["bin"] = bin_col
     df.loc[df["bin"].str.lstrip("0").isin({"", "1000000"}), "bin"] = None
+
+    # Socrata JSON API returns lat/lon as strings; asyncpg needs real numbers.
+    for col in ("latitude", "longitude"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     for col in HPD_DB_COLUMNS:
         if col not in df.columns:
@@ -178,6 +186,8 @@ async def refresh_views(conn: asyncpg.Connection) -> int:
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_building_summary")
     log.info("Refreshing building_summary…")
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY building_summary")
+    log.info("Refreshing nta_stats…")
+    await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY nta_stats")
     row = await conn.fetchrow("SELECT COUNT(*) AS n FROM building_summary")
     return row["n"]
 

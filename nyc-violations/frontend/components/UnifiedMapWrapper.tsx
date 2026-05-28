@@ -252,7 +252,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               )}
             </div>
             <Link
-              href="/dob/leaderboard"
+              href={dataset === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',

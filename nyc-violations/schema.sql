@@ -500,10 +500,21 @@ WITH base AS (
         MAX(b.footprint_area)                       AS footprint_area,
         MAX(b.height_roof)                          AS height_roof,
         COUNT(*)                                    AS total_complaints,
-        COUNT(*) FILTER (WHERE c.complaint_status = 'Open')                 AS open_complaints,
+        COUNT(*) FILTER (WHERE c.complaint_status = 'Open')                          AS open_complaints,
         COUNT(*) FILTER (WHERE c.type IN ('EMERGENCY', 'IMMEDIATE EMERGENCY')
-                           AND c.complaint_status = 'Open')                 AS open_emergency_complaints,
-        COUNT(*) FILTER (WHERE c.major_category = 'HEAT/HOT WATER')        AS heat_complaints,
+                           AND c.complaint_status = 'Open')                          AS open_emergency_complaints,
+        COUNT(*) FILTER (WHERE c.major_category = 'HEAT/HOT WATER')                 AS heat_complaints,
+        COUNT(*) FILTER (
+            WHERE c.received_date >= CURRENT_DATE - INTERVAL '2 years'
+        )                                                                            AS recent_complaint_count,
+        COUNT(*) FILTER (
+            WHERE c.received_date >= CURRENT_DATE - INTERVAL '5 years'
+              AND c.received_date <  CURRENT_DATE - INTERVAL '2 years'
+        )                                                                            AS prior_complaint_count,
+        COUNT(*) FILTER (
+            WHERE c.type IN ('EMERGENCY', 'IMMEDIATE EMERGENCY')
+              AND c.received_date >= CURRENT_DATE - INTERVAL '2 years'
+        )                                                                            AS recent_emergency_count,
         MAX(c.received_date)                        AS latest_complaint_date,
         COALESCE(SUM(
             CASE COALESCE(c.type, 'NON EMERGENCY')
@@ -538,6 +549,17 @@ with_density AS (
         ) AS weighted_complaints_density
     FROM with_scale
 ),
+with_trend AS (
+    SELECT *,
+        CASE
+            WHEN (recent_complaint_count::float / 2.0)
+               - (prior_complaint_count::float  / 3.0) >  1 THEN 'worsening'
+            WHEN (recent_complaint_count::float / 2.0)
+               - (prior_complaint_count::float  / 3.0) < -1 THEN 'improving'
+            ELSE 'stable'
+        END AS trend_direction
+    FROM with_density
+),
 nta_density_pct AS (
     SELECT bin,
         ROUND((
@@ -546,7 +568,7 @@ nta_density_pct AS (
                 ORDER BY weighted_complaints_density ASC
             ) * 100
         )::numeric, 1) AS complaints_density_pct
-    FROM with_density
+    FROM with_trend
     WHERE nta_code IS NOT NULL AND weighted_complaints_density IS NOT NULL
 ),
 -- Fallback percentile for buildings without footprint/height data
@@ -558,7 +580,7 @@ nta_raw_pct AS (
                 ORDER BY weighted_complaint_sum ASC
             ) * 100
         )::numeric, 1) AS complaints_raw_pct
-    FROM with_density
+    FROM with_trend
     WHERE nta_code IS NOT NULL
 )
 SELECT
@@ -566,6 +588,9 @@ SELECT
     wd.address, wd.zip_code,
     wd.total_complaints, wd.open_complaints,
     wd.open_emergency_complaints, wd.heat_complaints,
+    wd.recent_complaint_count, wd.prior_complaint_count,
+    wd.recent_emergency_count,
+    wd.trend_direction,
     wd.latest_complaint_date,
     wd.weighted_complaint_sum,
     wd.estimated_scale,
@@ -581,7 +606,7 @@ SELECT
         WHEN COALESCE(np.complaints_density_pct, rp.complaints_raw_pct) < 90              THEN 'High'
         ELSE                                                                                    'Very high'
     END AS risk_level
-FROM with_density wd
+FROM with_trend wd
 LEFT JOIN nta_density_pct np ON wd.bin = np.bin
 LEFT JOIN nta_raw_pct     rp ON wd.bin = rp.bin;
 
@@ -593,6 +618,8 @@ CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_lat_idx
     ON hpd_complaints_building_summary(latitude);
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_open_idx
     ON hpd_complaints_building_summary(open_complaints DESC);
+CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_recent_idx
+    ON hpd_complaints_building_summary(recent_complaint_count DESC);
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_density_pct_idx
     ON hpd_complaints_building_summary(complaints_density_pct);
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_risk_level_idx

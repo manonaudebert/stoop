@@ -32,7 +32,6 @@ LEADERBOARD_RECENT_QUERY = """
       AND total_complaints >= 10
       AND nta_type = 0 {borough_clause}
     ORDER BY recent_complaint_count DESC,
-             open_complaints DESC,
              priority_ab_2yr DESC
     LIMIT {limit}
 """

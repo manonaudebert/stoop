@@ -181,6 +181,10 @@ class HpdComplaintBuildingSummaryResponse(BaseModel):
     heat_complaints: int
     latest_complaint_date: date | None
     complaint_risk_tier: str | None
+    recent_complaint_count: int = 0
+    prior_complaint_count: int = 0
+    recent_emergency_count: int = 0
+    trend_direction: str | None = None
     complaints_density_pct: float | None = None
     risk_level: str | None = None
 

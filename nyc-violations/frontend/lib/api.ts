@@ -99,6 +99,11 @@ export async function getHpdOpenViolationAges(bin: string): Promise<ViolationAge
 
 // ── HPD complaints ────────────────────────────────────────────────────────────
 
+export async function getHpdComplaintLeaderboard(borough?: string): Promise<HpdComplaintBuildingSummary[]> {
+  const params = borough ? `?borough=${encodeURIComponent(borough)}` : ''
+  return get(`/hpd-complaints/building/leaderboard-recent${params}`)
+}
+
 export async function searchHpdComplaintBuildings(q: string): Promise<HpdComplaintBuildingSummary[]> {
   return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`)
 }

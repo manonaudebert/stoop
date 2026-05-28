@@ -20,9 +20,25 @@ from schemas import (
 
 router = APIRouter(prefix="/hpd-complaints", tags=["hpd-complaints"])
 
-PAGE_SIZE         = 50
-CLUSTER_MAX_ZOOM  = 13
-PER_BOROUGH_LIMIT = 2500
+PAGE_SIZE           = 50
+CLUSTER_MAX_ZOOM    = 13
+PER_BOROUGH_LIMIT   = 2500
+LEADERBOARD_LIMIT   = 100
+
+LEADERBOARD_QUERY = """
+    SELECT bin, address, zip_code, borough, latitude, longitude,
+           total_complaints, open_complaints, open_emergency_complaints,
+           heat_complaints, recent_complaint_count, prior_complaint_count,
+           recent_emergency_count, trend_direction, latest_complaint_date,
+           complaints_density_pct, risk_level, nta_code, nta_name
+    FROM hpd_complaints_building_summary
+    WHERE recent_complaint_count > 0
+      AND total_complaints >= 10
+      {borough_clause}
+    ORDER BY recent_complaint_count DESC,
+             recent_emergency_count DESC
+    LIMIT {limit}
+"""
 
 def _complaint_risk_tier(open_emergency: int, open_count: int) -> str:
     if open_emergency > 0:
@@ -30,6 +46,29 @@ def _complaint_risk_tier(open_emergency: int, open_count: int) -> str:
     if open_count > 0:
         return "Active"
     return "Resolved"
+
+
+# ── leaderboard ───────────────────────────────────────────────────────────────
+
+@router.get("/building/leaderboard-recent", response_model=list[HpdComplaintBuildingSummaryResponse])
+async def get_hpd_complaint_leaderboard(
+    borough: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    cache_key = f"hpd_complaint_leaderboard:{borough or 'all'}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    clause = "AND UPPER(borough) = UPPER(:borough)" if borough else ""
+    params: dict = {"borough": borough} if borough else {}
+    rows = await db.execute(
+        text(LEADERBOARD_QUERY.format(borough_clause=clause, limit=LEADERBOARD_LIMIT)),
+        params,
+    )
+    result = [_row_to_summary(r) for r in rows.all()]
+    cache_set(cache_key, result, ttl_seconds=86400)
+    return result
 
 
 # ── map queries — backed by hpd_complaints_building_summary mat view ──────────
@@ -188,6 +227,10 @@ def _row_to_summary(r) -> HpdComplaintBuildingSummaryResponse:
         heat_complaints=r.heat_complaints,
         latest_complaint_date=r.latest_complaint_date,
         complaint_risk_tier=tier,
+        recent_complaint_count=getattr(r, "recent_complaint_count", 0) or 0,
+        prior_complaint_count=getattr(r, "prior_complaint_count", 0) or 0,
+        recent_emergency_count=getattr(r, "recent_emergency_count", 0) or 0,
+        trend_direction=getattr(r, "trend_direction", None),
         complaints_density_pct=getattr(r, "complaints_density_pct", None),
         risk_level=getattr(r, "risk_level", None),
     )

@@ -164,6 +164,10 @@ export interface HpdComplaintBuildingSummary {
   open_complaints: number
   open_emergency_complaints: number
   heat_complaints: number
+  recent_complaint_count: number
+  prior_complaint_count: number
+  recent_emergency_count: number
+  trend_direction: string | null
   latest_complaint_date: string | null
   complaint_risk_tier: string | null
   complaints_density_pct: number | null

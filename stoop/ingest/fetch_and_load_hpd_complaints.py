@@ -14,7 +14,7 @@ Features
 
 Usage
 -----
-  cd nyc-violations/ingest
+  cd stoop/ingest
   python fetch_and_load_hpd_complaints.py
 
 To force a restart from scratch, delete data/.hpd_complaints_fetch_offset.

@@ -1,4 +1,4 @@
-# NYC Violations — Project Guide
+# Stoop — Project Guide
 
 ## Project overview
 

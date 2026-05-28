@@ -25,7 +25,7 @@ A web app that helps NYC renters research building complaint and violation histo
 
 ```
 nycb/
-├── nyc-violations/
+├── stoop/
 │   ├── .env                         # DATABASE_URL (copy from .env.example)
 │   ├── schema.sql                   # Full database schema + materialized views
 │   ├── migrate_add_normalization.sql # Migration: adds footprint/height columns + rebuilds views
@@ -105,10 +105,10 @@ nycb/
 ### Environment variables
 
 ```bash
-# nyc-violations/.env
+# stoop/.env
 DATABASE_URL=postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/nycdb?sslmode=require
 
-# nyc-violations/frontend/.env.local
+# stoop/frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
 ```
@@ -116,7 +116,7 @@ NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
 ### First-time data load
 
 ```bash
-cd nyc-violations
+cd stoop
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r ingest/requirements.txt
@@ -153,7 +153,7 @@ python aggregate.py
 ### Run the API
 
 ```bash
-cd nyc-violations/api
+cd stoop/api
 uvicorn main:app --reload --port 8000
 ```
 
@@ -162,7 +162,7 @@ API docs: `http://localhost:8000/docs`
 ### Run the frontend
 
 ```bash
-cd nyc-violations/frontend
+cd stoop/frontend
 npm install
 npm run dev
 ```
@@ -246,7 +246,7 @@ Each density is then percentile-ranked within the building's NTA (residential bu
 
 ```bash
 # Run all syncs manually
-cd nyc-violations/ingest
+cd stoop/ingest
 source ../.venv/bin/activate
 python sync.py               # DOB complaints
 python sync_hpd.py           # HPD violations

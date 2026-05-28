@@ -16,9 +16,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INGEST_DIR="$SCRIPT_DIR/nyc-violations/ingest"
-DATA_DIR="$SCRIPT_DIR/nyc-violations/data"
-VENV="$SCRIPT_DIR/nyc-violations/.venv/bin/activate"
+INGEST_DIR="$SCRIPT_DIR/stoop/ingest"
+DATA_DIR="$SCRIPT_DIR/stoop/data"
+VENV="$SCRIPT_DIR/stoop/.venv/bin/activate"
 
 mkdir -p "$DATA_DIR"
 

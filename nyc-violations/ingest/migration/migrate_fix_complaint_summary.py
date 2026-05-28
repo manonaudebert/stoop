@@ -1,10 +1,13 @@
 """Rebuild hpd_complaints_building_summary to count IMMEDIATE EMERGENCY + EMERGENCY types."""
 import asyncio
+import sys
 from pathlib import Path
 import asyncpg
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_URL
 
-SQL_FILE = Path(__file__).parent.parent / "migrate_fix_complaint_summary.sql"
+SQL_FILE = Path(__file__).parent / "migrate_fix_complaint_summary.sql"
 
 def _asyncpg_url(url: str) -> str:
     return url.split("?")[0]

@@ -44,11 +44,11 @@ Tests live in `api/tests/`. They use a mock DB (no real database needed). If a r
 
 ## Running migrations
 
-Migrations are plain SQL files in the repo root (`migrate_*.sql`). Run them with `psql` using the `DATABASE_URL` from `.env`:
+Migrations are plain SQL files in `ingest/migration/`. Run them with `psql` using the `DATABASE_URL` from `.env`:
 
 ```bash
 ! export $(grep DATABASE_URL .env | xargs)
-! psql "$DATABASE_URL" -f /path/to/migrate_<name>.sql
+! psql "$DATABASE_URL" -f ingest/migration/migrate_<name>.sql
 ```
 
 **Notes:**

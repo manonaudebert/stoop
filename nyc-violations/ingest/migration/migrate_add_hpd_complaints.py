@@ -1,12 +1,14 @@
 """Run migrate_add_hpd_complaints.sql against the configured database."""
 import asyncio
+import sys
 from pathlib import Path
 
 import asyncpg
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_URL
 
-SQL_FILE = Path(__file__).parent.parent / "migrate_add_hpd_complaints.sql"
+SQL_FILE = Path(__file__).parent / "migrate_add_hpd_complaints.sql"
 
 
 def _asyncpg_url(url: str) -> str:

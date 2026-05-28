@@ -29,8 +29,9 @@ as raw counts on the stats row, not used for peer comparisons.
 
 | Column | Definition |
 |---|---|
-| `recent_complaint_count` | Complaints in the last 2 years |
-| `prior_complaint_count` | Complaints between 2 and 5 years ago |
+| `recent_complaint_count` | Complaints filed in the last 2 years |
+| `prior_complaint_count` | Complaints filed between 2 and 5 years ago |
+| `priority_ab_2yr` | Priority A or B complaints filed in the last 2 years |
 | `trend_direction` | `improving` / `worsening` / `stable`, based on annualised rate difference (threshold: ±1/yr) |
 
 ### 10-year window metrics (peer comparison)
@@ -74,7 +75,7 @@ restricted to `nta_type = 0` (residential neighbourhoods).
 |---|---|---|
 | `serious_rate_percentile` | `serious_rate` ASC | DOB Severity card |
 | `normalized_percentile` | `weighted_complaint_sum / building_volume` ASC | DOB Rank card, map `risk_level` |
-| `normalized_serious_rate_percentile` | `serious_rate / building_volume` ASC | DOB leaderboard tiebreaker |
+| `normalized_serious_rate_percentile` | `serious_rate / building_volume` ASC | DOB Severity card (size-normalised rate) |
 
 `normalized_serious_rate_percentile` combines the rate-per-year focus of `serious_rate_percentile`
 with size normalization: `serious_rate / estimated_scale × 10000`, ranked by `PERCENT_RANK()`
@@ -125,11 +126,65 @@ Same weighting and 10-year cutoff applied to `received_date`.
 
 | Column | Definition |
 |---|---|
+| `total_complaints` | Count of every complaint on record |
+| `open_complaints` | Complaints with `complaint_status = 'Open'` |
+| `open_emergency_complaints` | EMERGENCY or IMMEDIATE EMERGENCY complaints currently open |
+| `heat_complaints` | Complaints with `major_category = 'HEAT/HOT WATER'` (all-time) |
+| `recent_complaint_count` | Complaints filed in the last 2 years |
+| `prior_complaint_count` | Complaints filed between 2 and 5 years ago |
+| `recent_emergency_count` | EMERGENCY + IMMEDIATE EMERGENCY complaints filed in the last 2 years (regardless of status) |
+| `trend_direction` | `improving` / `worsening` / `stable`, same ±1/yr threshold as DOB |
 | `complaints_density_pct` | Size-normalised density percentile within NTA |
 | `complaints_raw_pct` | Raw weighted-sum percentile — fallback when no building volume data |
 
+`recent_emergency_count` captures the full emergency complaint history in the window, not just currently-open ones. It was added in `migrate_hpd_complaints_add_emergency_2yr.sql`.
+
 The HPD page displays both `violations_density_pct` and `complaints_density_pct`
 side by side in the Rank viz.
+
+---
+
+## Leaderboard pages
+
+Both leaderboards (`/dob/leaderboard` and `/hpd/leaderboard`) rank buildings by complaint
+activity in the **last 2 years** — not all-time totals — so the list reflects current
+conditions rather than accumulated history. Buildings need at least 10 total complaints
+to appear.
+
+### DOB leaderboard (`/dob/leaderboard`)
+
+Source: `building_summary` materialized view. Restricted to `nta_type = 0`
+(residential neighbourhoods only — same as percentile comparisons).
+
+| Sort key | Column | Direction |
+|---|---|---|
+| Primary | `recent_complaint_count` | DESC |
+| Tiebreaker | `priority_ab_2yr` | DESC |
+
+Displayed columns: last-2yr count (big), serious-2yr (`priority_ab_2yr`), trend arrow.
+
+### HPD complaints leaderboard (`/hpd/leaderboard`)
+
+Source: `hpd_complaints_building_summary` materialized view. No `nta_type` filter
+(the HPD complaints view does not carry that field).
+
+| Sort key | Column | Direction |
+|---|---|---|
+| Primary | `recent_complaint_count` | DESC |
+| Tiebreaker | `recent_emergency_count` | DESC |
+
+Displayed columns: last-2yr count (big), emergency-2yr (`recent_emergency_count`), trend arrow.
+
+`recent_emergency_count` counts both EMERGENCY and IMMEDIATE EMERGENCY complaints filed in the
+last 2 years regardless of current status — a more complete picture of urgent activity than
+`open_emergency_complaints`, which only reflects currently-unresolved cases.
+
+### Trend arrow (both leaderboards)
+
+Both leaderboards show the same `trend_direction` arrow (`↑` worsening / `→` stable / `↓` improving).
+The algorithm is identical: compare the annualised rate of the last 2 years
+(`recent_complaint_count / 2`) against the prior 3-year window (`prior_complaint_count / 3`).
+A difference of more than ±1 complaint per year crosses the threshold.
 
 ---
 

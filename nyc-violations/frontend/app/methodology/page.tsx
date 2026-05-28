@@ -684,8 +684,60 @@ export default function MethodologyPage() {
                 Complaint trend compares the average annual rate of the last 2 years against
                 the 3 years before that. A building is &ldquo;worsening&rdquo; if the recent rate exceeds
                 the prior rate by more than 1 complaint per year, and &ldquo;improving&rdquo; if it is more
-                than 1 lower.
+                than 1 lower. The same algorithm is applied independently to DOB complaints
+                and HPD tenant complaints.
               </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 10. Leaderboards ───────────────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Leaderboards</SectionTitle>
+          <p style={{ ...PROSE, marginBottom: 20 }}>
+            The leaderboard pages rank buildings by complaint activity in the <strong style={{ color: '#111111', fontWeight: 500 }}>last 2 years</strong>,
+            not all-time totals, so they reflect current conditions rather than accumulated
+            history. Buildings need at least 10 total complaints to appear.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+            <div style={CARD}>
+              <p style={SECTION_HEADER}>DOB — Building Safety</p>
+              <p style={{ ...PROSE, fontSize: 13, marginBottom: 12 }}>
+                Sorted by DOB complaints filed in the last 2 years. Ties broken by serious
+                complaints (Priority A+B) in the same window. Only residential buildings
+                are included (non-residential NTAs excluded).
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { label: 'Primary sort', value: 'Complaints last 2yr' },
+                  { label: 'Tiebreaker',   value: 'Priority A+B last 2yr' },
+                ].map(row => (
+                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>{row.label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111' }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={CARD}>
+              <p style={SECTION_HEADER}>HPD — Housing Conditions</p>
+              <p style={{ ...PROSE, fontSize: 13, marginBottom: 12 }}>
+                Sorted by HPD tenant complaints filed in the last 2 years. Ties broken by
+                emergency complaints (Emergency + Immediate Emergency) in the same 2-year
+                window — counting all emergency complaints regardless of whether they are
+                still open.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { label: 'Primary sort', value: 'Complaints last 2yr' },
+                  { label: 'Tiebreaker',   value: 'Emergency complaints 2yr' },
+                ].map(row => (
+                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>{row.label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111' }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

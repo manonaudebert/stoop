@@ -42,24 +42,24 @@ const DATASET_CONFIG = {
   DOB: {
     clustersUrl:  '/api/proxy/map/clusters',
     searchUrl:    '/api/proxy/building/search',
-    subtitle:     'Construction activity, building safety, and code enforcement',
+    subtitle:     'Construction activity, building safety, and code enforcement reported to the Department of Buildings (DOB)',
     legendLabel:  'Complaint level',
     legend:       DOB_LEGEND,
     accentColor:  '#7F1D1D',
-    explainer:    'The Department of Buildings (DOB) oversees construction, building safety, and code enforcement across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311.',
+    explainer:    'The DOB oversees construction, building safety, and code enforcement across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311.',
   },
   HPD: {
     clustersUrl:  '/api/proxy/hpd-complaints/map/clusters',
     searchUrl:    '/api/proxy/hpd-complaints/building/search',
-    subtitle:     'Housing conditions, tenant complaints, and maintenance violations',
+    subtitle:     'Housing conditions, tenant complaints, and maintenance violations reported to NYC Housing Preservation & Development (HPD)',
     legendLabel:  'Complaint level',
     legend:       HPD_LEGEND,
     accentColor:  '#7F1D1D',
-    explainer:    'NYC Housing Preservation & Development (HPD) tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants or residents, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law.',
+    explainer:    'HPD tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants, residents, or 311, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law.',
   },
 }
 
-export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode?: Dataset }) {
+export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode?: Dataset }) {
   const router = useRouter()
   const [dataset,         setDataset]         = useState<Dataset>(initialMode)
   const [selected,        setSelected]        = useState<UnifiedSelected | null>(null)
@@ -71,7 +71,7 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
   const [ntaList,          setNtaList]          = useState<NtaItem[]>([])
   const [ntaSearch,        setNtaSearch]        = useState('')
   const [ntaListExpanded,  setNtaListExpanded]  = useState(true)
-  const [explainerExpanded, setExplainerExpanded] = useState(true)
+  const [explainerExpanded, setExplainerExpanded] = useState(false)
 
   const config            = DATASET_CONFIG[dataset]
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])
@@ -101,8 +101,8 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
     setDataset(d)
     setSelected(null)
     setVisibleTiers(new Set(ALL_TIERS))
-    setExplainerExpanded(true)
-    router.replace(d === 'HPD' ? '/?mode=hpd' : '/', { scroll: false })
+    setExplainerExpanded(false)
+    router.replace(d === 'DOB' ? '/?mode=dob' : '/', { scroll: false })
   }
 
   function handleDobSearchSelect(b: BuildingSummary) {
@@ -235,13 +235,6 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
             stoop
           </Link>
 
-          <span
-            className="hidden sm:inline"
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#525252', flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {config.subtitle}
-          </span>
-
           <div style={{ flex: 1 }} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: '0 1 420px' }}>
@@ -287,11 +280,11 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
       {/* Floating dataset toggle */}
       <div
         className="absolute right-4 z-10"
-        style={{ top: 74 }}
+        style={{ top: 74, maxWidth: 'min(260px, calc(100vw - 2rem))' }}
       >
         <div style={{
           background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #A3A3A3',
-          display: 'flex', flexDirection: 'column',
+          display: 'flex', flexDirection: 'column', width: '100%',
         }}>
           {/* Toggle row */}
           <div style={{ padding: 4, display: 'flex', gap: 3 }}>
@@ -300,8 +293,8 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
                 key={d}
                 onClick={() => switchDataset(d)}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '5px 18px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  padding: '5px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
                   background: dataset === d ? '#111111' : 'transparent',
                   transition: 'background 0.15s',
                   gap: 3,
@@ -313,28 +306,27 @@ export default function UnifiedMapWrapper({ initialMode = 'DOB' }: { initialMode
                   color: dataset === d ? '#FFFFFF' : '#525252',
                   transition: 'color 0.15s',
                 }}>
-                  {d}
-                </span>
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: dataset === d ? 'rgba(255,255,255,0.55)' : '#A3A3A3',
-                  transition: 'color 0.15s',
-                }}>
-                  {d === 'HPD' ? 'Housing' : 'Buildings'}
+                  {d === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Collapsible explainer */}
-          <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '8px 12px' }}>
+          {/* One-liner description — always visible */}
+          <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
+            <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#737373', lineHeight: 1.5, margin: 0, fontFamily: 'var(--font-sans)' }}>
+              {config.subtitle}
+            </p>
+          </div>
+
+          {/* Learn more accordion */}
+          <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
             <div
               onClick={() => setExplainerExpanded(v => !v)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
             >
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
-                About {dataset}
+                Learn more
               </span>
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: explainerExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
                 <path d="M2 4.5l4 4 4-4" stroke="#A3A3A3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

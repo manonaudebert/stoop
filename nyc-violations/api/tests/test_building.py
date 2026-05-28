@@ -195,7 +195,10 @@ class TestGetBuilding:
         assert complaint["status"] == "Open"
 
     async def test_returns_404_for_unknown_bin(self, client):
-        mock_db = make_mock_db(MockResult([]))  # summary query returns nothing
+        # Route makes two queries when summary is missing: first building_summary,
+        # then a fallback against the buildings table (added for HPD-only buildings).
+        # Both must return empty to reach the 404 branch.
+        mock_db = make_mock_db(MockResult([]), MockResult([]))
         app.dependency_overrides[get_db] = db_override(mock_db)
         try:
             resp = await client.get("/building/0000000")

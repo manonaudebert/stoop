@@ -35,6 +35,10 @@ HPD_COMPLAINT_SUMMARY_ROW = {
     "open_complaints": 2,
     "open_emergency_complaints": 1,
     "heat_complaints": 3,
+    "recent_complaint_count": 5,
+    "prior_complaint_count": 3,
+    "recent_emergency_count": 2,
+    "trend_direction": "worsening",
     "latest_complaint_date": date(2024, 4, 15),
     "complaints_density_pct": 55.0,
     "risk_level": "Moderate",
@@ -228,3 +232,61 @@ class TestGetHpdComplaintBreakdown:
         assert data[0]["count"] == 4
         assert data[0]["open_count"] == 2
         assert data[0]["type"] == "EMERGENCY"
+
+
+# ---------------------------------------------------------------------------
+# API tests: GET /hpd-complaints/building/leaderboard-recent
+# ---------------------------------------------------------------------------
+
+class TestGetHpdComplaintLeaderboard:
+    async def test_returns_ranked_list(self, client):
+        rows = [
+            MockRow(HPD_COMPLAINT_SUMMARY_ROW),
+            MockRow({**HPD_COMPLAINT_SUMMARY_ROW, "bin": "2000001", "recent_complaint_count": 3}),
+        ]
+        mock_db = make_mock_db(MockResult(rows))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+        assert data[0]["bin"] == SAMPLE_BIN
+        assert data[0]["recent_complaint_count"] == 5
+        assert data[0]["recent_emergency_count"] == 2
+        assert data[0]["trend_direction"] == "worsening"
+
+    async def test_includes_complaint_risk_tier(self, client):
+        """risk tier is computed from open_emergency_complaints, not stored."""
+        mock_db = make_mock_db(MockResult([MockRow(HPD_COMPLAINT_SUMMARY_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.json()[0]["complaint_risk_tier"] == "Emergency"
+
+    async def test_returns_empty_list_when_no_results(self, client):
+        mock_db = make_mock_db(MockResult([]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/leaderboard-recent")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    async def test_borough_filter_is_accepted(self, client):
+        mock_db = make_mock_db(MockResult([MockRow(HPD_COMPLAINT_SUMMARY_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/leaderboard-recent?borough=MANHATTAN")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200

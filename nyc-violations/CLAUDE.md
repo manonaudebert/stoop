@@ -32,6 +32,16 @@ All computed metrics — percentile methodologies, time windows, decay weights, 
 
 **If you change metric methodology in any SQL migration, update `METRICS.md` to match.** This includes: time window changes, weighting adjustments, new percentile columns, or changes to which view a page reads from.
 
+## Tests
+
+Run the backend test suite before committing and flag any failures — do not commit with a broken test unless the failure is explicitly acknowledged:
+
+```bash
+cd api && ../.venv/bin/python -m pytest tests/ -v
+```
+
+Tests live in `api/tests/`. They use a mock DB (no real database needed). If a route grows a new `db.execute()` call, the corresponding test's `make_mock_db(...)` must supply an extra `MockResult` for it.
+
 ## Running migrations
 
 Migrations are plain SQL files in the repo root (`migrate_*.sql`). Run them with `psql` using the `DATABASE_URL` from `.env`:

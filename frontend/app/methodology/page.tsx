@@ -4,7 +4,7 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 
 export const metadata: Metadata = {
   title: 'Methodology — stoop',
-  description: 'How stoop scores and compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
+  description: 'How stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
 // ── design tokens ─────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ const PRIORITY_TIERS = [
   {
     label: 'A',
     name: 'Imminent danger',
-    deduction: 15,
+    weight: 15,
     color: '#7F1D1D',
     textColor: '#FFFFFF',
     examples: 'Collapse risk, falling debris, blocked egress, gas leaks, elevator accidents',
@@ -67,7 +67,7 @@ const PRIORITY_TIERS = [
   {
     label: 'B',
     name: 'Active violation',
-    deduction: 8,
+    weight: 8,
     color: '#FEF3C7',
     textColor: '#92400E',
     examples: 'Illegal work in progress, no permit, SRO conversion, sprinkler defects',
@@ -75,7 +75,7 @@ const PRIORITY_TIERS = [
   {
     label: 'C',
     name: 'Minor / administrative',
-    deduction: 3,
+    weight: 3,
     color: '#D1FAE5',
     textColor: '#065F46',
     examples: 'Zoning non-compliance, certificate of occupancy issues, failure to maintain',
@@ -83,7 +83,7 @@ const PRIORITY_TIERS = [
   {
     label: 'D',
     name: 'Tracking / inspection',
-    deduction: 1,
+    weight: 1,
     color: '#FFFFFF',
     textColor: '#111111',
     border: '0.5px solid #E5E5E5',
@@ -92,17 +92,10 @@ const PRIORITY_TIERS = [
 ]
 
 const RECENCY_TIERS = [
-  { label: '≤ 2 years', weight: '1.0×', desc: 'Full weight' },
+  { label: '≤ 2 years',   weight: '1.0×', desc: 'Full weight' },
   { label: '2 – 5 years', weight: '0.5×', desc: 'Half weight' },
-  { label: '> 5 years', weight: '0.25×', desc: 'Quarter weight' },
-]
-
-const RISK_TIERS = [
-  { label: 'Very low',  bg: '#D4F5CB', text: '#1F4012', range: '< 15th percentile',  desc: 'Fewer complaints than 85 %+ of residential peers' },
-  { label: 'Low',       bg: '#A8E5A0', text: '#1F4012', range: '15th – 40th',         desc: 'Below-average complaint activity for the neighborhood' },
-  { label: 'Moderate',  bg: '#FFD930', text: '#5C4A0A', range: '40th – 70th',         desc: 'Around average for the neighborhood' },
-  { label: 'High',      bg: '#F5A047', text: '#5C3A0A', range: '70th – 90th',         desc: 'More complaints than most residential peers' },
-  { label: 'Very high', bg: '#EF4637', text: '#FFFFFF', range: '≥ 90th percentile',   desc: 'Among the 10 % most-complained buildings in the area' },
+  { label: '5 – 10 years',weight: '0.25×',desc: 'Quarter weight' },
+  { label: '> 10 years',  weight: '0',    desc: 'Excluded' },
 ]
 
 // ── sub-components ────────────────────────────────────────────────────────────
@@ -183,7 +176,7 @@ export default function MethodologyPage() {
             Methodology
           </h1>
           <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every score and comparison on stoop is derived from public records published
+            Every metric and comparison on stoop is derived from public records published
             by the NYC Department of Buildings and the NYC Department of Housing Preservation
             &amp; Development. This page explains exactly how raw data is transformed into the
             numbers you see, and how buildings are compared fairly regardless of size.
@@ -322,7 +315,7 @@ export default function MethodologyPage() {
                       fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373',
                       letterSpacing: '0.04em',
                     }}>
-                      −{t.deduction} base deduction
+                      weight {t.weight}
                     </span>
                   </div>
                   <p style={{ ...PROSE, fontSize: 13 }}>{t.examples}</p>
@@ -332,132 +325,13 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 4. The score ───────────────────────────────────────────────── */}
-        <section style={{ marginBottom: '3rem' }}>
-          <SectionTitle>The safety score</SectionTitle>
-          <p style={{ ...PROSE, marginBottom: 20 }}>
-            Each building receives a score from 0 to 100. Higher is safer. A building with
-            no complaints receives a perfect 100; every complaint reduces the score in
-            proportion to how serious it was and how recently it was filed.
-          </p>
-
-          {/* Formula card */}
-          <div style={{ ...CARD, marginBottom: 12, textAlign: 'center', padding: '28px 20px' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
-              Score formula
-            </p>
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500,
-              color: '#111111', letterSpacing: '-0.02em', marginBottom: 8,
-            }}>
-              Score = 100 × e<sup style={{ fontSize: 16 }}>−D / 40</sup>
-            </div>
-            <p style={{ ...PROSE, fontSize: 13 }}>
-              where <strong style={{ color: '#111111', fontWeight: 500 }}>D</strong> is the
-              total weighted deduction accumulated across all complaints
-            </p>
-          </div>
-
-          {/* Deduction breakdown */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-
-            {/* Priority weights */}
-            <div style={CARD}>
-              <p style={SECTION_HEADER}>Step 1 — priority deduction</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {PRIORITY_TIERS.map(t => (
-                  <div key={t.label} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 10px', borderRadius: 6,
-                    background: t.color, border: t.border ?? 'none',
-                  }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: t.textColor }}>
-                      Priority {t.label}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: t.textColor }}>
-                      −{t.deduction}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recency weights */}
-            <div style={CARD}>
-              <p style={SECTION_HEADER}>Step 2 — recency multiplier</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {RECENCY_TIERS.map(r => (
-                  <div key={r.label} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 10px', borderRadius: 6, background: '#FAFAFA', border: '0.5px solid #E5E5E5',
-                  }}>
-                    <div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111' }}>
-                        {r.label}
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', marginLeft: 8 }}>
-                        {r.desc}
-                      </span>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: '#111111' }}>
-                      {r.weight}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p style={{ ...PROSE, fontSize: 12, marginTop: 10 }}>
-                Complaints with no date recorded are treated as 2–5 years old (0.5× weight).
-              </p>
-            </div>
-          </div>
-
-          {/* Worked example */}
-          <div style={{ ...CARD, background: '#FAFAFA', border: '0.5px solid #E5E5E5' }}>
-            <p style={SECTION_HEADER}>Example calculation</p>
-            <p style={{ ...PROSE, fontSize: 13, marginBottom: 12 }}>
-              A building with one recent Priority A complaint and two older Priority B complaints:
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-              {[
-                { desc: '1 × Priority A, filed 6 months ago', calc: '15 × 1.0 = 15.0' },
-                { desc: '2 × Priority B, filed 3 years ago',  calc: '2 × (8 × 0.5) = 8.0' },
-              ].map(row => (
-                <div key={row.desc} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 12px', borderRadius: 6, background: '#FFFFFF', border: '0.5px solid #E5E5E5',
-                }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#525252' }}>{row.desc}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111' }}>{row.calc}</span>
-                </div>
-              ))}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 12px', borderRadius: 6, background: '#111111',
-              }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#A3A3A3' }}>
-                  Total deduction D = 23.0 → Score = 100 × e<sup style={{ fontSize: 9 }}>−23/40</sup>
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: '#FFFFFF' }}>
-                  ≈ 56.3
-                </span>
-              </div>
-            </div>
-            <p style={{ ...PROSE, fontSize: 13 }}>
-              The exponential function means early complaints cause the largest drops; a building
-              must accumulate substantially more complaints to fall from 60 → 30 than from 100 → 60.
-              The divisor of 40 is calibrated so that a building receiving roughly one Priority A
-              complaint per year stabilizes near a score of 55.
-            </p>
-          </div>
-        </section>
-
-        {/* ── 5. HPD violation severity ──────────────────────────────────── */}
+        {/* ── 4. HPD violation severity ──────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>HPD violation severity</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
             HPD Housing Maintenance Code violations are classified into four classes by severity.
-            The weighted violation score uses the same recency multipliers as the DOB score
-            (1.0× / 0.5× / 0.25× by age), so recent serious violations weigh more than old minor ones.
+            The weighted violation sum uses the same recency multipliers as the DOB weighted sum
+            (see Building size normalization below), so recent serious violations weigh more than old minor ones.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {HPD_VIOLATION_CLASSES.map(c => (
@@ -490,13 +364,13 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 6. HPD complaint urgency ────────────────────────────────────── */}
+        {/* ── 5. HPD complaint urgency ────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>HPD tenant complaint urgency</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
             HPD tenant complaints are classified by urgency when filed. Because complaints are
             typically closed once an inspector visits or a violation is issued, raw open counts
-            understate the building&apos;s history. The weighted complaint score captures the full
+            understate the building&apos;s history. The weighted complaint sum captures the full
             record — with higher weight for urgent and recent complaints.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -523,13 +397,13 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 7. Building size normalization ─────────────────────────────── */}
+        {/* ── 6. Building size normalization ─────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Building size normalization</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
             A 200-unit tower will naturally accumulate more complaints than a four-unit brownstone.
             Raw counts penalize larger buildings unfairly. To make comparisons meaningful, all
-            weighted scores are divided by an estimate of building scale before peer ranking.
+            weighted sums are divided by an estimate of building scale before peer ranking.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -553,7 +427,7 @@ export default function MethodologyPage() {
                 fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500,
                 color: '#111111', marginBottom: 10,
               }}>
-                density = weighted score / scale × 10 000
+                density = weighted sum / scale × 10 000
               </div>
               <p style={{ ...PROSE, fontSize: 13 }}>
                 Weighted complaint or violation sum divided by estimated scale, scaled to
@@ -563,61 +437,50 @@ export default function MethodologyPage() {
             </div>
           </div>
 
-          <div style={{ ...CARD, background: '#FAFAFA' }}>
-            <p style={SECTION_HEADER}>Size-normalized percentile</p>
-            <p style={{ ...PROSE, fontSize: 13 }}>
-              Each building&apos;s density is ranked via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>PERCENT_RANK()</code> within
-              its NTA, separately for HPD violations, HPD complaints, and DOB complaints.
-              Buildings without footprint or height data receive a raw count percentile instead.
-              A density percentile of 20 means the building has fewer weighted complaints per
-              unit of scale than 80% of its residential neighbors.
-            </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={CARD}>
+              <p style={SECTION_HEADER}>Recency multiplier</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {RECENCY_TIERS.map(r => (
+                  <div key={r.label} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '7px 10px', borderRadius: 6, background: '#FAFAFA', border: '0.5px solid #E5E5E5',
+                  }}>
+                    <div>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111' }}>
+                        {r.label}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', marginLeft: 8 }}>
+                        {r.desc}
+                      </span>
+                    </div>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: r.weight === '0' ? '#A3A3A3' : '#111111' }}>
+                      {r.weight}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ ...PROSE, fontSize: 12, marginTop: 10 }}>
+                Applied to all three datasets (DOB, HPD violations, HPD complaints). Complaints with no date recorded are treated as 2–5 years old (0.5×).
+              </p>
+            </div>
+            <div style={{ ...CARD, background: '#FAFAFA' }}>
+              <p style={SECTION_HEADER}>Size-normalized percentile</p>
+              <p style={{ ...PROSE, fontSize: 13 }}>
+                Each building&apos;s density is ranked via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>PERCENT_RANK()</code> within
+                its NTA, separately for HPD violations, HPD complaints, and DOB complaints.
+                Buildings without footprint or height data receive a raw count percentile instead.
+                A density percentile of 20 means the building has fewer weighted complaints per
+                unit of scale than 80% of its residential neighbors.
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* ── 8. Risk tiers ──────────────────────────────────────────────── */}
+        {/* ── 7. Special cases ───────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
-          <SectionTitle>Risk tiers</SectionTitle>
-          <p style={{ ...PROSE, marginBottom: 16 }}>
-            Risk tiers are <strong style={{ color: '#111111', fontWeight: 500 }}>neighborhood-relative</strong>,
-            not absolute. A building is compared only to residential peers in its own NTA
-            (Neighborhood Tabulation Area) using its <em>neighborhood percentile</em> —
-            the share of peers with a higher safety score. This prevents buildings in
-            historically under-resourced areas from being unfairly penalized relative to the
-            city-wide average.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            {RISK_TIERS.map(t => (
-              <div key={t.label} style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '12px 18px', borderRadius: 8,
-                background: t.bg,
-              }}>
-                <div style={{ width: 80, flexShrink: 0 }}>
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: t.text,
-                  }}>
-                    {t.label}
-                  </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: t.text, opacity: 0.75 }}>
-                    {t.desc}
-                  </span>
-                </div>
-                <div style={{ flexShrink: 0 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: t.text, opacity: 0.75 }}>
-                    {t.range}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Special cases */}
+          <SectionTitle>Special cases</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <p style={SECTION_HEADER}>Special cases</p>
             <div style={{ display: 'flex', gap: 12 }}>
               <div style={{
                 width: 10, height: 10, borderRadius: '50%', background: '#D4D1C3',
@@ -629,8 +492,8 @@ export default function MethodologyPage() {
                 </p>
                 <p style={{ ...PROSE, fontSize: 13 }}>
                   Buildings with fewer than 10 total complaints <em>and</em> less than 2 years
-                  of complaint history cannot be reliably ranked. They receive a score but no
-                  percentile comparison.
+                  of complaint history cannot be reliably ranked. They are excluded from
+                  percentile comparisons.
                 </p>
               </div>
             </div>
@@ -654,17 +517,19 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 9. Neighborhood comparison ─────────────────────────────────── */}
+        {/* ── 8. Neighborhood comparison ─────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Neighborhood comparisons</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <p style={SECTION_HEADER}>Neighborhood percentile</p>
               <p style={PROSE}>
-                Within each NTA, buildings are ranked by safety score from highest to lowest.
-                A building at the 80th percentile has a lower score than 80% of its residential
+                Percentile comparisons are <strong style={{ color: '#111111', fontWeight: 500 }}>neighborhood-relative</strong>,
+                not absolute — a building is compared only to residential peers in its own NTA.
+                Within each NTA, buildings are ranked by weighted complaint density from lowest to highest.
+                A building at the 80th percentile has higher weighted complaint density than 80% of its residential
                 peers — meaning it received relatively more or more serious complaints. Percentiles
-                are computed independently per NTA, so a score of 70 may rank high in one
+                are computed independently per NTA, so the same density may rank high in one
                 neighborhood and low in another.
               </p>
             </div>
@@ -672,7 +537,7 @@ export default function MethodologyPage() {
             <div>
               <p style={SECTION_HEADER}>Serious complaint rate</p>
               <p style={PROSE}>
-                Priority A and B complaints per year, averaged over the full complaint history
+                Priority A and B complaints per year, averaged over the last 10 years
                 (minimum 1 year). This rate is also percentile-ranked within each NTA and
                 surfaced in the &ldquo;Severity&rdquo; insight card on building pages.
               </p>
@@ -691,7 +556,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 10. Leaderboards ───────────────────────────────────────────── */}
+        {/* ── 9. Leaderboards ────────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Leaderboards</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>

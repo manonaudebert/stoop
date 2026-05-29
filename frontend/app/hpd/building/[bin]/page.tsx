@@ -524,8 +524,6 @@ export default async function HpdOverviewPage({
   const borough        = violations?.borough ?? complaints?.borough ?? ''
   const zipCode        = violations?.zip_code ?? complaints?.zip_code ?? ''
   const ntaName        = violations?.nta_name ?? complaints?.nta_name ?? ''
-  const violationsTier = violations?.hpd_risk_tier ?? 'Non-hazardous'
-  const complaintsTier = complaints?.complaint_risk_tier ?? 'Resolved'
 
   const totalViolations = violations?.total_violations ?? 0
   const openViolations  = violations?.open_violations ?? 0
@@ -685,8 +683,6 @@ function pctHeadline(vp: number | null, cp: number | null): string {
   const neighborhoodHeadline = pctHeadline(violPct, complPct)
   const neighborhoodSub = pctSub(violPct, complPct, ntaName)
 
-  const vTierMeta  = TIER_COLORS[violationsTier] ?? { color: '#525252', bg: '#F5F5F5' }
-  const cTierMeta  = TIER_COLORS[complaintsTier] ?? { color: '#525252', bg: '#F5F5F5' }
   const metaLine   = [borough, zipCode && `ZIP ${zipCode}`, `BIN ${bin}`, ntaName].filter(Boolean).join(' · ')
 
   // ── filter/page URL helpers ────────────────────────────────────────────────

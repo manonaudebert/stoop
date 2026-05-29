@@ -24,6 +24,7 @@ PAGE_SIZE           = 50
 CLUSTER_MAX_ZOOM    = 13
 PER_BOROUGH_LIMIT   = 2500
 LEADERBOARD_LIMIT   = 100
+BOROUGHS            = ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"]
 
 LEADERBOARD_QUERY = """
     SELECT bin, address, zip_code, borough, latitude, longitude,
@@ -74,15 +75,13 @@ async def get_hpd_complaint_leaderboard(
 # ── map queries — backed by hpd_complaints_building_summary mat view ──────────
 
 _BOROUGH_CAPPED_SQL = text("""
-    WITH ranked AS (
-        SELECT *,
-               ROW_NUMBER() OVER (PARTITION BY borough ORDER BY total_complaints DESC) AS rn
-        FROM hpd_complaints_building_summary
-        WHERE latitude  BETWEEN :south AND :north
-          AND longitude BETWEEN :west  AND :east
-          AND latitude IS NOT NULL
-    )
-    SELECT * FROM ranked WHERE rn <= :per_borough
+    SELECT *
+    FROM hpd_complaints_building_summary
+    WHERE borough = :borough
+      AND latitude  BETWEEN :south AND :north
+      AND longitude BETWEEN :west  AND :east
+      AND latitude IS NOT NULL
+    LIMIT :per_borough
 """)
 
 _BBOX_SQL = text("""
@@ -114,9 +113,12 @@ async def get_hpd_complaint_clusters(
 
     if zoom >= CLUSTER_MAX_ZOOM:
         result = await db.execute(_BBOX_SQL, bbox)
+        all_rows = result.all()
     else:
-        result = await db.execute(_BOROUGH_CAPPED_SQL, {**bbox, "per_borough": PER_BOROUGH_LIMIT})
-    all_rows = result.all()
+        all_rows = []
+        for borough in BOROUGHS:
+            result = await db.execute(_BOROUGH_CAPPED_SQL, {**bbox, "borough": borough, "per_borough": PER_BOROUGH_LIMIT})
+            all_rows.extend(result.all())
 
     features = []
     for r in all_rows:

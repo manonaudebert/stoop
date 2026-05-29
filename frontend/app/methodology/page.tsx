@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import BuildingNavBar from '@/components/BuildingNavBar'
 
 export const metadata: Metadata = {
-  title: 'How Stoop Works — stoop',
+  title: "about — stoop",
   description: 'How stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
@@ -169,24 +169,12 @@ export default function MethodologyPage() {
       <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           <p style={SECTION_HEADER}>About</p>
-          <h1 style={{
-            fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500,
-            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 24px', lineHeight: 1.1,
-          }}>
-            How Stoop Works
-          </h1>
           <p style={{
-            fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 500,
+            fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 500,
             color: '#111111', letterSpacing: '-0.01em', lineHeight: 1.4,
-            maxWidth: 620, margin: '0 0 20px', borderLeft: '2px solid #111111', paddingLeft: 16,
+            maxWidth: 620, margin: 0,
           }}>
-            To make the building and housing data NYC already collects actually useful to the tenants it affects most.
-          </p>
-          <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every metric and comparison on stoop is derived from public records published
-            by the NYC Department of Buildings and the NYC Department of Housing Preservation
-            &amp; Development. This page explains exactly how raw data is transformed into the
-            numbers you see, and how buildings are compared fairly regardless of size.
+            Stoop makes the building and housing data NYC already collects actually useful to the tenants it affects most.
           </p>
         </div>
       </div>
@@ -197,10 +185,16 @@ export default function MethodologyPage() {
           <p style={SECTION_HEADER}>Methodology</p>
           <h2 style={{
             fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
-            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 0', lineHeight: 1.1,
+            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.1,
           }}>
-            How we calculate what you see
+            How it works
           </h2>
+          <p style={{ ...PROSE, maxWidth: 600 }}>
+            Every metric and comparison on stoop is derived from public records published
+            by the NYC Department of Buildings and the NYC Department of Housing Preservation
+            &amp; Development. Here's how raw data becomes the numbers you see, and how 
+            buildings are compared fairly regardless of size, given publicly available data. 
+          </p>
         </div>
       </div>
 
@@ -423,7 +417,9 @@ export default function MethodologyPage() {
           <p style={{ ...PROSE, marginBottom: 20 }}>
             A 200-unit tower will naturally accumulate more complaints than a four-unit brownstone.
             Raw counts penalize larger buildings unfairly. To make comparisons meaningful, all
-            weighted sums are divided by an estimate of building scale before peer ranking.
+            weighted sums are divided by an estimate of building scale before peer ranking. Since we 
+            don't have the exact unit count for each building, size is estimated by building footprint
+            and height on building.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

@@ -226,7 +226,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
       />
 
       {/* Nav bar */}
-      <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         <div
           style={{ background: '#111111', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14 }}
           className="pointer-events-auto"

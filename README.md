@@ -239,14 +239,12 @@ Each density is then percentile-ranked within the building's NTA (residential bu
 
 ## Weekly sync
 
+Production syncs run automatically every Sunday at 6am UTC via GitHub Actions (`.github/workflows/weekly_sync.yml`). `DATABASE_URL` and `SOCRATA_APP_TOKEN` are stored as GitHub secrets.
+
+To run manually:
+
 ```bash
-# Run all syncs manually
 cd ingest
 source ../.venv/bin/activate
-python sync.py               # DOB complaints
-python sync_hpd.py           # HPD violations
-python sync_hpd_complaints.py # HPD complaints
-python aggregate.py          # refresh views
+python sync_all.py
 ```
-
-See [WEEKLY_SYNC.md](WEEKLY_SYNC.md) for automated launchd setup.

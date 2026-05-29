@@ -80,7 +80,7 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
             whiteSpace: 'nowrap', flexShrink: 0,
           }}
         >
-          Methodology
+          About
         </Link>
       </div>
     </header>

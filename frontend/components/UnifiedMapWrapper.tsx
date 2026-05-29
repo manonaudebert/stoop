@@ -235,6 +235,12 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
             stoop
           </Link>
 
+          <div style={{ width: '0.5px', height: 16, background: '#333333', flexShrink: 0 }} />
+
+          <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#737373', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            Building and housing data for NYC tenants
+          </span>
+
           <div style={{ flex: 1 }} />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: '0 1 420px' }}>
@@ -271,7 +277,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                 whiteSpace: 'nowrap', flexShrink: 0,
               }}
             >
-              Methodology
+              About
             </Link>
           </div>
         </div>

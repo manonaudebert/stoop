@@ -63,7 +63,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
     <div className="relative w-full">
       <div
         className="flex items-center px-3"
-        style={{ background: '#FFFFFF', borderRadius: 6, height: 36, border: '0.5px solid #A3A3A3' }}
+        style={{ background: '#FFFFFF', borderRadius: 12, height: 36, border: '0.5px solid #A3A3A3' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 8 }}>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -71,7 +71,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
         <input
           className="flex-1 outline-none bg-transparent"
           style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#111111', letterSpacing: '-0.01em' }}
-          placeholder="Search by address or BIN…"
+          placeholder="Search by address"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}

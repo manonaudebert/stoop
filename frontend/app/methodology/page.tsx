@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import BuildingNavBar from '@/components/BuildingNavBar'
 
 export const metadata: Metadata = {
-  title: 'Methodology — stoop',
+  title: 'How Stoop Works — stoop',
   description: 'How stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
@@ -165,22 +165,42 @@ export default function MethodologyPage() {
 
       <BuildingNavBar backHref="/" backLabel="Map" />
 
-      {/* Page header */}
-      <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '2rem 1.5rem' }}>
+      {/* ── Section 1: Mission ───────────────────────────────────────────── */}
+      <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '3rem 1.5rem' }}>
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <p style={SECTION_HEADER}>How it works</p>
+          <p style={SECTION_HEADER}>About</p>
           <h1 style={{
             fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500,
-            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 12px', lineHeight: 1.1,
+            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 24px', lineHeight: 1.1,
           }}>
-            Methodology
+            How Stoop Works
           </h1>
+          <p style={{
+            fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 500,
+            color: '#111111', letterSpacing: '-0.01em', lineHeight: 1.4,
+            maxWidth: 620, margin: '0 0 20px', borderLeft: '2px solid #111111', paddingLeft: 16,
+          }}>
+            To make the building and housing data NYC already collects actually useful to the tenants it affects most.
+          </p>
           <p style={{ ...PROSE, maxWidth: 600 }}>
             Every metric and comparison on stoop is derived from public records published
             by the NYC Department of Buildings and the NYC Department of Housing Preservation
             &amp; Development. This page explains exactly how raw data is transformed into the
             numbers you see, and how buildings are compared fairly regardless of size.
           </p>
+        </div>
+      </div>
+
+      {/* ── Section 2: Methodology ───────────────────────────────────────── */}
+      <div style={{ background: '#FAFAFA', padding: '2rem 1.5rem' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+          <p style={SECTION_HEADER}>Methodology</p>
+          <h2 style={{
+            fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
+            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 0', lineHeight: 1.1,
+          }}>
+            How we calculate what you see
+          </h2>
         </div>
       </div>
 

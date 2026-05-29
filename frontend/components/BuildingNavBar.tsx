@@ -27,12 +27,12 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         {/* Logo */}
-        <div style={{
+        <Link href="/" style={{
           fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500,
-          color: '#FFFFFF', letterSpacing: '-0.015em',
+          color: '#FFFFFF', letterSpacing: '-0.015em', textDecoration: 'none',
         }}>
           stoop
-        </div>
+        </Link>
 
         {/* Divider */}
         <div style={{

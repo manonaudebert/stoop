@@ -72,6 +72,16 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   const [ntaSearch,        setNtaSearch]        = useState('')
   const [ntaListExpanded,  setNtaListExpanded]  = useState(true)
   const [explainerExpanded, setExplainerExpanded] = useState(false)
+  const [showWelcome,       setShowWelcome]       = useState(false)
+
+  useEffect(() => {
+    if (!localStorage.getItem('stoop_welcome_dismissed')) setShowWelcome(true)
+  }, [])
+
+  function dismissWelcome() {
+    localStorage.setItem('stoop_welcome_dismissed', '1')
+    setShowWelcome(false)
+  }
 
   const config            = DATASET_CONFIG[dataset]
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])
@@ -491,6 +501,63 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
           <HpdBuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
         )}
       </div>
+
+      {/* Welcome popup */}
+      {showWelcome && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={dismissWelcome}
+        >
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '0.5px solid #E5E5E5',
+              padding: '28px 28px 24px',
+              maxWidth: 420,
+              width: 'calc(100vw - 3rem)',
+              position: 'relative',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={dismissWelcome}
+              style={{
+                position: 'absolute', top: 14, right: 14,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: 4, lineHeight: 1, color: '#A3A3A3',
+              }}
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#737373', margin: '0 0 10px' }}>
+              About
+            </p>
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#111111', lineHeight: 1.4, letterSpacing: '-0.01em', margin: '0 0 14px' }}>
+              Stoop surfaces the complaint and violation history of NYC residential buildings, sourced from public city records and ranked against buildings in the same neighborhood.
+            </p>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252', lineHeight: 1.6, margin: '0 0 22px' }}>
+              Search an address to see open violations, complaint trends, and how a building compares before you sign a lease.
+            </p>
+            <button
+              onClick={dismissWelcome}
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+                textTransform: 'uppercase', background: '#111111', color: '#FFFFFF',
+                border: 'none', borderRadius: 8, padding: '9px 18px', cursor: 'pointer',
+              }}
+            >
+              Get started
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

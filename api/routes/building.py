@@ -102,9 +102,16 @@ async def search_buildings(
         return cached
 
     q = q.strip()
-    patterns = _search_patterns(q)
-    like_params = {f"like_{i}": p for i, p in enumerate(patterns)}
-    like_clauses = " OR ".join(f"bs.address ILIKE :like_{i}" for i in range(len(patterns)))
+    patterns = _search_patterns(q)        # ['%TEXT%', ...]
+    like_params   = {f"like_{i}":  p          for i, p in enumerate(patterns)}
+    exact_params  = {f"exact_{i}": p[1:-1]    for i, p in enumerate(patterns)}  # 'TEXT'
+    word_params   = {f"word_{i}":  f"{p[1:-1]} %" for i, p in enumerate(patterns)}  # 'TEXT %' (token boundary)
+    prefix_params = {f"pre_{i}":   p[1:]      for i, p in enumerate(patterns)}  # 'TEXT%'
+    n = len(patterns)
+    like_clauses   = " OR ".join(f"bs.address ILIKE :like_{i}"  for i in range(n))
+    exact_clauses  = " OR ".join(f"bs.address ILIKE :exact_{i}" for i in range(n))
+    word_clauses   = " OR ".join(f"bs.address ILIKE :word_{i}"  for i in range(n))
+    prefix_clauses = " OR ".join(f"bs.address ILIKE :pre_{i}"   for i in range(n))
 
     rows = await db.execute(
         text(f"""
@@ -112,10 +119,18 @@ async def search_buildings(
             FROM building_summary bs
             WHERE bs.bin = :q
                OR {like_clauses}
-            ORDER BY bs.total_complaints DESC
+            ORDER BY
+              CASE
+                WHEN bs.bin = :q          THEN 0
+                WHEN {exact_clauses}      THEN 1
+                WHEN {word_clauses}       THEN 2
+                WHEN {prefix_clauses}     THEN 3
+                ELSE 4
+              END,
+              bs.total_complaints DESC
             LIMIT 20
         """),
-        {"q": q, **like_params},
+        {"q": q, **like_params, **exact_params, **word_params, **prefix_params},
     )
     summary_rows = rows.all()
 

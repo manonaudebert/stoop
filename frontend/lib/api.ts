@@ -18,15 +18,15 @@ function getConfig(): { base: string; headers: HeadersInit } {
   return { base: '/api/proxy', headers: {} }
 }
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const { base, headers } = getConfig()
-  const res = await fetch(`${base}${path}`, { headers })
+  const res = await fetch(`${base}${path}`, { headers, signal })
   if (!res.ok) throw new ApiError(res.status, path)
   return res.json()
 }
 
-export async function searchBuildings(q: string): Promise<BuildingSummary[]> {
-  return get(`/building/search?q=${encodeURIComponent(q)}`)
+export async function searchBuildings(q: string, signal?: AbortSignal): Promise<BuildingSummary[]> {
+  return get(`/building/search?q=${encodeURIComponent(q)}`, signal)
 }
 
 export async function getBuilding(
@@ -65,8 +65,8 @@ export async function getLeaderboardRecent(borough?: string): Promise<BuildingSu
 
 // ── HPD violations ────────────────────────────────────────────────────────────
 
-export async function searchHpdBuildings(q: string): Promise<HpdBuildingSummary[]> {
-  return get(`/hpd/building/search?q=${encodeURIComponent(q)}`)
+export async function searchHpdBuildings(q: string, signal?: AbortSignal): Promise<HpdBuildingSummary[]> {
+  return get(`/hpd/building/search?q=${encodeURIComponent(q)}`, signal)
 }
 
 export async function getHpdBuilding(
@@ -104,8 +104,8 @@ export async function getHpdComplaintLeaderboard(borough?: string): Promise<HpdC
   return get(`/hpd-complaints/building/leaderboard-recent${params}`)
 }
 
-export async function searchHpdComplaintBuildings(q: string): Promise<HpdComplaintBuildingSummary[]> {
-  return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`)
+export async function searchHpdComplaintBuildings(q: string, signal?: AbortSignal): Promise<HpdComplaintBuildingSummary[]> {
+  return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`, signal)
 }
 
 export async function getHpdComplaintBuilding(

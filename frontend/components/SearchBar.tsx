@@ -27,37 +27,85 @@ type Props = {
 }
 
 export default function SearchBar({ onSelect, searchUrl }: Props) {
-  const [query,   setQuery]   = useState('')
-  const [results, setResults] = useState<AnyBuilding[]>([])
-  const [open,    setOpen]    = useState(false)
-  const [loading, setLoading] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [query,    setQuery]    = useState('')
+  const [results,  setResults]  = useState<AnyBuilding[]>([])
+  const [open,     setOpen]     = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [searched, setSearched] = useState(false)   // a query has resolved for the current input
+  const [active,   setActive]   = useState(-1)       // highlighted result index for keyboard nav
+  const timer      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const controller = useRef<AbortController | null>(null)
+  const activeRef  = useRef<HTMLLIElement | null>(null)
 
   useEffect(() => {
-    if (query.length < 3) { setResults([]); setOpen(false); return }
+    if (query.length < 3) {
+      controller.current?.abort()
+      if (timer.current) clearTimeout(timer.current)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to reflect cleared input
+      setResults([]); setOpen(false); setSearched(false); setActive(-1)
+      return
+    }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(async () => {
+      controller.current?.abort()
+      const ctrl = new AbortController()
+      controller.current = ctrl
       setLoading(true)
+      setOpen(true)
       try {
         let data: AnyBuilding[]
         if (searchUrl) {
-          const res = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`)
+          const res = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
           data = res.ok ? await res.json() : []
         } else {
-          data = await searchBuildings(query)
+          data = await searchBuildings(query, ctrl.signal)
         }
         setResults(data)
-        setOpen(true)
-      } catch { /* ignore */ }
-      finally { setLoading(false) }
+        setSearched(true)
+        setActive(-1)
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return   // superseded by a newer query
+        setResults([]); setSearched(true)
+      } finally {
+        if (controller.current === ctrl) setLoading(false)
+      }
     }, 300)
   }, [query, searchUrl])
 
+  // Keep the keyboard-highlighted row scrolled into view.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [active])
+
   function select(b: BuildingSummary) {
+    controller.current?.abort()
     setOpen(false)
     setQuery('')
+    setResults([])
+    setSearched(false)
+    setActive(-1)
     onSelect(b)
   }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') { setOpen(false); setActive(-1); return }
+    if (!open) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActive(i => Math.min(i + 1, results.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      if (active >= 0 && active < results.length) {
+        e.preventDefault()
+        select(results[active])
+      }
+    }
+  }
+
+  const showDropdown = open && query.length >= 3
+  const showEmpty = showDropdown && !loading && searched && results.length === 0
 
   return (
     <div className="relative w-full">
@@ -73,8 +121,14 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
           style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#111111', letterSpacing: '-0.01em' }}
           placeholder="Search by address"
           value={query}
+          role="combobox"
+          aria-controls="search-results"
+          aria-expanded={showDropdown}
+          aria-autocomplete="list"
+          aria-activedescendant={active >= 0 ? `search-result-${active}` : undefined}
           onChange={e => setQuery(e.target.value)}
-          onFocus={() => results.length > 0 && setOpen(true)}
+          onKeyDown={onKeyDown}
+          onFocus={() => (results.length > 0 || searched) && setOpen(true)}
         />
         {loading && (
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A3A3A3', marginLeft: 8, letterSpacing: '0.05em' }}>
@@ -83,47 +137,55 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
         )}
       </div>
 
-      {open && results.length > 0 && (
+      {showDropdown && (results.length > 0 || showEmpty) && (
         <ul
+          id="search-results"
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto"
+          role="listbox"
           style={{ background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
-          {results.map(b => {
-            const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? null
-            const tier = RISK_TIER[tierLabel ?? '']
-            const count = b.total_complaints ?? b.total_violations ?? 0
-            return (
-              <li
-                key={b.bin}
-                className="flex items-center cursor-pointer"
-                style={{ padding: '10px 14px', borderBottom: '0.5px solid #E5E5E5', gap: 10 }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#FAFAFA')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#FFFFFF')}
-                onClick={() => select(b)}
-              >
-                {tierLabel && (
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', flexShrink: 0,
-                    fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
-                    color: tier?.color ?? '#737373',
-                  }}>
-                    {tierLabel}
-                  </span>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: '#111111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
-                    {b.address}
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
-                    {b.borough} · {b.zip_code}
-                  </p>
-                </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', flexShrink: 0 }}>
-                  {count.toLocaleString()}
-                </span>
-              </li>
-            )
-          })}
+          {showEmpty ? (
+            <li style={{ padding: '12px 14px', fontSize: 13, color: '#737373' }}>
+              No buildings found for “{query}”
+            </li>
+          ) : (
+            results.map((b, i) => {
+              const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? null
+              const tier = RISK_TIER[tierLabel ?? '']
+              const isActive = i === active
+              return (
+                <li
+                  key={b.bin}
+                  id={`search-result-${i}`}
+                  ref={isActive ? activeRef : null}
+                  role="option"
+                  aria-selected={isActive}
+                  className="flex items-center cursor-pointer"
+                  style={{ padding: '10px 14px', borderBottom: '0.5px solid #E5E5E5', gap: 10, background: isActive ? '#FAFAFA' : '#FFFFFF' }}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => select(b)}
+                >
+                  {tierLabel && (
+                    <span style={{
+                      fontFamily: 'var(--font-mono)', flexShrink: 0,
+                      fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
+                      color: tier?.color ?? '#737373',
+                    }}>
+                      {tierLabel}
+                    </span>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: '#111111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                      {b.address}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+                      {b.borough} · {b.zip_code}
+                    </p>
+                  </div>
+                </li>
+              )
+            })
+          )}
         </ul>
       )}
     </div>

@@ -187,12 +187,17 @@ async def search_hpd_complaint_buildings(
     if cached:
         return cached
 
-    patterns = _search_patterns(q.strip())
-    like_params = {f"like_{i}": p for i, p in enumerate(patterns)}
-    like_clauses = " OR ".join(
-        f"cs.address ILIKE :like_{i}"
-        for i in range(len(patterns))
-    )
+    q = q.strip()
+    patterns = _search_patterns(q)        # ['%TEXT%', ...]
+    like_params   = {f"like_{i}":  p          for i, p in enumerate(patterns)}
+    exact_params  = {f"exact_{i}": p[1:-1]    for i, p in enumerate(patterns)}  # 'TEXT'
+    word_params   = {f"word_{i}":  f"{p[1:-1]} %" for i, p in enumerate(patterns)}  # 'TEXT %' (token boundary)
+    prefix_params = {f"pre_{i}":   p[1:]      for i, p in enumerate(patterns)}  # 'TEXT%'
+    n = len(patterns)
+    like_clauses   = " OR ".join(f"cs.address ILIKE :like_{i}"  for i in range(n))
+    exact_clauses  = " OR ".join(f"cs.address ILIKE :exact_{i}" for i in range(n))
+    word_clauses   = " OR ".join(f"cs.address ILIKE :word_{i}"  for i in range(n))
+    prefix_clauses = " OR ".join(f"cs.address ILIKE :pre_{i}"   for i in range(n))
 
     rows = await db.execute(
         text(f"""
@@ -200,10 +205,18 @@ async def search_hpd_complaint_buildings(
             FROM hpd_complaints_building_summary cs
             WHERE cs.bin = :q
                OR {like_clauses}
-            ORDER BY cs.total_complaints DESC
+            ORDER BY
+              CASE
+                WHEN cs.bin = :q          THEN 0
+                WHEN {exact_clauses}      THEN 1
+                WHEN {word_clauses}       THEN 2
+                WHEN {prefix_clauses}     THEN 3
+                ELSE 4
+              END,
+              cs.total_complaints DESC
             LIMIT 20
         """),
-        {"q": q.strip(), **like_params},
+        {"q": q, **like_params, **exact_params, **word_params, **prefix_params},
     )
     results = [_row_to_summary(r) for r in rows.all()]
     cache_set(cache_key, results, ttl_seconds=600)

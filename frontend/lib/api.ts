@@ -128,8 +128,9 @@ export async function getHpdComplaintBreakdown(bin: string): Promise<ComplaintCa
   return get(`/hpd-complaints/building/${bin}/breakdown`)
 }
 
-export async function getHpdComplaintMinorBreakdown(bin: string): Promise<ComplaintMinorBreakdownItem[]> {
-  return get(`/hpd-complaints/building/${bin}/minor-breakdown`)
+export async function getHpdComplaintMinorBreakdown(bin: string, years?: number): Promise<ComplaintMinorBreakdownItem[]> {
+  const qs = years !== undefined ? `?years=${years}` : ''
+  return get(`/hpd-complaints/building/${bin}/minor-breakdown${qs}`)
 }
 
 export async function getHpdComplaintTypePeriodBreakdown(bin: string): Promise<ComplaintTypePeriodItem[]> {

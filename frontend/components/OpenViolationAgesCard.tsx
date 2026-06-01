@@ -31,6 +31,15 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
   const [hovered, setHovered] = useState<string | null>(null)
   const total = data.reduce((s, d) => s + d.count, 0)
 
+  if (total === 0) return (
+    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+        Open violation ages
+      </div>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>No open violations</p>
+    </div>
+  )
+
   let cursor = 0
   const segments = data.map(({ bucket, count }) => {
     const pct = total > 0 ? (count / total) * 100 : 0

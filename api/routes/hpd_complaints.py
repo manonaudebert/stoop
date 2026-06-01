@@ -367,14 +367,15 @@ async def get_hpd_complaint_breakdown(bin: str, db: AsyncSession = Depends(get_d
 
 
 @router.get("/building/{bin}/minor-breakdown", response_model=list[ComplaintMinorBreakdownItem])
-async def get_hpd_complaint_minor_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
-    cache_key = f"hpd_complaint_minor_breakdown:{bin}"
+async def get_hpd_complaint_minor_breakdown(bin: str, years: int | None = 5, db: AsyncSession = Depends(get_db)):
+    cache_key = f"hpd_complaint_minor_breakdown:{bin}:{years}"
     cached = cache_get(cache_key)
     if cached:
         return cached
 
+    date_filter = "AND received_date >= NOW() - INTERVAL '5 years'" if years else ""
     rows = await db.execute(
-        text("""
+        text(f"""
             SELECT
                 minor_category,
                 COUNT(*)                                                 AS count,
@@ -382,7 +383,7 @@ async def get_hpd_complaint_minor_breakdown(bin: str, db: AsyncSession = Depends
             FROM hpd_complaints
             WHERE bin = :bin
               AND minor_category IS NOT NULL
-              AND received_date >= NOW() - INTERVAL '5 years'
+              {date_filter}
             GROUP BY minor_category
             ORDER BY count DESC
         """),

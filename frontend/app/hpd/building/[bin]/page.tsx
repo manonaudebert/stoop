@@ -18,8 +18,8 @@ import InsightCard from '@/components/InsightCard'
 import Pagination from '@/components/Pagination'
 import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
-import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
 import OpenViolationAgesCard from '@/components/OpenViolationAgesCard'
+import HorizontalBarChart from '@/components/HorizontalBarChart'
 import type { TimelinePoint, HpdViolation, HpdComplaint, ComplaintTypePeriodItem, ComplaintResolutionItem, ViolationAgeBucketItem } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -479,6 +479,7 @@ export default async function HpdOverviewPage({
   searchParams: Promise<{
     show?: string
     charts?: string
+    cw?: string
     vpage?: string; vcls?: string; vst?: string
     cpage?: string; ccat?: string; cst?: string
   }>
@@ -488,6 +489,7 @@ export default async function HpdOverviewPage({
 
   const show = sp.show  // 'violations' | 'complaints' | undefined
   const showCharts = sp.charts === '1'
+  const cw = sp.cw  // 'all' | undefined (default: 5 years)
   const vpage = Number(sp.vpage ?? 1)
   const vcls = sp.vcls
   const vst = sp.vst
@@ -506,7 +508,7 @@ export default async function HpdOverviewPage({
     getHpdComplaintBreakdown(bin).catch(() => []),
     getHpdComplaintTypePeriodBreakdown(bin).catch(() => [] as ComplaintTypePeriodItem[]),
     getHpdComplaintResolutionBreakdown(bin).catch(() => [] as ComplaintResolutionItem[]),
-    getHpdComplaintMinorBreakdown(bin).catch(() => []),
+    getHpdComplaintMinorBreakdown(bin, cw === 'all' ? 0 : 5).catch(() => []),
   ])
 
   if (!violations && !complaints) notFound()
@@ -615,17 +617,6 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
     ? `Last 2 yrs: ${recentViol} violation${recentViol !== 1 ? 's' : ''} · ${recentCompl} complaint${recentCompl !== 1 ? 's' : ''}`
     : 'No timeline data available.'
 
-  const violByCategory = new Map<string, { count: number; open_count: number }>()
-  for (const d of violationBreakdown) {
-    const cat = d.category ?? `Class ${d.violation_class}`
-    const prev = violByCategory.get(cat) ?? { count: 0, open_count: 0 }
-    violByCategory.set(cat, { count: prev.count + d.count, open_count: prev.open_count + d.open_count })
-  }
-  const topViolCategories = Array.from(violByCategory.entries())
-    .map(([cat, { count, open_count }]) => ({ violation_class: cat, category: cat, count, open_count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8)
-
   const recentViolByCategory = new Map<string, number>()
   for (const d of violationBreakdownRecent) {
     const cat = d.category ?? `Class ${d.violation_class}`
@@ -634,17 +625,20 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
   const recentViolTotal = violationBreakdownRecent.reduce((s, d) => s + d.count, 0)
   const topViolCategoriesRecent = Array.from(recentViolByCategory.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-
-  const complByCategory = new Map<string, { count: number; open_count: number }>()
-  for (const d of complaintBreakdown) {
-    const prev = complByCategory.get(d.major_category) ?? { count: 0, open_count: 0 }
-    complByCategory.set(d.major_category, { count: prev.count + d.count, open_count: prev.open_count + d.open_count })
-  }
-  const topComplCategories = Array.from(complByCategory.entries())
-    .map(([cat, { count, open_count }]) => ({ violation_class: cat, category: cat, count, open_count }))
-    .sort((a, b) => b.count - a.count)
     .slice(0, 8)
+
+  const allTimeViolByCategory = new Map<string, number>()
+  for (const d of violationBreakdown) {
+    const cat = d.category ?? `Class ${d.violation_class}`
+    allTimeViolByCategory.set(cat, (allTimeViolByCategory.get(cat) ?? 0) + d.count)
+  }
+  const allTimeViolTotal = violationBreakdown.reduce((s, d) => s + d.count, 0)
+  const topViolCategoriesAllTime = Array.from(allTimeViolByCategory.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+
+  const activeViolCategories = cw === 'all' ? topViolCategoriesAllTime : topViolCategoriesRecent
+  const activeViolTotal      = cw === 'all' ? allTimeViolTotal         : recentViolTotal
 
   const violPct = violations?.violations_density_pct ?? null
   const complPct = complaints?.complaints_density_pct ?? null
@@ -690,6 +684,13 @@ function pctHeadline(vp: number | null, cp: number | null): string {
   function chartsToggleUrl() {
     const q = new URLSearchParams()
     if (!showCharts) q.set('charts', '1')
+    const qs = q.toString()
+    return `/hpd/building/${bin}${qs ? `?${qs}` : ''}`
+  }
+
+  function cwUrl(window: 'all' | '5yr') {
+    const q = new URLSearchParams()
+    if (window === 'all') q.set('cw', 'all')
     const qs = q.toString()
     return `/hpd/building/${bin}${qs ? `?${qs}` : ''}`
   }
@@ -822,96 +823,64 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         {/* KPI rows */}
         <div style={{ marginBottom: 4 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
-            HPD Violations
+            Housing Preservation & Development Violations
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             <TotalViolationsCard total={totalViolations} timeline={violationTimeline} />
             <OpenViolationsCard open={openViolations} classC={openClassC} classB={openClassB} rentImpairing={rentImpairing} />
             <OpenViolationAgesCard data={openViolationAges} />
-            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
-                Top categories (past 5 yrs)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {topViolCategoriesRecent.map(([category, count]) => {
-                  const pct = recentViolTotal > 0 ? Math.round(count / recentViolTotal * 100) : 0
-                  const tooltip = VIOLATION_CATEGORY_TOOLTIPS[category]
-                  return (
-                    <div key={category} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>
-                        {toTitleCase(category)}
-                        {tooltip && <TooltipIcon text={tooltip} />}
-                      </span>
-                      <span style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>({count.toLocaleString()})</span>
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </div>
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
-            HPD Complaints (tenant-reported)
+            Housing Preservation & Development Complaints
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
             <TotalComplaintsCard total={totalComplaints} timeline={complaintTimeline} />
             <ComplaintResolutionCard data={complaintResolution} />
             <ComplaintTypePeriodCard data={complaintTypePeriod} />
-            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
-                Top groups (past 5 yrs)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[...COMPLAINT_BREAKDOWN_GROUPS]
-                  .sort((a, b) => (groupCounts[b.key] ?? 0) - (groupCounts[a.key] ?? 0))
-                  .slice(0, 5)
-                  .map(({ key, label }) => {
-                  const count = groupCounts[key] ?? 0
-                  const pct = fiveYearComplaintTotal > 0 ? Math.round(count / fiveYearComplaintTotal * 100) : 0
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
-                        <TooltipIcon text={FILTER_GROUP_DESCRIPTIONS[key as RenterFacingGroup]} />
-                      </span>
-                      <span style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>({count.toLocaleString()})</span>
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Top categories */}
-        {(topViolCategories.length > 0 || topComplCategories.length > 0) && (
-          <div style={{ display: 'grid', gridTemplateColumns: topViolCategories.length > 0 && topComplCategories.length > 0 ? '1fr 1fr' : '1fr', gap: 12, marginBottom: 12 }}>
-            {topViolCategories.length > 0 && (
-              <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-                  Top violation categories
-                </h2>
-                <ViolationCategoryBreakdown data={topViolCategories} />
+        {/* Top categories — window-toggled */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          {activeViolCategories.length > 0 && (
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Top violation categories</h2>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
+                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
+                </div>
               </div>
-            )}
-            {topComplCategories.length > 0 && (
-              <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-                  Top complaint categories
-                </h2>
-                <ViolationCategoryBreakdown data={topComplCategories} />
+              <HorizontalBarChart
+                data={activeViolCategories.map(([category, count]) => ({ label: toTitleCase(category), count, tooltip: VIOLATION_CATEGORY_TOOLTIPS[category] }))}
+                unit="violations"
+              />
+            </div>
+          )}
+          {fiveYearComplaintTotal > 0 && (
+            <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
+                  Top complaint groups
+                  <TooltipIcon text="HPD complaint types grouped into tenant-relevant categories. Each complaint is assigned to one group based on its minor category." />
+                </span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
+                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
+                </div>
               </div>
-            )}
-          </div>
-        )}
+              <HorizontalBarChart
+                data={[...COMPLAINT_BREAKDOWN_GROUPS]
+                  .sort((a, b) => (groupCounts[b.key] ?? 0) - (groupCounts[a.key] ?? 0))
+                  .map(({ key, label }) => ({ label, count: groupCounts[key] ?? 0, tooltip: FILTER_GROUP_DESCRIPTIONS[key as RenterFacingGroup] }))}
+                unit="complaints"
+              />
+            </div>
+          )}
+        </div>
 
         {/* Log toggle buttons */}
         <div id="log-controls" style={{ display: 'flex', gap: 8, marginBottom: 12, scrollMarginTop: '72px' }}>

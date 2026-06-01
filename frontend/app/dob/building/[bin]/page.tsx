@@ -474,6 +474,12 @@ export default async function BuildingPage({
             ? Math.round(building.no_access_count_5yr / building.closed_5yr_complaints * 100)
             : 0
           return (
+            <>
+            <div style={{ marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
+                Department of Buildings Complaints
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
               <StatCard
                 label={firstYear ? `Total complaints since ${firstYear}` : 'Total complaints'}
@@ -502,6 +508,7 @@ export default async function BuildingPage({
                 tooltip="Share of closed complaints in the past 5 years where the DOB inspector was unable to gain access to the building or unit (disposition codes C1–C8 and WB). A high rate may indicate the landlord is blocking inspections."
               />
             </div>
+            </>
           )
         })()}
 

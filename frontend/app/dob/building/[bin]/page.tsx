@@ -639,6 +639,16 @@ export default async function BuildingPage({
           <Pagination page={page} totalPages={totalPages} prevHref={pageUrl(page - 1)} nextHref={pageUrl(page + 1)} />
         </div>
 
+        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+          <a href="https://portal.311.nyc.gov/" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', textDecoration: 'none' }}>
+            See something wrong?{' '}
+            <span style={{ color: '#111111' }}>File a complaint with 311</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" style={{ flexShrink: 0 }}>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+        </div>
+
       </main>
     </div>
   )

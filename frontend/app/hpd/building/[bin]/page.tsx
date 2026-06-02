@@ -1028,7 +1028,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         )}
 
         {/* DOB cross-link note */}
-        <div style={{ background: '#FAFAFA', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 20 }}>
+        <div style={{ background: '#FAFAFA', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 12 }}>
           <p style={{ fontSize: 13, color: '#525252', margin: 0, lineHeight: 1.5, flex: 1 }}>
             Building safety complaints, construction, permits, and structural issues filed with the NYC Dept. of Buildings, are scored separately.
           </p>
@@ -1038,6 +1038,16 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           >
             Building Safety →
           </Link>
+        </div>
+
+        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+          <a href="https://portal.311.nyc.gov/" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', textDecoration: 'none' }}>
+            See something wrong?{' '}
+            <span style={{ color: '#111111' }}>File a complaint with 311</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" style={{ flexShrink: 0 }}>
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
         </div>
 
       </main>

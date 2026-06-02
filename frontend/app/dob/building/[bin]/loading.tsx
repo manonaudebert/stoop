@@ -13,7 +13,7 @@ export default function Loading() {
         </div>
 
         {/* Stat row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginBottom: 28 }}>
           {[1, 2, 3].map(i => (
             <div key={i} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '16px 18px' }}>
               <div className="skeleton" style={{ height: 28, width: 48, marginBottom: 8 }} />

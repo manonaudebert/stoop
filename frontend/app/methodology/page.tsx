@@ -422,7 +422,7 @@ export default function MethodologyPage() {
             and height on building.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
             <div style={CARD}>
               <p style={SECTION_HEADER}>Estimated scale</p>
               <div style={{
@@ -453,7 +453,7 @@ export default function MethodologyPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
             <div style={CARD}>
               <p style={SECTION_HEADER}>Recency multiplier</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

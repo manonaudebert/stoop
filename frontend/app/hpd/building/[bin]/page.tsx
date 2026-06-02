@@ -749,9 +749,9 @@ function pctHeadline(vp: number | null, cp: number | null): string {
 
   return (
     <>
-      <BuildingNavBar backHref="/hpd" backLabel="← Back to map" />
+      <BuildingNavBar backHref="/hpd" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd/building" />
 
-      <main style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
 
         <BuildingCrossLinks items={[
           { label: 'Building Safety', href: `/dob/building/${bin}` },
@@ -774,7 +774,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         />
 
         {/* Three insight cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: showCharts ? 0 : 12 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginBottom: showCharts ? 0 : 12 }}>
           <InsightCard eyebrow="Neighborhood" aside={ntaName || undefined} headline={neighborhoodHeadline} sub={neighborhoodSub}>
             <RankViz markers={[
               { percentile: violPct, label: 'Violations' },
@@ -805,7 +805,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
 
         {/* Expandable charts — toggled from Activity card */}
         {showCharts && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, margin: '12px 0' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ margin: '12px 0' }}>
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Violations over time</h2>
@@ -834,7 +834,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 6 }}>
             Housing Preservation & Development Violations
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <TotalViolationsCard total={totalViolations} timeline={violationTimeline} />
             <OpenViolationsCard open={openViolations} classC={openClassC} classB={openClassB} rentImpairing={rentImpairing} />
             <OpenViolationAgesCard data={openViolationAges} />
@@ -845,7 +845,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 6 }}>
             Housing Preservation & Development Complaints
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <TotalComplaintsCard total={totalComplaints} timeline={complaintTimeline} />
             <ComplaintResolutionCard data={complaintResolution} />
             <ComplaintTypePeriodCard data={complaintTypePeriod} />
@@ -853,7 +853,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         </div>
 
         {/* Top categories — window-toggled */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
           {activeViolCategories.length > 0 && (
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

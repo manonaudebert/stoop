@@ -2,14 +2,24 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Map, ChevronLeft } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Map, ChevronLeft, Menu, X } from 'lucide-react'
 import SearchBar from './SearchBar'
 import type { BuildingSummary } from '@/lib/types'
 
-type Props = { backHref: string; backLabel: string }
+type Props = { backHref: string; backLabel: string; searchUrl?: string; buildingBasePath?: string }
 
-export default function BuildingNavBar({ backHref, backLabel }: Props) {
+export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildingBasePath = '/building' }: Props) {
   const router  = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Close the mobile menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   // strip leading arrow/prefix so callers can still pass "← Map", "← Back to map", or "Map"
   const rawLabel = backLabel.replace(/^←\s*(Back to\s*)?/i, '')
@@ -17,7 +27,7 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
   const label    = isMap ? 'Map' : rawLabel
 
   function handleSelect(b: BuildingSummary) {
-    router.push(`/building/${b.bin}`)
+    router.push(`${buildingBasePath}/${b.bin}`)
   }
 
   return (
@@ -58,7 +68,7 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '0 1 460px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <SearchBar onSelect={handleSelect} />
+          <SearchBar onSelect={handleSelect} searchUrl={searchUrl} />
         </div>
         <Link
           href="/dob/leaderboard"
@@ -82,7 +92,53 @@ export default function BuildingNavBar({ backHref, backLabel }: Props) {
         >
           About
         </Link>
+
+        {/* Hamburger — mobile only */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(v => !v)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+          className="flex sm:hidden"
+          style={{
+            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            width: 44, height: 44, margin: '-10px -10px -10px 0',
+            background: 'none', border: 'none', cursor: 'pointer', color: '#A3A3A3',
+          }}
+        >
+          {menuOpen ? <X size={20} strokeWidth={1.75} /> : <Menu size={20} strokeWidth={1.75} />}
+        </button>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div
+          className="sm:hidden"
+          style={{
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            background: '#111111', borderTop: '0.5px solid #333333',
+            display: 'flex', flexDirection: 'column', padding: '4px 0',
+          }}
+        >
+          {[
+            { href: '/dob/leaderboard', label: 'Leaderboard' },
+            { href: '/methodology',     label: 'About' },
+          ].map(item => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              style={{
+                display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px',
+                fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
+                textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      )}
     </header>
   )
 }

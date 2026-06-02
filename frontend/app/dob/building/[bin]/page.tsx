@@ -301,7 +301,7 @@ export default async function BuildingPage({
     return (
       <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
-        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 0' }}>
+        <div className="px-4 sm:px-6 pt-8" style={{ maxWidth: 1260, margin: '0 auto' }}>
             <BuildingHero
               address={building.address ?? ''}
               meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
@@ -427,7 +427,7 @@ export default async function BuildingPage({
 
       <BuildingNavBar backHref={backHref} backLabel={backLabel} />
 
-      <main style={{ maxWidth: 1260, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
 
         <BuildingCrossLinks items={[
           { label: 'Building Safety' },
@@ -450,7 +450,7 @@ export default async function BuildingPage({
         />
 
         {/* Three insight cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ marginBottom: 12 }}>
           <InsightCard eyebrow="Neighborhood" aside={ntaName.length > 22 ? ntaName.slice(0, 22) + '…' : ntaName} headline={headline3} sub={sub3} tooltip="Size-normalized against residential buildings in the neighborhood for issues in the last 10 years.">
             <RankViz percentile={notComparable || insufficient ? null : building.normalized_percentile} />
           </InsightCard>
@@ -480,7 +480,7 @@ export default async function BuildingPage({
                 Department of Buildings Complaints
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ marginBottom: 12 }}>
               <StatCard
                 label={firstYear ? `Total complaints since ${firstYear}` : 'Total complaints'}
                 value={building.total_complaints}
@@ -513,7 +513,7 @@ export default async function BuildingPage({
         })()}
 
         {/* Chart cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
           <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>

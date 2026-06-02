@@ -168,9 +168,9 @@ export default async function HpdComplaintsBuildingPage({
 
   return (
     <>
-      <BuildingNavBar backHref="/hpd-complaints" backLabel="← Back to map" />
+      <BuildingNavBar backHref="/hpd-complaints" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd-complaints/building" />
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 80px' }}>
+      <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 960, margin: '0 auto' }}>
 
         {/* Cross-links */}
         <div style={{ marginBottom: 20 }}>
@@ -208,7 +208,7 @@ export default async function HpdComplaintsBuildingPage({
         </div>
 
         {/* KPI cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" style={{ marginBottom: 32 }}>
           {[
             { label: 'Total complaints', value: building.total_complaints },
             { label: 'Open complaints',  value: building.open_complaints },
@@ -253,7 +253,7 @@ export default async function HpdComplaintsBuildingPage({
         </div>
 
         {/* Charts row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ marginBottom: 16 }}>
           <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
             <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
               Complaints over time

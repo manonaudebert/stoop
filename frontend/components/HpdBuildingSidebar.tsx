@@ -88,8 +88,8 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
   const vLoading    = violations === 'loading'
 
   return (
-    <div style={{
-      background: '#FFFFFF', borderRadius: 12, padding: '16px 18px', width: 240,
+    <div className="w-full sm:w-60" style={{
+      background: '#FFFFFF', borderRadius: 12, padding: '16px 18px',
       border: '0.5px solid #6B6B6B',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>

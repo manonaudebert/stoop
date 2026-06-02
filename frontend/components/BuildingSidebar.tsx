@@ -36,8 +36,8 @@ export default function BuildingSidebar({ building, onClose }: Props) {
   const tier = getRiskTier(building.risk_level)
 
   return (
-    <div style={{
-      background: '#FFFFFF', borderRadius: 12, padding: '16px 18px', width: 220,
+    <div className="w-full sm:w-[220px]" style={{
+      background: '#FFFFFF', borderRadius: 12, padding: '16px 18px',
       border: '0.5px solid #6B6B6B',
     }}>
       {/* Header */}

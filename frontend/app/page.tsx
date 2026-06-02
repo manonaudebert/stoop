@@ -7,7 +7,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
   const initialMode = mode === 'dob' ? 'DOB' : 'HPD'
 
   return (
-    <div className="w-screen h-screen overflow-hidden">
+    <div className="w-screen h-dvh overflow-hidden">
       <UnifiedMapWrapper initialMode={initialMode} />
     </div>
   )

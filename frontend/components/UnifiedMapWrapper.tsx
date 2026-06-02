@@ -66,16 +66,35 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   const [flyTarget,       setFlyTarget]       = useState<FlyTarget | null>(null)
   const [visibleTiers,    setVisibleTiers]    = useState<Set<string>>(new Set(ALL_TIERS))
   const [showNtaBorders,   setShowNtaBorders]   = useState(false)
-  const [legendCollapsed,  setLegendCollapsed]  = useState(false)
+  const [mobileSheet,      setMobileSheet]      = useState<'legend' | 'dataset' | null>(null)
+  const [isMobile,         setIsMobile]         = useState(false)
   const [selectedNtas,     setSelectedNtas]     = useState<Set<string>>(new Set())
   const [ntaList,          setNtaList]          = useState<NtaItem[]>([])
   const [ntaSearch,        setNtaSearch]        = useState('')
   const [ntaListExpanded,  setNtaListExpanded]  = useState(true)
   const [explainerExpanded, setExplainerExpanded] = useState(false)
   const [showWelcome,       setShowWelcome]       = useState(false)
+  const [navMenuOpen,       setNavMenuOpen]       = useState(false)
 
   useEffect(() => {
     if (!localStorage.getItem('stoop_welcome_dismissed')) setShowWelcome(true)
+  }, [])
+
+  useEffect(() => {
+    if (!navMenuOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [navMenuOpen])
+
+  // Track the mobile breakpoint (< 640px = Tailwind `sm`) so the map overlays
+  // can render as bottom sheets instead of floating cards.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639.98px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
   }, [])
 
   function dismissWelcome() {
@@ -221,6 +240,190 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
 
   const selectedBin = selected?.building.bin ?? null
 
+  // ── Shared overlay content (rendered in floating cards on desktop, bottom sheets on mobile) ──
+
+  const datasetInner = (
+    <>
+      {/* Toggle row */}
+      <div style={{ padding: 4, display: 'flex', gap: 3 }}>
+        {(['HPD', 'DOB'] as Dataset[]).map(d => (
+          <button
+            key={d}
+            onClick={() => switchDataset(d)}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              padding: '5px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              background: dataset === d ? '#111111' : 'transparent',
+              transition: 'background 0.15s',
+              gap: 3,
+            }}
+          >
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
+              textTransform: 'uppercase', fontWeight: 600,
+              color: dataset === d ? '#FFFFFF' : '#525252',
+              transition: 'color 0.15s',
+            }}>
+              {d === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* One-liner description — always visible */}
+      <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
+        <p style={{ width: 0, minWidth: '100%', fontSize: 11, color: '#525252', lineHeight: 1.5, margin: 0, fontFamily: 'var(--font-sans)' }}>
+          {config.subtitle}
+        </p>
+      </div>
+
+      {/* Learn more accordion */}
+      <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
+        <div
+          onClick={() => setExplainerExpanded(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
+            Learn more
+          </span>
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: explainerExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+            <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        {explainerExpanded && (
+          <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#525252', lineHeight: 1.55, margin: '8px 0 0 0', fontFamily: 'var(--font-sans)' }}>
+            {config.explainer}
+          </p>
+        )}
+      </div>
+    </>
+  )
+
+  const legendInner = (
+    <>
+      {/* Risk level */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
+          {config.legendLabel}
+        </p>
+        {visibleTiers.size < config.legend.length && (
+          <button
+            onClick={() => setVisibleTiers(new Set(ALL_TIERS))}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      {config.legend.map(({ tier, color, label }) => {
+        const active = visibleTiers.has(tier)
+        return (
+          <div
+            key={tier}
+            onClick={() => toggleTier(tier)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, cursor: 'pointer', userSelect: 'none' }}
+          >
+            <Checkbox active={active} color={color} />
+            <span style={{ fontSize: 12, color: active ? '#111111' : '#6B6B6B', flex: 1, transition: 'color 0.1s' }}>
+              {label}
+            </span>
+          </div>
+        )
+      })}
+
+      <div style={{ height: '0.5px', background: '#E5E5E5', margin: '10px 0' }} />
+
+      {/* NTA toggle */}
+      <div
+        onClick={() => setShowNtaBorders(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+      >
+        <Checkbox active={showNtaBorders} color="#525252" />
+        <span style={{ fontSize: 12, color: showNtaBorders ? '#111111' : '#525252', transition: 'color 0.1s' }}>
+          Neighborhoods
+        </span>
+      </div>
+
+      {/* NTA filter list */}
+      {showNtaBorders && ntaList.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: '0.5px solid #E5E5E5', paddingTop: 10 }}>
+          <div
+            onClick={() => setNtaListExpanded(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: ntaListExpanded ? 7 : 0, cursor: 'pointer', userSelect: 'none' }}
+          >
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
+              Filter by NTA{selectedNtas.size > 0 ? ` (${selectedNtas.size})` : ''}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {selectedNtas.size > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setSelectedNtas(new Set()) }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  Clear
+                </button>
+              )}
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: ntaListExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+                <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          {ntaListExpanded && (
+            <>
+              <div className="search-field" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  value={ntaSearch}
+                  onChange={e => setNtaSearch(e.target.value)}
+                  placeholder="Search…"
+                  style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#111111', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+                />
+              </div>
+              <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                {filteredNtaList.map(nta => {
+                  const active = selectedNtas.has(nta.code)
+                  return (
+                    <div
+                      key={nta.code}
+                      onClick={() => toggleNta(nta.code)}
+                      style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5, cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <div style={{ marginTop: 1, flexShrink: 0 }}>
+                        <Checkbox active={active} color="#525252" />
+                      </div>
+                      <span style={{ fontSize: 11, color: active ? '#111111' : '#525252', lineHeight: 1.3, transition: 'color 0.1s' }}>
+                        {nta.name}
+                      </span>
+                    </div>
+                  )
+                })}
+                {filteredNtaList.length === 0 && (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No results</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </>
+  )
+
+  const sidebar =
+    selected?.dataset === 'DOB'
+      ? <BuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
+      : selected?.dataset === 'HPD'
+      ? <HpdBuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
+      : null
+
+  const sheetChevron = (open: boolean) => (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+      <path d="M2 4.5l4 4 4-4" stroke="#737373" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+
   return (
     <div className="relative w-full h-full">
       <Map
@@ -238,7 +441,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
       {/* Nav bar */}
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         <div
-          style={{ background: '#111111', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14 }}
+          style={{ background: '#111111', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 14, position: 'relative' }}
           className="pointer-events-auto"
         >
           <Link href="/" style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#FFFFFF', letterSpacing: '-0.015em', flexShrink: 0, textDecoration: 'none' }}>
@@ -251,9 +454,11 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
             Building and housing data for NYC tenants
           </span>
 
-          <div style={{ flex: 1 }} />
+          {/* Desktop spacer — pushes search to the right on desktop; collapses on mobile so search fills the row */}
+          <div className="hidden sm:block" style={{ flex: 1 }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: '0 1 420px' }}>
+          {/* Search + desktop links — fills the row between logo and hamburger on mobile */}
+          <div className="flex-1 sm:flex-initial sm:basis-[420px]" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               {dataset === 'DOB' ? (
                 <SearchBar
@@ -290,217 +495,150 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               About
             </Link>
           </div>
-        </div>
-      </div>
 
-      {/* Floating dataset toggle */}
-      <div
-        className="absolute right-4 z-10"
-        style={{ top: 74, maxWidth: 'min(260px, calc(100vw - 2rem))' }}
-      >
-        <div style={{
-          background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B',
-          display: 'flex', flexDirection: 'column', width: '100%',
-        }}>
-          {/* Toggle row */}
-          <div style={{ padding: 4, display: 'flex', gap: 3 }}>
-            {(['HPD', 'DOB'] as Dataset[]).map(d => (
-              <button
-                key={d}
-                onClick={() => switchDataset(d)}
+          {/* Hamburger — mobile only, sits at the far right of the row */}
+          <button
+            type="button"
+            onClick={() => setNavMenuOpen(v => !v)}
+            aria-label={navMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={navMenuOpen}
+            className="flex sm:hidden"
+            style={{
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              width: 44, height: 44, marginTop: -10, marginBottom: -10, marginRight: -10,
+              background: 'none', border: 'none', cursor: 'pointer', color: '#A3A3A3',
+            }}
+          >
+            {navMenuOpen ? (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M2 2l14 14M16 2L2 16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            )}
+          </button>
+
+          {/* Mobile dropdown menu */}
+          {navMenuOpen && (
+            <div
+              className="sm:hidden"
+              style={{
+                position: 'absolute', top: '100%', left: 0, right: 0,
+                background: '#111111', borderTop: '0.5px solid #333333',
+                display: 'flex', flexDirection: 'column', padding: '4px 0',
+              }}
+            >
+              <Link
+                href={dataset === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
+                onClick={() => setNavMenuOpen(false)}
                 style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '5px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                  background: dataset === d ? '#111111' : 'transparent',
-                  transition: 'background 0.15s',
-                  gap: 3,
+                  display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px',
+                  fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
+                  textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
                 }}
               >
-                <span style={{
+                Leaderboard
+              </Link>
+              <Link
+                href="/methodology"
+                onClick={() => setNavMenuOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px',
                   fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
-                  textTransform: 'uppercase', fontWeight: 600,
-                  color: dataset === d ? '#FFFFFF' : '#525252',
-                  transition: 'color 0.15s',
-                }}>
-                  {d === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* One-liner description — always visible */}
-          <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
-            <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#525252', lineHeight: 1.5, margin: 0, fontFamily: 'var(--font-sans)' }}>
-              {config.subtitle}
-            </p>
-          </div>
-
-          {/* Learn more accordion */}
-          <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
-            <div
-              onClick={() => setExplainerExpanded(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
-                Learn more
-              </span>
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: explainerExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+                  textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none',
+                }}
+              >
+                About
+              </Link>
             </div>
-            {explainerExpanded && (
-              <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#525252', lineHeight: 1.55, margin: '8px 0 0 0', fontFamily: 'var(--font-sans)' }}>
-                {config.explainer}
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Left panel — legend + sidebar */}
-      <div
-        className="absolute left-4 z-10"
-        style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
-      >
-        {/* Legend card */}
-        <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #6B6B6B' }}>
-
-          {/* Mobile collapse toggle */}
+      {/* ───────── Desktop: floating cards ───────── */}
+      {!isMobile && (
+        <>
+          {/* Floating dataset toggle (top-right) */}
           <div
-            className="flex sm:hidden"
-            onClick={() => setLegendCollapsed(v => !v)}
-            style={{ alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', marginBottom: legendCollapsed ? 0 : 10 }}
+            className="absolute right-4 z-10"
+            style={{ top: 74, maxWidth: 'min(260px, calc(100vw - 2rem))' }}
           >
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Legend
-            </span>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: legendCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
-              <path d="M2 4.5l4 4 4-4" stroke="#737373" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B',
+              display: 'flex', flexDirection: 'column', width: '100%',
+            }}>
+              {datasetInner}
+            </div>
           </div>
 
-          <div className={legendCollapsed ? 'hidden sm:block' : ''}>
+          {/* Left panel — legend + sidebar */}
+          <div
+            className="absolute left-4 z-10"
+            style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
+          >
+            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #6B6B6B' }}>
+              {legendInner}
+            </div>
+            {sidebar}
+          </div>
+        </>
+      )}
 
-            {/* Risk level */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-                {config.legendLabel}
-              </p>
-              {visibleTiers.size < config.legend.length && (
-                <button
-                  onClick={() => setVisibleTiers(new Set(ALL_TIERS))}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  Reset
-                </button>
+      {/* ───────── Mobile: bottom sheets ───────── */}
+      {isMobile && (
+        <div
+          className="absolute left-0 right-0 bottom-0 z-10"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, maxHeight: '78dvh', pointerEvents: 'none' }}
+        >
+          {/* A selected building takes over the legend slot (one sheet at a time) */}
+          {selected ? (
+            <div style={{ pointerEvents: 'auto', minHeight: 0, overflowY: 'auto' }}>
+              {sidebar}
+            </div>
+          ) : (
+            <div style={{ pointerEvents: 'auto', background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <button
+                type="button"
+                onClick={() => setMobileSheet(s => (s === 'legend' ? null : 'legend'))}
+                aria-expanded={mobileSheet === 'legend'}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, padding: '0 16px', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Legend
+                </span>
+                {sheetChevron(mobileSheet === 'legend')}
+              </button>
+              {mobileSheet === 'legend' && (
+                <div style={{ padding: '0 16px 14px', overflowY: 'auto', minHeight: 0 }}>
+                  {legendInner}
+                </div>
               )}
             </div>
+          )}
 
-            {config.legend.map(({ tier, color, label }) => {
-              const active = visibleTiers.has(tier)
-              return (
-                <div
-                  key={tier}
-                  onClick={() => toggleTier(tier)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, cursor: 'pointer', userSelect: 'none' }}
-                >
-                  <Checkbox active={active} color={color} />
-                  <span style={{ fontSize: 12, color: active ? '#111111' : '#6B6B6B', flex: 1, transition: 'color 0.1s' }}>
-                    {label}
-                  </span>
-                </div>
-              )
-            })}
-
-            <div style={{ height: '0.5px', background: '#E5E5E5', margin: '10px 0' }} />
-
-            {/* NTA toggle */}
-            <div
-              onClick={() => setShowNtaBorders(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+          {/* Dataset toggle sheet */}
+          <div style={{ pointerEvents: 'auto', background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B', overflow: 'hidden', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setMobileSheet(s => (s === 'dataset' ? null : 'dataset'))}
+              aria-expanded={mobileSheet === 'dataset'}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, padding: '0 16px', background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              <Checkbox active={showNtaBorders} color="#525252" />
-              <span style={{ fontSize: 12, color: showNtaBorders ? '#111111' : '#525252', transition: 'color 0.1s' }}>
-                Neighborhoods
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: '#111111', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {dataset === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
               </span>
-            </div>
-
-            {/* NTA filter list */}
-            {showNtaBorders && ntaList.length > 0 && (
-              <div style={{ marginTop: 10, borderTop: '0.5px solid #E5E5E5', paddingTop: 10 }}>
-                <div
-                  onClick={() => setNtaListExpanded(v => !v)}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: ntaListExpanded ? 7 : 0, cursor: 'pointer', userSelect: 'none' }}
-                >
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-                    Filter by NTA{selectedNtas.size > 0 ? ` (${selectedNtas.size})` : ''}
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {selectedNtas.size > 0 && (
-                      <button
-                        onClick={e => { e.stopPropagation(); setSelectedNtas(new Set()) }}
-                        style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: ntaListExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                      <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                </div>
-                {ntaListExpanded && (
-                  <>
-                    <div className="search-field" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-                      </svg>
-                      <input
-                        value={ntaSearch}
-                        onChange={e => setNtaSearch(e.target.value)}
-                        placeholder="Search…"
-                        style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#111111', fontSize: 11, fontFamily: 'var(--font-sans)' }}
-                      />
-                    </div>
-                    <div style={{ maxHeight: 180, overflowY: 'auto' }}>
-                      {filteredNtaList.map(nta => {
-                        const active = selectedNtas.has(nta.code)
-                        return (
-                          <div
-                            key={nta.code}
-                            onClick={() => toggleNta(nta.code)}
-                            style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5, cursor: 'pointer', userSelect: 'none' }}
-                          >
-                            <div style={{ marginTop: 1, flexShrink: 0 }}>
-                              <Checkbox active={active} color="#525252" />
-                            </div>
-                            <span style={{ fontSize: 11, color: active ? '#111111' : '#525252', lineHeight: 1.3, transition: 'color 0.1s' }}>
-                              {nta.name}
-                            </span>
-                          </div>
-                        )
-                      })}
-                      {filteredNtaList.length === 0 && (
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No results</p>
-                      )}
-                    </div>
-                  </>
-                )}
+              {sheetChevron(mobileSheet === 'dataset')}
+            </button>
+            {mobileSheet === 'dataset' && (
+              <div style={{ borderTop: '0.5px solid #E5E5E5' }}>
+                {datasetInner}
               </div>
             )}
-
-
           </div>
         </div>
-
-        {/* Building sidebar */}
-        {selected?.dataset === 'DOB' && (
-          <BuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
-        )}
-        {selected?.dataset === 'HPD' && (
-          <HpdBuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
-        )}
-      </div>
+      )}
 
       {/* Welcome popup */}
       {showWelcome && (
@@ -550,7 +688,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
                 textTransform: 'uppercase', background: '#111111', color: '#FFFFFF',
-                border: 'none', borderRadius: 8, padding: '9px 18px', cursor: 'pointer',
+                border: 'none', borderRadius: 8, padding: '0 18px', minHeight: 44, cursor: 'pointer',
               }}
             >
               Get started

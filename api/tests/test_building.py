@@ -381,6 +381,53 @@ LEADERBOARD_ROW = {
 }
 
 
+# ---------------------------------------------------------------------------
+# API tests: GET /building/search
+# ---------------------------------------------------------------------------
+
+class TestSearchBuildings:
+    async def test_exact_match_returns_results(self, client):
+        mock_db = make_mock_db(MockResult([MockRow(BUILDING_SUMMARY_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/search?q=123+TEST+ST")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["address"] == "123 TEST ST"
+
+    async def test_fuzzy_fallback_when_ilike_returns_nothing(self, client):
+        # Phase 1 (ILIKE) returns nothing; phase 2 (trigram) finds a match.
+        mock_db = make_mock_db(
+            MockResult([]),
+            MockResult([MockRow(BUILDING_SUMMARY_ROW)]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/search?q=brodway")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["bin"] == SAMPLE_BIN
+
+    async def test_empty_when_both_phases_miss(self, client):
+        mock_db = make_mock_db(MockResult([]), MockResult([]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/search?q=zzzzzzz")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+
 class TestGetLeaderboardRecent:
     async def test_returns_ranked_list(self, client):
         rows = [

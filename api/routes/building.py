@@ -135,6 +135,19 @@ async def search_buildings(
     summary_rows = rows.all()
 
     if not summary_rows:
+        trgm_rows = await db.execute(
+            text("""
+                SELECT bs.*
+                FROM building_summary bs
+                WHERE word_similarity(:q, bs.address) > 0.25
+                ORDER BY word_similarity(:q, bs.address) DESC
+                LIMIT 10
+            """),
+            {"q": _normalize(q)},
+        )
+        summary_rows = trgm_rows.all()
+
+    if not summary_rows:
         cache_set(cache_key, [], ttl_seconds=600)
         return []
 

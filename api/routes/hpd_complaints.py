@@ -218,7 +218,22 @@ async def search_hpd_complaint_buildings(
         """),
         {"q": q, **like_params, **exact_params, **word_params, **prefix_params},
     )
-    results = [_row_to_summary(r) for r in rows.all()]
+    summary_rows = rows.all()
+
+    if not summary_rows:
+        trgm_rows = await db.execute(
+            text("""
+                SELECT cs.*
+                FROM hpd_complaints_building_summary cs
+                WHERE word_similarity(:q, cs.address) > 0.25
+                ORDER BY word_similarity(:q, cs.address) DESC
+                LIMIT 10
+            """),
+            {"q": _normalize(q)},
+        )
+        summary_rows = trgm_rows.all()
+
+    results = [_row_to_summary(r) for r in summary_rows]
     cache_set(cache_key, results, ttl_seconds=600)
     return results
 

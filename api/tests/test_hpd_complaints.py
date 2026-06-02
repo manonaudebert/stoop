@@ -238,6 +238,53 @@ class TestGetHpdComplaintBreakdown:
 # API tests: GET /hpd-complaints/building/leaderboard-recent
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# API tests: GET /hpd-complaints/building/search
+# ---------------------------------------------------------------------------
+
+class TestSearchHpdComplaintBuildings:
+    async def test_exact_match_returns_results(self, client):
+        mock_db = make_mock_db(MockResult([MockRow(HPD_COMPLAINT_SUMMARY_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/search?q=123+TEST+ST")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["address"] == "123 TEST ST"
+        assert data[0]["total_complaints"] == 8
+
+    async def test_fuzzy_fallback_when_ilike_returns_nothing(self, client):
+        mock_db = make_mock_db(
+            MockResult([]),
+            MockResult([MockRow(HPD_COMPLAINT_SUMMARY_ROW)]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/search?q=brodway")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["bin"] == SAMPLE_BIN
+
+    async def test_empty_when_both_phases_miss(self, client):
+        mock_db = make_mock_db(MockResult([]), MockResult([]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/hpd-complaints/building/search?q=zzzzzzz")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+
 class TestGetHpdComplaintLeaderboard:
     async def test_returns_ranked_list(self, client):
         rows = [

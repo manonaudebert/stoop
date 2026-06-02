@@ -34,7 +34,7 @@ export default function LeaderboardToggle({
           href={url(key)}
           style={{ textDecoration: 'none' }}
         >
-          <div style={{
+          <div className="lb-toggle-pill" style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',

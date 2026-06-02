@@ -97,3 +97,17 @@ body {
   animation: spin 0.75s linear infinite;
   transform-origin: center;
 }
+
+@media (max-width: 640px) {
+  .lb-header       { padding: 1rem 1rem 0 !important; }
+  .lb-container    { padding: 1rem !important; }
+  .lb-title        { font-size: 24px !important; }
+  .lb-header-meta  { align-items: flex-start !important; flex-wrap: wrap !important; }
+  .lb-tabs         { overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; }
+  .lb-tabs::-webkit-scrollbar { display: none; }
+  .leaderboard-row { padding: 14px 16px !important; gap: 10px !important; }
+  .lb-stats        { gap: 10px !important; }
+  .lb-emerg-col    { display: none !important; }
+  .lb-emerg-inline { display: block !important; }
+  .lb-toggle-pill  { min-width: 88px !important; }
+}

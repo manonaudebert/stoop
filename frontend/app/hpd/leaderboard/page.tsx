@@ -3,6 +3,7 @@ import { getHpdComplaintLeaderboard } from '@/lib/api'
 import type { HpdComplaintBuildingSummary } from '@/lib/types'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import LeaderboardToggle from '@/components/LeaderboardToggle'
+import TooltipIcon from '@/components/TooltipIcon'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
 
@@ -26,12 +27,12 @@ function BuildingRow({
   building: HpdComplaintBuildingSummary
   maxRecent: number
 }) {
-  const recent2yr   = building.recent_complaint_count ?? 0
+  const recent2yr    = building.recent_complaint_count ?? 0
   const emergency2yr = building.recent_emergency_count ?? 0
-  const barPct     = maxRecent > 0 ? (recent2yr / maxRecent) * 100 : 0
-  const barColor   = barPct > 66 ? '#7F1D1D' : barPct > 33 ? '#BC4B33' : '#D97B65'
-  const rankColor  = rank <= 3 ? '#7F1D1D' : rank <= 10 ? '#BC4B33' : '#6B6B6B'
-  const trend      = building.trend_direction ?? ''
+  const barPct       = maxRecent > 0 ? (recent2yr / maxRecent) * 100 : 0
+  const barColor     = barPct > 66 ? '#7F1D1D' : barPct > 33 ? '#BC4B33' : '#D97B65'
+  const rankColor    = rank <= 3 ? '#7F1D1D' : rank <= 10 ? '#BC4B33' : '#6B6B6B'
+  const trend        = building.trend_direction ?? ''
 
   return (
     <Link
@@ -91,7 +92,7 @@ function BuildingRow({
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: 24, flexShrink: 0, alignItems: 'center' }}>
+        <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-6" style={{ flexShrink: 0 }}>
           {/* 2yr complaints — primary sort */}
           <div style={{ textAlign: 'right' }}>
             <p style={{
@@ -101,23 +102,33 @@ function BuildingRow({
               {recent2yr.toLocaleString()}
             </p>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#525252', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              last 2yr
+              total
             </p>
           </div>
 
-          {/* Emergency 2yr (EMERGENCY + IMMEDIATE EMERGENCY) — tiebreaker */}
-          <div style={{ textAlign: 'right' }}>
+          {/* Emergency — desktop: stacked number+label */}
+          <div className="hidden sm:block" style={{ textAlign: 'right' }}>
             <p style={{
-              fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500,
+              fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 500,
               color: emergency2yr > 0 ? '#525252' : '#6B6B6B',
               margin: 0, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
             }}>
               {emergency2yr.toLocaleString()}
             </p>
             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#525252', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              emerg. 2yr
+              emergency
             </p>
           </div>
+
+          {/* Emergency — mobile: compact one line */}
+          <p className="sm:hidden" style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+            color: emergency2yr > 0 ? '#525252' : '#A3A3A3',
+            margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {emergency2yr.toLocaleString()} emerg.
+          </p>
         </div>
       </div>
     </Link>
@@ -145,15 +156,15 @@ export default async function HpdLeaderboardPage({
       <BuildingNavBar backHref="/" backLabel="Map" />
 
       {/* Page header */}
-      <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0', position: 'relative' }}>
+      <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0', position: 'relative' }}>
         <div className="flex justify-end mb-4 md:absolute md:top-6 md:right-6 md:mb-0">
           <LeaderboardToggle active="hpd" borough={borough} />
         </div>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
           <div style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-              <h1 style={{
+            <div className="lb-header-meta" style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+              <h1 className="lb-title" style={{
                 fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
                 color: '#111111', letterSpacing: '-0.02em', margin: 0, lineHeight: 1.1,
               }}>
@@ -173,7 +184,7 @@ export default async function HpdLeaderboardPage({
           </p>
 
           {/* Borough tabs */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '0.5px solid #E5E5E5', marginBottom: -1 }}>
+          <div className="lb-tabs" style={{ display: 'flex', gap: 0, borderBottom: '0.5px solid #E5E5E5', marginBottom: -1 }}>
             {[undefined, ...BOROUGHS].map(b => {
               const active = (b ?? undefined) === (borough ?? undefined)
               return (
@@ -199,7 +210,7 @@ export default async function HpdLeaderboardPage({
       </div>
 
       {/* List */}
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1.5rem' }}>
+      <div className="lb-container" style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1.5rem' }}>
         <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden' }}>
 
           {/* Column headers */}
@@ -218,11 +229,11 @@ export default async function HpdLeaderboardPage({
               Building
             </p>
             <div style={{ display: 'flex', gap: 24 }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, textAlign: 'right' }}>
-                Last 2yr
+              <p className="flex items-center gap-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, justifyContent: 'flex-end' }}>
+                Last 2yr <TooltipIcon direction="down" align="right" text="Total HPD complaints filed in the last 2 years. Used as the primary sort." />
               </p>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 72, textAlign: 'right' }}>
-                Emerg. 2yr
+              <p className="hidden sm:flex items-center gap-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 72, justifyContent: 'flex-end' }}>
+                Emerg. 2yr <TooltipIcon direction="down" align="right" text="Emergency + Immediate Emergency complaints in the last 2 years. Used as a tiebreaker." />
               </p>
             </div>
           </div>

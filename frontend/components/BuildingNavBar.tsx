@@ -104,6 +104,7 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
             alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             width: 44, height: 44, margin: '-10px -10px -10px 0',
             background: 'none', border: 'none', cursor: 'pointer', color: '#A3A3A3',
+            position: 'relative', zIndex: 2,
           }}
         >
           {menuOpen ? <X size={20} strokeWidth={1.75} /> : <Menu size={20} strokeWidth={1.75} />}

@@ -196,24 +196,27 @@ Frontend: `http://localhost:3000`
 
 ## Scoring and normalization
 
-### DOB safety score (0–100)
+### DOB weighted complaint sum
 
-Each building receives a score based on its DOB complaint history:
+Each complaint contributes a decay-weighted value based on priority and age. Complaints older than 10 years are excluded entirely.
 
-```
-score = 100 × e^(−D / 40)
-```
-
-where D is the weighted deduction sum across all complaints:
+Priority weights:
 - Priority A (imminent danger): weight 15
 - Priority B (active violation): weight 8
 - Priority C (minor/administrative): weight 3
 - Priority D (tracking/inspection): weight 1
-- Last 2 years: 1.0× · 2–5 years: 0.5× · older: 0.25×
+
+Recency multipliers:
+- ≤ 2 years: 1.0×
+- 2–5 years: 0.5×
+- 5–10 years: 0.25×
+- > 10 years: 0 (excluded)
+
+The weighted sum is stored as `weighted_complaint_sum`. A separate metric, `serious_rate`, counts Priority A+B complaints per year over the same 10-year window (denominator capped at 10, floored at 1).
 
 ### HPD violation weighted score
 
-HPD violations are scored using the same recency decay:
+HPD violations use the same recency multipliers and 10-year cutoff:
 - Class C (immediately hazardous — lead, mold, heat failure): weight 15
 - Class B (hazardous — 30-day correction window): weight 8
 - Class A (non-hazardous — 90-day window): weight 3
@@ -221,21 +224,37 @@ HPD violations are scored using the same recency decay:
 
 ### HPD complaint weighted score
 
-HPD tenant complaints use complaint urgency:
+HPD tenant complaints use complaint urgency, with the same recency multipliers and 10-year cutoff:
 - Immediate Emergency: weight 15
 - Emergency: weight 8
-- Non Emergency: weight 3
+- Non Emergency (and any unlabeled type): weight 3
 
-### Size normalization
+### Size normalization and percentile ranking
 
-Raw counts penalize large buildings. All weighted scores are normalized by estimated building scale before peer comparison:
+Raw counts penalize large buildings. All weighted sums are normalized by estimated building scale before peer comparison:
 
 ```
 estimated_scale = footprint_area × max(height_roof / 12, 1)
-complaint_density = weighted_score / estimated_scale × 10,000
+complaint_density = weighted_sum / estimated_scale × 10,000
 ```
 
-Each density is then percentile-ranked within the building's NTA (residential buildings only), so comparisons are both size-adjusted and neighborhood-relative.
+Each density is then percentile-ranked (`PERCENT_RANK()`) within the building's NTA among residential peers (`nta_type = 0`), so comparisons are both size-adjusted and neighborhood-relative. Buildings without footprint or height data fall back to a raw weighted-sum percentile.
+
+DOB produces two ranked signals: `normalized_percentile` (overall weighted density) and `normalized_serious_rate_percentile` (serious_rate / scale). The former drives the map `risk_level`; the latter drives the DOB Severity card.
+
+### Risk level labels (DOB)
+
+`risk_level` is derived from `normalized_percentile`:
+
+| normalized_percentile | risk_level |
+|---|---|
+| < 15 | Very low |
+| 15 – 39 | Low |
+| 40 – 69 | Moderate |
+| 70 – 89 | High |
+| ≥ 90 | Very high |
+
+Special cases: `Insufficient data` (< 10 complaints and < 2 years of history); `Not comparable` (non-residential NTA or missing footprint/height data).
 
 ## Weekly sync
 

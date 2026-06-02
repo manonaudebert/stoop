@@ -98,6 +98,19 @@ const RECENCY_TIERS = [
   { label: '> 10 years',  weight: '0',    desc: 'Excluded' },
 ]
 
+const RISK_LEVELS = [
+  { label: 'Very low',  range: '< 15th percentile', dot: '#84A98C',
+    desc: 'Fewer weighted complaints per unit of scale than ~85% of residential peers in the neighborhood.' },
+  { label: 'Low',       range: '15th – 39th',        dot: '#84A98C',
+    desc: 'Below the neighborhood median.' },
+  { label: 'Moderate',  range: '40th – 69th',        dot: '#E4A11B',
+    desc: 'Near or above the neighborhood median.' },
+  { label: 'High',      range: '70th – 89th',        dot: '#C45C3A',
+    desc: 'More weighted complaints than most residential peers.' },
+  { label: 'Very high', range: '≥ 90th percentile',  dot: '#7F1D1D',
+    desc: 'Among the most complaint-heavy buildings in the neighborhood.' },
+]
+
 // ── sub-components ────────────────────────────────────────────────────────────
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -208,7 +221,7 @@ export default function MethodologyPage() {
               id="eabe-havv"
               title="DOB Complaints Received"
               agency="NYC Dept. of Buildings"
-              description="Every complaint filed with the DOB since 2007, including category, status, inspection dates, and disposition. Primary dataset behind the DOB safety score."
+              description="Every complaint filed with the DOB since 2007, including category, status, inspection dates, and disposition. Primary dataset behind the DOB risk level and neighborhood percentile ranking."
               href="https://data.cityofnewyork.us/Housing-Development/DOB-Complaints-Received/eabe-havv"
             />
             <DataSourceCard
@@ -222,14 +235,14 @@ export default function MethodologyPage() {
               id="ygpa-z7cr"
               title="HPD Housing Maintenance Complaints"
               agency="NYC Housing Preservation &amp; Development"
-              description="Complaints filed directly by tenants about housing conditions — heat, hot water, pests, mold, leaks, and more. Classified as Immediate Emergency, Emergency, or Non Emergency."
+              description="Complaints filed directly by tenants about housing conditions like heat, hot water, pests, mold, leaks, and more. Classified as Immediate Emergency, Emergency, or Non Emergency."
               href="https://data.cityofnewyork.us/Housing-Development/Housing-Maintenance-Code-Complaints/ygpa-z7cr"
             />
             <DataSourceCard
               id="5zhs-2jue"
               title="NYC Building Footprints"
               agency="NYC Dept. of City Planning"
-              description="Building polygons with roof height and footprint area — used to estimate total building scale for size-normalized comparisons, plus centroids for map placement."
+              description="Building polygons with roof height and footprint area, used to estimate total building scale for size-normalized comparisons, plus centroids for map placement."
               href="https://data.cityofnewyork.us/Housing-Development/Building-Footprints/nqwf-w8eh"
             />
             <DataSourceCard
@@ -254,7 +267,6 @@ export default function MethodologyPage() {
                 Column names are mapped from the raw DOB headers (e.g., <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>Date Entered</code> → <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>date_entered</code>),
                 date columns are parsed, and borough is derived from the first digit of each
                 building&apos;s BIN (1 = Manhattan, 2 = Bronx, 3 = Brooklyn, 4 = Queens, 5 = Staten Island).
-                The internal <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>DOBRunDate</code> column is discarded — it records when the NYC export was generated, not any event at the building.
               </p>
             </div>
 
@@ -493,7 +505,38 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 7. Special cases ───────────────────────────────────────────── */}
+        {/* ── 7. Risk level ──────────────────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Risk level</SectionTitle>
+          <p style={{ ...PROSE, marginBottom: 20 }}>
+            A building&apos;s neighborhood percentile is mapped to a risk level label shown
+            on building pages and the map. The label reflects how the building compares
+            to residential peers within the same neighborhood — not citywide.
+          </p>
+          <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
+            {RISK_LEVELS.map((r, i) => (
+              <div key={r.label} style={{
+                display: 'flex', alignItems: 'center', gap: 16,
+                padding: '12px 18px',
+                borderBottom: i < RISK_LEVELS.length - 1 ? '0.5px solid #E5E5E5' : 'none',
+              }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: r.dot, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, fontWeight: 500, color: '#111111', width: 76, flexShrink: 0 }}>
+                  {r.label}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em', width: 120, flexShrink: 0 }}>
+                  {r.range}
+                </span>
+                <p style={{ ...PROSE, fontSize: 13, margin: 0 }}>{r.desc}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{ ...PROSE, fontSize: 13, marginTop: 12 }}>
+            &ldquo;Insufficient data&rdquo; and &ldquo;Not comparable&rdquo; are handled separately — see below.
+          </p>
+        </section>
+
+        {/* ── 9. Special cases ───────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Special cases</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -533,7 +576,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 8. Neighborhood comparison ─────────────────────────────────── */}
+        {/* ── 10. Neighborhood comparison ────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Neighborhood comparisons</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -572,7 +615,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 9. Leaderboards ────────────────────────────────────────────── */}
+        {/* ── 11. Leaderboards ───────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Leaderboards</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
@@ -623,7 +666,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 10. Limitations ────────────────────────────────────────────── */}
+        {/* ── 12. Limitations ────────────────────────────────────────────── */}
         <section style={{ marginBottom: '2rem' }}>
           <SectionTitle>Limitations</SectionTitle>
           <div style={{ ...CARD }}>

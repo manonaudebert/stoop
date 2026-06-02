@@ -142,6 +142,23 @@ Same weighting and 10-year cutoff applied to `received_date`.
 The HPD page displays both `violations_density_pct` and `complaints_density_pct`
 side by side in the Rank viz.
 
+### Top categories / top groups cards (live queries, with 5yr / all-time toggle)
+
+The two "top categories" cards on the HPD building page are **not** read from the
+summary materialized views. They are live `GROUP BY` queries against the base tables,
+each with a **5-year / all-time toggle** (default: 5 years). Because they run against
+the base tables with a runtime date filter, adding or changing the toggle requires no
+migration.
+
+| Card | Endpoint | 5-year window | All-time |
+|---|---|---|---|
+| Top violation categories | `/hpd/building/{bin}/breakdown-recent` (5yr) and `/hpd/building/{bin}/breakdown` (all-time) | `nov_issued_date >= NOW() - INTERVAL '5 years'` | no date filter |
+| Top complaint groups | `/hpd-complaints/building/{bin}/minor-breakdown?years=` | `years=5` (default) → `received_date >= NOW() - INTERVAL '5 years'` | `years` falsy → no date filter |
+
+The violations card toggles between two separate endpoints; the complaints card toggles
+via the `years` query param on a single endpoint. Per the renter-facing design principle,
+the **5-year window is the default** — all-time skews toward buildings with long histories.
+
 ---
 
 ## Leaderboard pages

@@ -37,16 +37,20 @@ function getRiskMeta(level: string | null) {
   return RISK_LEVEL_META[level ?? ''] ?? { label: 'No data', color: '#737373' }
 }
 
-function StatCell({ label, value }: { label: string; value: number | null }) {
+function StatCell({ label, value, loading }: { label: string; value: number | null; loading?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
-        color: value === null ? '#D4D1C3' : '#111111',
-        lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
-      }}>
-        {value === null ? '—' : value.toLocaleString()}
-      </div>
+      {loading ? (
+        <div className="skeleton" style={{ height: 19, width: 32, marginBottom: 6 }} />
+      ) : (
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
+          color: value === null ? '#D4D1C3' : '#111111',
+          lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
+        }}>
+          {value === null ? '—' : value.toLocaleString()}
+        </div>
+      )}
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
         textTransform: 'uppercase', color: '#737373',
@@ -80,7 +84,8 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
     return () => { cancelled = true }
   }, [building.bin])
 
-  const v = violations === 'loading' ? null : violations
+  const v           = violations === 'loading' ? null : violations
+  const vLoading    = violations === 'loading'
 
   return (
     <div style={{
@@ -145,9 +150,9 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
           Confirmed by inspectors
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-          <StatCell label="Total"          value={v?.total_violations ?? null} />
-          <StatCell label="Open"           value={v?.open_violations ?? null} />
-          <StatCell label="Open rent-impairing" value={v?.rent_impairing_count ?? null} />
+          <StatCell label="Total"              value={v?.total_violations ?? null}    loading={vLoading} />
+          <StatCell label="Open"               value={v?.open_violations ?? null}     loading={vLoading} />
+          <StatCell label="Open rent-impairing" value={v?.rent_impairing_count ?? null} loading={vLoading} />
         </div>
       </div>
 

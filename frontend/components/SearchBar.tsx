@@ -105,7 +105,8 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
   }
 
   const showDropdown = open && query.length >= 3
-  const showEmpty = showDropdown && !loading && searched && results.length === 0
+  const showEmpty   = showDropdown && !loading && searched && results.length === 0
+  const showLoading = showDropdown && loading && results.length === 0
 
   return (
     <div className="relative w-full">
@@ -131,22 +132,28 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
           onFocus={() => (results.length > 0 || searched) && setOpen(true)}
         />
         {loading && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B6B6B', marginLeft: 8, letterSpacing: '0.05em' }}>
-            …
-          </span>
+          <svg className="spinner" width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginLeft: 8, flexShrink: 0 }}>
+            <circle cx="6" cy="6" r="4.5" stroke="#D4D4D4" strokeWidth="1.5" />
+            <path d="M6 1.5A4.5 4.5 0 0 1 10.5 6" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
         )}
       </div>
 
-      {showDropdown && (results.length > 0 || showEmpty) && (
+      {showDropdown && (results.length > 0 || showEmpty || showLoading) && (
         <ul
           id="search-results"
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto"
           role="listbox"
           style={{ background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
-          {showEmpty ? (
+          {showLoading ? (
+            <li style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="skeleton" style={{ height: 12, width: '70%' }} />
+              <div className="skeleton" style={{ height: 9, width: '35%' }} />
+            </li>
+          ) : showEmpty ? (
             <li style={{ padding: '12px 14px', fontSize: 13, color: '#737373' }}>
-              No buildings found for “{query}”
+              No buildings found for "{query}"
             </li>
           ) : (
             results.map((b, i) => {

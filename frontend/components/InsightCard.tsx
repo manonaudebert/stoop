@@ -20,7 +20,7 @@ export default function InsightCard({ eyebrow, aside, headline, sub, tooltip, ch
           {tooltip && <TooltipIcon text={tooltip} />}
         </span>
         {aside && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>
             {aside}
           </span>
         )}

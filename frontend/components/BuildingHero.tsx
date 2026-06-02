@@ -22,7 +22,7 @@ export default function BuildingHero({ address, meta, explainerLabel, explainerT
       }}>
         {address}
       </h1>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', margin: 0 }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#525252', margin: 0 }}>
         {meta}
       </p>
       <BuildingExplainer label={explainerLabel} text={explainerText} />

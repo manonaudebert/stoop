@@ -39,7 +39,7 @@ const CLASS_META: Record<string, { label: string; color: string; bg: string }> =
   A: { label: 'Emergency',     color: '#7F1D1D', bg: '#FEF2F2' },
   B: { label: 'Hazardous',     color: '#92400E', bg: '#FFF7ED' },
   C: { label: 'Non-hazardous', color: '#525252', bg: '#F5F5F5' },
-  I: { label: 'Informational', color: '#737373', bg: '#FAFAFA' },
+  I: { label: 'Informational', color: '#525252', bg: '#FAFAFA' },
 }
 
 const TIER_COLORS: Record<string, { color: string; bg: string }> = {
@@ -82,11 +82,11 @@ function ViolationRow({ v }: { v: HpdViolation }) {
         <span style={{ fontSize: 12, color: '#111111', display: 'block', lineHeight: 1.4 }}>
           {v.order_short_description ?? stripLegalPrefix(v.nov_description) ?? '—'}
           {v.order_category && (
-            <span style={{ color: '#737373' }}> · {v.order_category}</span>
+            <span style={{ color: '#525252' }}> · {v.order_category}</span>
           )}
         </span>
         {v.nov_description && (
-          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
+          <span style={{ fontSize: 11, color: '#525252', display: 'block', marginTop: 2, lineHeight: 1.4 }}>
             {v.nov_description}
           </span>
         )}
@@ -120,11 +120,11 @@ function ComplaintRow({ c }: { c: HpdComplaint }) {
         <span style={{ fontSize: 12, color: '#111111', display: 'block' }}>
           {c.major_category ?? '—'}
           {c.minor_category && c.minor_category !== c.major_category
-            ? <span style={{ color: '#737373' }}> · {c.minor_category}</span>
+            ? <span style={{ color: '#525252' }}> · {c.minor_category}</span>
             : null}
         </span>
         {c.status_description && (
-          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2 }}>{c.status_description}</span>
+          <span style={{ fontSize: 11, color: '#525252', display: 'block', marginTop: 2 }}>{c.status_description}</span>
         )}
       </td>
     </tr>
@@ -252,7 +252,7 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
     <div>
       {items.map(({ label, value, alert }) => (
         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid #F5F5F5' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>{label}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#6B6B6B' }}>
             {value.toLocaleString()}
           </span>
@@ -275,7 +275,7 @@ function OpenViolationsCard({ open, classC, classB, rentImpairing }: {
   ]
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
         Open violations
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
@@ -284,7 +284,7 @@ function OpenViolationsCard({ open, classC, classB, rentImpairing }: {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {rows.map(({ label, value, alert, tooltip }) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
               {label}
               {tooltip && <TooltipIcon text={tooltip} />}
             </span>
@@ -329,7 +329,7 @@ function TotalViolationsCard({ total, timeline }: { total: number; timeline: Tim
 
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
         Total violations since {firstYear}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
@@ -378,7 +378,7 @@ function TotalComplaintsCard({ total, timeline }: { total: number; timeline: Tim
 
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
         Total complaints since {firstYear}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
@@ -411,7 +411,7 @@ function ComplaintResolutionCard({ data }: { data: ComplaintResolutionItem[] }) 
 
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 12 }}>
         Complaint Resolution
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0 16px' }}>
@@ -444,7 +444,7 @@ function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) 
 
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 12 }}>
         Urgency breakdown
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 16px' }}>
@@ -457,7 +457,7 @@ function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) 
             <React.Fragment key={key}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>{label}</span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#111111', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.recent_count, recentTotal)}</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#737373', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.prior_count, priorTotal)}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: '#525252', textAlign: 'right', padding: '5px 0', borderTop: '0.5px solid #F5F5F5', fontVariantNumeric: 'tabular-nums' }}>{pct(d.prior_count, priorTotal)}</span>
             </React.Fragment>
           )
         })}
@@ -790,7 +790,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
               <Link
                 href={chartsToggleUrl()}
                 scroll={false}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
                 {showCharts ? '▲ Hide all activity over time' : '▼ View all activity over time'}
               </Link>
@@ -949,7 +949,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <thead>
                   <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
                     {['Class', 'Status', 'Apt', 'Issued', 'Description'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', fontWeight: 500, whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
                     ))}
@@ -1003,7 +1003,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <thead>
                   <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
                     {['Type', 'Status', 'Apt', 'Received', 'Category'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', fontWeight: 500, whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
                     ))}

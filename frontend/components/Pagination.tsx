@@ -11,7 +11,7 @@ export default function Pagination({ page, totalPages, prevHref, nextHref }: Pro
   if (totalPages <= 1) return null
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderTop: '0.5px solid #E5E5E5' }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
         Page {page} of {totalPages}
       </span>
       <div style={{ display: 'flex', gap: 8 }}>

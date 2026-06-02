@@ -21,7 +21,7 @@ const SECTION_HEADER: React.CSSProperties = {
   fontSize: 10,
   letterSpacing: '0.12em',
   textTransform: 'uppercase' as const,
-  color: '#737373',
+  color: '#525252',
   marginBottom: 12,
   marginTop: 0,
 }
@@ -137,7 +137,7 @@ function DataSourceCard({
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', margin: '0 0 4px' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
             {agency}
           </p>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 500, color: '#111111', margin: 0 }}>
@@ -326,7 +326,7 @@ export default function MethodologyPage() {
                       {t.name}
                     </span>
                     <span style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373',
+                      fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252',
                       letterSpacing: '0.04em',
                     }}>
                       weight {t.weight}
@@ -367,7 +367,7 @@ export default function MethodologyPage() {
                     <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
                       {c.name}
                     </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', letterSpacing: '0.04em' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em' }}>
                       weight {c.weight}
                     </span>
                   </div>
@@ -466,7 +466,7 @@ export default function MethodologyPage() {
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111' }}>
                         {r.label}
                       </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', marginLeft: 8 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginLeft: 8 }}>
                         {r.desc}
                       </span>
                     </div>
@@ -594,7 +594,7 @@ export default function MethodologyPage() {
                   { label: 'Tiebreaker',   value: 'Priority A+B last 2yr' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>{row.label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{row.label}</span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111' }}>{row.value}</span>
                   </div>
                 ))}
@@ -614,7 +614,7 @@ export default function MethodologyPage() {
                   { label: 'Tiebreaker',   value: 'Emergency complaints 2yr' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>{row.label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{row.label}</span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111' }}>{row.value}</span>
                   </div>
                 ))}

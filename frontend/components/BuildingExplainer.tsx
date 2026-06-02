@@ -10,7 +10,7 @@ export default function BuildingExplainer({ label, text }: { label: string; text
         onClick={() => setOpen(v => !v)}
         style={{
           fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#737373', background: 'none',
+          textTransform: 'uppercase', color: '#525252', background: 'none',
           border: 'none', cursor: 'pointer', padding: 0,
           display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none',
         }}
@@ -21,7 +21,7 @@ export default function BuildingExplainer({ label, text }: { label: string; text
         {label}
       </button>
       {open && paragraphs.map((p, i) => (
-        <p key={i} style={{ fontSize: 12, color: '#737373', lineHeight: 1.55, margin: '6px 0 0 0', fontFamily: 'var(--font-sans)' }}>
+        <p key={i} style={{ fontSize: 12, color: '#525252', lineHeight: 1.55, margin: '6px 0 0 0', fontFamily: 'var(--font-sans)' }}>
           {p}
         </p>
       ))}

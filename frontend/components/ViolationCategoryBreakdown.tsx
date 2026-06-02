@@ -28,7 +28,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   const total = payload[0]?.value ?? 0
   return (
     <div style={{ background: '#111111', borderRadius: 4, padding: '6px 10px', maxWidth: 280 }}>
-      <p style={{ fontSize: 10, color: '#737373', marginBottom: 4, whiteSpace: 'normal' }}>{label}</p>
+      <p style={{ fontSize: 10, color: '#525252', marginBottom: 4, whiteSpace: 'normal' }}>{label}</p>
       <p style={{ fontSize: 12, color: '#FFFFFF', margin: 0 }}>{total.toLocaleString()} violations</p>
     </div>
   )

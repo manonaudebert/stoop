@@ -60,11 +60,11 @@ function ComplaintRow({ c }: { c: HpdComplaint }) {
         <span style={{ fontSize: 12, color: '#111111', display: 'block' }}>
           {c.major_category ?? '—'}
           {c.minor_category && c.minor_category !== c.major_category
-            ? <span style={{ color: '#737373' }}> · {c.minor_category}</span>
+            ? <span style={{ color: '#525252' }}> · {c.minor_category}</span>
             : null}
         </span>
         {c.status_description && (
-          <span style={{ fontSize: 11, color: '#737373', display: 'block', marginTop: 2 }}>
+          <span style={{ fontSize: 11, color: '#525252', display: 'block', marginTop: 2 }}>
             {c.status_description}
           </span>
         )}
@@ -174,14 +174,14 @@ export default async function HpdComplaintsBuildingPage({
 
         {/* Cross-links */}
         <div style={{ marginBottom: 20 }}>
-          <Link href={`/dob/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Link href={`/dob/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#525252', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 12H5M11 6l-6 6 6 6"/>
             </svg>
             DOB complaints
           </Link>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#D4D1C3', margin: '0 8px' }}>·</span>
-          <Link href={`/hpd/dob/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#737373', textDecoration: 'none' }}>
+          <Link href={`/hpd/dob/building/${bin}`} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#525252', textDecoration: 'none' }}>
             HPD overview
           </Link>
         </div>
@@ -197,7 +197,7 @@ export default async function HpdComplaintsBuildingPage({
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', lineHeight: 1.1, margin: '0 0 8px' }}>
             {building.address ?? 'Unknown address'}
           </h1>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#525252', margin: 0 }}>
             {building.borough}{building.zip_code ? ` · ${building.zip_code}` : ''} · BIN {bin}
             {building.nta_name ? ` · ${building.nta_name}` : ''}
           </p>
@@ -218,7 +218,7 @@ export default async function HpdComplaintsBuildingPage({
               key={label}
               style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}
             >
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
                 {label}
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
@@ -229,7 +229,7 @@ export default async function HpdComplaintsBuildingPage({
 
           {/* Complaint breakdown by renter-facing group */}
           <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 12 }}>
               Top groups (past 5 yrs)
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -314,7 +314,7 @@ export default async function HpdComplaintsBuildingPage({
                         padding: '10px 16px', textAlign: 'left',
                         fontFamily: 'var(--font-mono)', fontSize: 10,
                         letterSpacing: '0.08em', textTransform: 'uppercase',
-                        color: '#737373', fontWeight: 500, whiteSpace: 'nowrap',
+                        color: '#525252', fontWeight: 500, whiteSpace: 'nowrap',
                       }}
                     >
                       {h}
@@ -340,7 +340,7 @@ export default async function HpdComplaintsBuildingPage({
           {/* Pagination */}
           {totalPages > 1 && (
             <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
                 Page {page} of {totalPages}
               </span>
               <div style={{ display: 'flex', gap: 8 }}>

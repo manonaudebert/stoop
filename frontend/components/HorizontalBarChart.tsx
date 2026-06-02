@@ -17,7 +17,7 @@ export default function HorizontalBarChart({ data, unit }: { data: BarItem[]; un
               {label}
               {tooltip && <TooltipIcon text={tooltip} />}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
               {count.toLocaleString()}{unit ? ` ${unit}` : ''}
             </span>
           </div>

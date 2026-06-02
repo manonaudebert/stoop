@@ -14,8 +14,8 @@ const RISK_TIER: Record<string, { color: string }> = {
   'Low':            { color: '#525252' },
   'Very low':       { color: '#525252' },
   'Resolved':       { color: '#525252' },
-  'Insufficient data': { color: '#737373' },
-  'Not comparable':    { color: '#737373' },
+  'Insufficient data': { color: '#525252' },
+  'Not comparable':    { color: '#525252' },
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,7 +152,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
               <div className="skeleton" style={{ height: 9, width: '35%' }} />
             </li>
           ) : showEmpty ? (
-            <li style={{ padding: '12px 14px', fontSize: 13, color: '#737373' }}>
+            <li style={{ padding: '12px 14px', fontSize: 13, color: '#525252' }}>
               No buildings found for "{query}"
             </li>
           ) : (
@@ -185,7 +185,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
                     <p style={{ fontSize: 13, fontWeight: 500, color: '#111111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
                       {b.address}
                     </p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
                       {b.borough} · {b.zip_code}
                     </p>
                   </div>

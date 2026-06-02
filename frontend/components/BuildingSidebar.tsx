@@ -19,12 +19,12 @@ const RISK_TIER_MAP: Record<string, { label: string; color: string }> = {
   'Moderate':          { label: 'Moderate',  color: '#525252' },
   'High':              { label: 'High',  color: '#7F1D1D' },
   'Very high':         { label: 'Very high', color: '#7F1D1D' },
-  'Insufficient data': { label: 'Very low', color: '#737373' },
-  'Not comparable':    { label: 'Not comparable', color: '#737373' },
+  'Insufficient data': { label: 'Very low', color: '#525252' },
+  'Not comparable':    { label: 'Not comparable', color: '#525252' },
 }
 
 function getRiskTier(riskLevel: string | null) {
-  return RISK_TIER_MAP[riskLevel ?? ''] ?? { label: 'Unknown', color: '#737373' }
+  return RISK_TIER_MAP[riskLevel ?? ''] ?? { label: 'Unknown', color: '#525252' }
 }
 
 type Props = {
@@ -95,7 +95,7 @@ export default function BuildingSidebar({ building, onClose }: Props) {
             </div>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-              textTransform: 'uppercase', color: '#737373',
+              textTransform: 'uppercase', color: '#525252',
             }}>
               {label}
             </div>

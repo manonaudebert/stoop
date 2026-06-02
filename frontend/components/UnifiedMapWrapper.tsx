@@ -247,7 +247,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
 
           <div style={{ width: '0.5px', height: 16, background: '#333333', flexShrink: 0 }} />
 
-          <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#737373', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#A3A3A3', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Building and housing data for NYC tenants
           </span>
 
@@ -330,7 +330,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
 
           {/* One-liner description — always visible */}
           <div style={{ borderTop: '0.5px solid #E5E5E5', padding: '7px 12px' }}>
-            <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#737373', lineHeight: 1.5, margin: 0, fontFamily: 'var(--font-sans)' }}>
+            <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#525252', lineHeight: 1.5, margin: 0, fontFamily: 'var(--font-sans)' }}>
               {config.subtitle}
             </p>
           </div>
@@ -349,7 +349,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               </svg>
             </div>
             {explainerExpanded && (
-              <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#737373', lineHeight: 1.55, margin: '8px 0 0 0', fontFamily: 'var(--font-sans)' }}>
+              <p style={{ width: 0, minWidth: '100%', fontSize: 10, color: '#525252', lineHeight: 1.55, margin: '8px 0 0 0', fontFamily: 'var(--font-sans)' }}>
                 {config.explainer}
               </p>
             )}
@@ -420,7 +420,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
             >
               <Checkbox active={showNtaBorders} color="#525252" />
-              <span style={{ fontSize: 12, color: showNtaBorders ? '#111111' : '#737373', transition: 'color 0.1s' }}>
+              <span style={{ fontSize: 12, color: showNtaBorders ? '#111111' : '#525252', transition: 'color 0.1s' }}>
                 Neighborhoods
               </span>
             </div>
@@ -474,7 +474,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                             <div style={{ marginTop: 1, flexShrink: 0 }}>
                               <Checkbox active={active} color="#525252" />
                             </div>
-                            <span style={{ fontSize: 11, color: active ? '#111111' : '#737373', lineHeight: 1.3, transition: 'color 0.1s' }}>
+                            <span style={{ fontSize: 11, color: active ? '#111111' : '#525252', lineHeight: 1.3, transition: 'color 0.1s' }}>
                               {nta.name}
                             </span>
                           </div>
@@ -536,7 +536,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               </svg>
             </button>
 
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#737373', margin: '0 0 10px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#525252', margin: '0 0 10px' }}>
               About
             </p>
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#111111', lineHeight: 1.4, letterSpacing: '-0.01em', margin: '0 0 14px' }}>

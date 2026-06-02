@@ -75,7 +75,7 @@ function BuildingRow({
             {building.address ?? 'Unknown address'}
           </p>
           <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373',
+            fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252',
             margin: '3px 0 0', letterSpacing: '0.06em', textTransform: 'uppercase',
           }}>
             {building.borough}
@@ -99,7 +99,7 @@ function BuildingRow({
             }}>
               {recent2yr.toLocaleString()}
             </p>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#737373', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#525252', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               last 2yr
             </p>
           </div>
@@ -113,7 +113,7 @@ function BuildingRow({
             }}>
               {building.priority_ab_2yr.toLocaleString()}
             </p>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#737373', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#525252', margin: '3px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               serious 2yr
             </p>
           </div>
@@ -157,7 +157,7 @@ export default async function DobLeaderboardPage({
               }}>
                 Most active buildings
               </h1>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', whiteSpace: 'nowrap' }}>
                 Top {buildings.length}{borough ? ` · ${borough}` : ' · all boroughs'}
               </span>
             </div>
@@ -210,22 +210,22 @@ export default async function DobLeaderboardPage({
             <p style={{
               flex: 1,
               fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
-              color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0,
+              color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0,
             }}>
               Building
             </p>
             <div style={{ display: 'flex', gap: 24 }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, textAlign: 'right' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 56, textAlign: 'right' }}>
                 Last 2yr
               </p>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 64, textAlign: 'right' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0, minWidth: 64, textAlign: 'right' }}>
                 Serious 2yr
               </p>
             </div>
           </div>
 
           {buildings.length === 0 ? (
-            <p style={{ padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#737373' }}>
+            <p style={{ padding: '2rem', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 13, color: '#525252' }}>
               No buildings found.
             </p>
           ) : (

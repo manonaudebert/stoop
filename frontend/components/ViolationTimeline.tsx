@@ -30,7 +30,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   if (!total) return null
   return (
     <div style={{ background: '#111111', borderRadius: 4, padding: '6px 10px' }}>
-      <p style={{ fontSize: 10, color: '#737373', marginBottom: 2 }}>{label}</p>
+      <p style={{ fontSize: 10, color: '#525252', marginBottom: 2 }}>{label}</p>
       <p style={{ fontSize: 13, color: '#FFFFFF', fontWeight: 500 }}>{total} violations</p>
     </div>
   )
@@ -101,7 +101,7 @@ export default function ViolationTimeline({
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', margin: 0 }}>
           {latestDate && <>Latest violation: {fmtDate(latestDate)}.</>}
         </p>
         {!controlled && hasOlderData && (

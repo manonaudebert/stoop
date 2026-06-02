@@ -59,7 +59,7 @@ export default function ComplaintBreakdown({ data }: { data: CategoryBreakdownIt
         />
         <Tooltip
           contentStyle={{ background: '#111111', border: 'none', borderRadius: 4, padding: '6px 10px' }}
-          labelStyle={{ fontSize: 10, color: '#737373' }}
+          labelStyle={{ fontSize: 10, color: '#525252' }}
           itemStyle={{ fontSize: 13, color: '#FFFFFF', fontWeight: 500 }}
           cursor={{ fill: 'rgba(17,17,17,0.04)' }}
           formatter={(v) => [v, 'complaints']}

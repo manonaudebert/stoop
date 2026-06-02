@@ -33,7 +33,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
 
   if (total === 0) return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 12 }}>
         Open violation ages
       </div>
       <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No open violations</p>
@@ -52,7 +52,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
 
   return (
     <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 12 }}>
         Open violation ages
       </div>
 

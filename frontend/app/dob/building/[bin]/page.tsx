@@ -32,8 +32,8 @@ function tierEyebrow(riskLevel: string | null): { text: string; color: string } 
   if (riskLevel === 'Moderate')  return { text: 'Moderate activity', color: '#525252' }
   if (riskLevel === 'Low')       return { text: 'Low activity', color: '#525252' }
   if (riskLevel === 'Very low')  return { text: 'Quiet', color: '#525252' }
-  if (riskLevel === 'Insufficient data') return { text: 'Few complaints', color: '#737373' }
-  if (riskLevel === 'Not comparable')    return { text: 'Non-residential', color: '#737373' }
+  if (riskLevel === 'Insufficient data') return { text: 'Few complaints', color: '#525252' }
+  if (riskLevel === 'Not comparable')    return { text: 'Non-residential', color: '#525252' }
   return { text: riskLevel ?? '', color: '#525252' }
 }
 
@@ -231,14 +231,14 @@ function ComplaintRow({ c }: { c: Complaint }) {
   return (
     <tr style={{ borderBottom: '0.5px solid #E5E5E5' }}>
       <td style={{ width: 4, padding: 0, background: dot }} />
-      <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#525252', whiteSpace: 'nowrap' }}>
         {fmtDate(c.date_entered)}
       </td>
       <td style={{ padding: '11px 14px', maxWidth: 280 }}>
         <p style={{ fontSize: 13, fontWeight: 500, color: '#111111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
           {c.category_description ?? c.complaint_category ?? '—'}
         </p>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', marginTop: 1, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginTop: 1, margin: 0 }}>
           {c.complaint_category}
         </p>
       </td>
@@ -257,7 +257,7 @@ function ComplaintRow({ c }: { c: Complaint }) {
           {c.status ?? '—'}
         </span>
       </td>
-      <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#737373', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#525252', whiteSpace: 'nowrap' }}>
         {fmtDate(c.disposition_date)}
       </td>
       <td style={{ padding: '11px 14px' }}>
@@ -307,7 +307,7 @@ export default async function BuildingPage({
               meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
               explainerLabel="Data Source: NYC Department of Buildings"
               explainerText="NYC Department of Buildings (DOB) oversees construction and building safety across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311."
-              badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#737373', marginBottom: 6 }}>No DOB complaints on record</div>}
+              badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', marginBottom: 6 }}>No DOB complaints on record</div>}
               bordered
             />
           </div>
@@ -580,7 +580,7 @@ export default async function BuildingPage({
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', marginTop: 2, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {building.total_count.toLocaleString()}
-                <span style={{ fontSize: 13, color: '#737373', fontWeight: 400, letterSpacing: 0, marginLeft: 6 }}>total</span>
+                <span style={{ fontSize: 13, color: '#525252', fontWeight: 400, letterSpacing: 0, marginLeft: 6 }}>total</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -623,7 +623,7 @@ export default async function BuildingPage({
                     <th key={h} style={{
                       padding: '9px 14px',
                       fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
-                      color: '#737373', letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: '#525252', letterSpacing: '0.1em', textTransform: 'uppercase',
                     }}>
                       {h}
                     </th>

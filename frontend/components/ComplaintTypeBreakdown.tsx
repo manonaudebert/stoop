@@ -23,7 +23,7 @@ function TypeTooltip({ active, payload, label }: { active?: boolean; payload?: a
   const open  = payload.find((p: { dataKey: string }) => p.dataKey === 'open_count')?.value ?? 0
   return (
     <div style={{ background: '#111111', borderRadius: 4, padding: '6px 10px' }}>
-      <p style={{ fontSize: 10, color: '#737373', marginBottom: 4 }}>{label}</p>
+      <p style={{ fontSize: 10, color: '#525252', marginBottom: 4 }}>{label}</p>
       <p style={{ fontSize: 12, color: '#FFFFFF', margin: '2px 0' }}>{total.toLocaleString()} total</p>
       <p style={{ fontSize: 12, color: '#F5A047', margin: '2px 0' }}>{open.toLocaleString()} open</p>
     </div>

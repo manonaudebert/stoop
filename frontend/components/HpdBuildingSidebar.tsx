@@ -34,7 +34,7 @@ const RISK_LEVEL_META: Record<string, { label: string; color: string }> = {
 }
 
 function getRiskMeta(level: string | null) {
-  return RISK_LEVEL_META[level ?? ''] ?? { label: 'No data', color: '#737373' }
+  return RISK_LEVEL_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
 }
 
 function StatCell({ label, value, loading }: { label: string; value: number | null; loading?: boolean }) {
@@ -53,7 +53,7 @@ function StatCell({ label, value, loading }: { label: string; value: number | nu
       )}
       <div style={{
         fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#737373',
+        textTransform: 'uppercase', color: '#525252',
       }}>
         {label}
       </div>

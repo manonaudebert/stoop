@@ -40,12 +40,16 @@ export default function ComplaintTimeline({
   data,
   firstDate,
   lastDate,
+  showFull: showFullProp,
 }: {
   data: TimelinePoint[]
   firstDate?: string | null
   lastDate?: string | null
+  showFull?: boolean
 }) {
-  const [showFull, setShowFull] = useState(false)
+  const [localShowFull, setLocalShowFull] = useState(false)
+  const controlled = showFullProp !== undefined
+  const showFull = controlled ? showFullProp : localShowFull
 
   if (!data.length) return <p style={{ fontSize: 13, color: '#525252' }}>No timeline data.</p>
 
@@ -84,13 +88,29 @@ export default function ComplaintTimeline({
   })
 
   const existingMonths = new Set(enriched.map(d => d.month))
+  const make0 = (m: string): EnrichedPoint => ({ month: m, old: 0, mid: 0, recent: 0 })
+
+  // Anchor both ends of the 5-year window so the chart always spans the full range
+  if (!showFull) {
+    if (!existingMonths.has(windowStartStr)) {
+      enriched.push(make0(windowStartStr))
+      existingMonths.add(windowStartStr)
+    }
+    const todayStr = toMonthStr(today)
+    if (!existingMonths.has(todayStr)) {
+      enriched.push(make0(todayStr))
+      existingMonths.add(todayStr)
+    }
+  }
+
+  enriched.sort((a, b) => a.month.localeCompare(b.month))
   const dataStart = enriched[0]?.month ?? ''
   const dataEnd = enriched[enriched.length - 1]?.month ?? ''
 
   const boundaries = showFull ? [fiveYearsStr, twoYearsStr] : [twoYearsStr]
   for (const m of boundaries) {
     if (!existingMonths.has(m) && m >= dataStart && m <= dataEnd) {
-      enriched.push({ month: m, old: 0, mid: 0, recent: 0 })
+      enriched.push(make0(m))
     }
   }
   enriched.sort((a, b) => a.month.localeCompare(b.month))
@@ -104,9 +124,9 @@ export default function ComplaintTimeline({
           {firstDate && <>First filed {fmtDate(firstDate)}.</>}
           {lastDate && <> Latest: {fmtDate(lastDate)}.</>}
         </p>
-        {hasOlderData && (
+        {!controlled && hasOlderData && (
           <button
-            onClick={() => setShowFull(v => !v)}
+            onClick={() => setLocalShowFull(v => !v)}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
               color: '#7F1D1D', background: 'none', border: 'none',

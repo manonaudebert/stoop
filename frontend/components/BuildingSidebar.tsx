@@ -38,7 +38,7 @@ export default function BuildingSidebar({ building, onClose }: Props) {
   return (
     <div style={{
       background: '#FFFFFF', borderRadius: 12, padding: '16px 18px', width: 220,
-      border: '0.5px solid #A3A3A3',
+      border: '0.5px solid #6B6B6B',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
@@ -68,7 +68,7 @@ export default function BuildingSidebar({ building, onClose }: Props) {
           onClick={onClose}
           style={{
             flexShrink: 0, background: 'none', border: 'none',
-            cursor: 'pointer', fontSize: 18, color: '#A3A3A3',
+            cursor: 'pointer', fontSize: 18, color: '#6B6B6B',
             padding: 0, lineHeight: 1, marginTop: -1,
           }}
           aria-label="Close"

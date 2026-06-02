@@ -13,8 +13,8 @@ const TREND: Record<string, string> = {
 }
 const TREND_COLOR: Record<string, string> = {
   worsening:  '#BC4B33',
-  stable:     '#A3A3A3',
-  improving:  '#84A98C',
+  stable:     '#6B6B6B',
+  improving:  '#4F6F58',
 }
 
 function BuildingRow({
@@ -29,7 +29,7 @@ function BuildingRow({
   const recent2yr = building.recent_complaint_count ?? 0
   const barPct = maxRecent > 0 ? (recent2yr / maxRecent) * 100 : 0
   const barColor = barPct > 66 ? '#7F1D1D' : barPct > 33 ? '#BC4B33' : '#D97B65'
-  const rankColor = rank <= 3 ? '#7F1D1D' : rank <= 10 ? '#BC4B33' : '#A3A3A3'
+  const rankColor = rank <= 3 ? '#7F1D1D' : rank <= 10 ? '#BC4B33' : '#6B6B6B'
   const trend = building.trend_direction ?? ''
 
   return (
@@ -60,7 +60,7 @@ function BuildingRow({
 
         {/* Trend arrow */}
         <div style={{ width: 14, flexShrink: 0, textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: TREND_COLOR[trend] ?? '#A3A3A3' }}>
+          <span style={{ fontSize: 12, color: TREND_COLOR[trend] ?? '#6B6B6B' }}>
             {TREND[trend] ?? '·'}
           </span>
         </div>
@@ -108,7 +108,7 @@ function BuildingRow({
           <div style={{ textAlign: 'right' }}>
             <p style={{
               fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500,
-              color: building.priority_ab_2yr > 0 ? '#525252' : '#A3A3A3',
+              color: building.priority_ab_2yr > 0 ? '#525252' : '#6B6B6B',
               margin: 0, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
             }}>
               {building.priority_ab_2yr.toLocaleString()}

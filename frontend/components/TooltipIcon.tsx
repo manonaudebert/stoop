@@ -12,7 +12,7 @@ export default function TooltipIcon({ text, direction = 'up' }: { text: string; 
       onMouseEnter={() => setVisible(true)}
       onMouseLeave={() => setVisible(false)}
     >
-      <span style={{ cursor: 'help', color: '#A3A3A3', fontSize: 11, letterSpacing: 0, textTransform: 'none', lineHeight: 1 }}>
+      <span style={{ cursor: 'help', color: '#6B6B6B', fontSize: 11, letterSpacing: 0, textTransform: 'none', lineHeight: 1 }}>
         ⓘ
       </span>
       {visible && (

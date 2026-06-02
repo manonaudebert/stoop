@@ -110,10 +110,10 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
   return (
     <div className="relative w-full">
       <div
-        className="flex items-center px-3"
-        style={{ background: '#FFFFFF', borderRadius: 12, height: 36, border: '0.5px solid #A3A3A3' }}
+        className="search-field flex items-center px-3"
+        style={{ background: '#FFFFFF', borderRadius: 12, height: 36, border: '0.5px solid #6B6B6B' }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 8 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 8 }}>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
         <input
@@ -131,7 +131,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
           onFocus={() => (results.length > 0 || searched) && setOpen(true)}
         />
         {loading && (
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A3A3A3', marginLeft: 8, letterSpacing: '0.05em' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B6B6B', marginLeft: 8, letterSpacing: '0.05em' }}>
             …
           </span>
         )}
@@ -142,7 +142,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
           id="search-results"
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto"
           role="listbox"
-          style={{ background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+          style={{ background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
         >
           {showEmpty ? (
             <li style={{ padding: '12px 14px', fontSize: 13, color: '#737373' }}>

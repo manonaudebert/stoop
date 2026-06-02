@@ -16,12 +16,12 @@ export default function Pagination({ page, totalPages, prevHref, nextHref }: Pro
       </span>
       <div style={{ display: 'flex', gap: 8 }}>
         {page > 1 && (
-          <Link href={prevHref} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none' }}>
+          <Link href={prevHref} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #6B6B6B', color: '#111111', textDecoration: 'none' }}>
             ← Prev
           </Link>
         )}
         {page < totalPages && (
-          <Link href={nextHref} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none' }}>
+          <Link href={nextHref} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, border: '0.5px solid #6B6B6B', color: '#111111', textDecoration: 'none' }}>
             Next →
           </Link>
         )}

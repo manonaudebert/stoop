@@ -207,7 +207,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     <div style={{
       width: 13, height: 13, borderRadius: 3, flexShrink: 0,
       background: active ? color : 'transparent',
-      border: `1.5px solid ${active ? color : '#A3A3A3'}`,
+      border: `1.5px solid ${active ? color : '#6B6B6B'}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       transition: 'background 0.1s, border-color 0.1s',
     }}>
@@ -299,7 +299,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         style={{ top: 74, maxWidth: 'min(260px, calc(100vw - 2rem))' }}
       >
         <div style={{
-          background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #A3A3A3',
+          background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B',
           display: 'flex', flexDirection: 'column', width: '100%',
         }}>
           {/* Toggle row */}
@@ -345,7 +345,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                 Learn more
               </span>
               <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: explainerExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                <path d="M2 4.5l4 4 4-4" stroke="#A3A3A3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             {explainerExpanded && (
@@ -363,7 +363,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
       >
         {/* Legend card */}
-        <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #A3A3A3' }}>
+        <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #6B6B6B' }}>
 
           {/* Mobile collapse toggle */}
           <div
@@ -405,7 +405,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                   style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7, cursor: 'pointer', userSelect: 'none' }}
                 >
                   <Checkbox active={active} color={color} />
-                  <span style={{ fontSize: 12, color: active ? '#111111' : '#A3A3A3', flex: 1, transition: 'color 0.1s' }}>
+                  <span style={{ fontSize: 12, color: active ? '#111111' : '#6B6B6B', flex: 1, transition: 'color 0.1s' }}>
                     {label}
                   </span>
                 </div>
@@ -445,14 +445,14 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                       </button>
                     )}
                     <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: ntaListExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
-                      <path d="M2 4.5l4 4 4-4" stroke="#A3A3A3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </div>
                 </div>
                 {ntaListExpanded && (
                   <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #A3A3A3', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2">
+                    <div className="search-field" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2">
                         <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                       </svg>
                       <input
@@ -481,7 +481,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
                         )
                       })}
                       {filteredNtaList.length === 0 && (
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>No results</p>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No results</p>
                       )}
                     </div>
                   </>
@@ -527,7 +527,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               style={{
                 position: 'absolute', top: 14, right: 14,
                 background: 'none', border: 'none', cursor: 'pointer',
-                padding: 4, lineHeight: 1, color: '#A3A3A3',
+                padding: 4, lineHeight: 1, color: '#6B6B6B',
               }}
               aria-label="Close"
             >

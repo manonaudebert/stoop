@@ -85,7 +85,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
   return (
     <div style={{
       background: '#FFFFFF', borderRadius: 12, padding: '16px 18px', width: 240,
-      border: '0.5px solid #A3A3A3',
+      border: '0.5px solid #6B6B6B',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -114,7 +114,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
           onClick={onClose}
           style={{
             flexShrink: 0, background: 'none', border: 'none',
-            cursor: 'pointer', fontSize: 18, color: '#A3A3A3',
+            cursor: 'pointer', fontSize: 18, color: '#6B6B6B',
             padding: 0, lineHeight: 1, marginTop: -1,
           }}
           aria-label="Close"
@@ -126,7 +126,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
       <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 10 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
-          textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
+          textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 10,
         }}>
           Reported by tenants
         </div>
@@ -140,7 +140,7 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
       <div style={{ borderTop: '0.5px solid #E5E5E5', paddingTop: 12, marginTop: 12, marginBottom: 12 }}>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em',
-          textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 10,
+          textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 10,
         }}>
           Confirmed by inspectors
         </div>

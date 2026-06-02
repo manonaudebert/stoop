@@ -192,7 +192,7 @@ export default async function HpdComplaintsBuildingPage({
             <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', fontWeight: 500, color: tierMeta.color, background: tierMeta.bg, textTransform: 'uppercase' }}>
               {tier}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A3A3A3' }}>HPD Complaints</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B6B6B' }}>HPD Complaints</span>
           </div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', lineHeight: 1.1, margin: '0 0 8px' }}>
             {building.address ?? 'Unknown address'}
@@ -243,7 +243,7 @@ export default async function HpdComplaintsBuildingPage({
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
                     <span style={{ textAlign: 'right', flexShrink: 0 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>({count.toLocaleString()})</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', marginLeft: 4, fontVariantNumeric: 'tabular-nums' }}>({count.toLocaleString()})</span>
                     </span>
                   </div>
                 )
@@ -283,7 +283,7 @@ export default async function HpdComplaintsBuildingPage({
               <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
                 Complaint log
               </h2>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
                 {building.total_count.toLocaleString()} complaints
                 {majorCategory ? ` · ${majorCategory}` : ''}
                 {status ? ` · ${status}` : ''}
@@ -328,7 +328,7 @@ export default async function HpdComplaintsBuildingPage({
                 ))}
                 {building.complaints.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#A3A3A3', fontFamily: 'var(--font-mono)' }}>
+                    <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
                       No complaints match the current filters.
                     </td>
                   </tr>

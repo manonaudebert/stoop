@@ -144,12 +144,12 @@ function DataSourceCard({
             {title}
           </p>
         </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A3A3A3" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#A3A3A3', margin: '0 0 8px', letterSpacing: '0.04em' }}>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B6B6B', margin: '0 0 8px', letterSpacing: '0.04em' }}>
         dataset: {id}
       </p>
       <p style={{ ...PROSE, fontSize: 13 }}>{description}</p>
@@ -470,7 +470,7 @@ export default function MethodologyPage() {
                         {r.desc}
                       </span>
                     </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: r.weight === '0' ? '#A3A3A3' : '#111111' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: r.weight === '0' ? '#6B6B6B' : '#111111' }}>
                       {r.weight}
                     </span>
                   </div>
@@ -664,7 +664,7 @@ export default function MethodologyPage() {
 
         {/* Footer note */}
         <p style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3',
+          fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B',
           textAlign: 'center', letterSpacing: '0.04em', lineHeight: 1.6,
         }}>
           All data is sourced from NYC Open Data and is in the public domain.

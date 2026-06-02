@@ -61,7 +61,7 @@ export default function LeaderboardToggle({
               fontSize: 9,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: '#A3A3A3',
+              color: '#6B6B6B',
               marginTop: 2,
               whiteSpace: 'nowrap',
             }}>

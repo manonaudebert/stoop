@@ -36,7 +36,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#737373', marginBottom: 12 }}>
         Open violation ages
       </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>No open violations</p>
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No open violations</p>
     </div>
   )
 
@@ -93,7 +93,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
             zIndex: 10,
           }}>
             <div style={{ fontWeight: 500 }}>{AGE_BUCKET_LABELS[hoveredSeg.bucket] ?? hoveredSeg.bucket}</div>
-            <div style={{ color: '#A3A3A3' }}>
+            <div style={{ color: '#6B6B6B' }}>
               {hoveredSeg.count} · {Math.round(hoveredSeg.pct)}%
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
                 <span style={{ color, opacity: AGE_BUCKET_OPACITY[bucket] ?? 1 }}>▪</span> {AGE_BUCKET_LABELS[bucket] ?? bucket}
               </span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', fontVariantNumeric: 'tabular-nums' }}>
-                {pct}% <span style={{ color: '#A3A3A3' }}>({count})</span>
+                {pct}% <span style={{ color: '#6B6B6B' }}>({count})</span>
               </span>
             </div>
           )

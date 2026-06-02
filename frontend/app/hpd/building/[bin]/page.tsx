@@ -160,7 +160,7 @@ function HazardViz({ openC, openB }: { openC: number; openB: number }) {
           <g key={label} transform={`translate(0, ${baseY})`}>
             <text fontFamily="'JetBrains Mono'" fontSize="8" y="10">
               <tspan fontWeight="500" fill={color}>{label}</tspan>
-              <tspan fill="#A3A3A3" dx="6">{desc}</tspan>
+              <tspan fill="#6B6B6B" dx="6">{desc}</tspan>
             </text>
             <rect x="0" y="14" width={TRACK} height="6" rx="2" fill="#F5F5F5" />
             {fillW > 0 && <rect x="0" y="14" width={fillW} height="6" rx="2" fill={color} opacity="0.8" />}
@@ -229,10 +229,10 @@ function CombinedTrendViz({ violTimeline, complTimeline }: {
       <circle cx={vPts[vPts.length - 1].x} cy={vPts[vPts.length - 1].y} r="2.5" fill="#7F1D1D" />
       <path d={cPath} fill="none" stroke="#1D4ED8" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
       <circle cx={cPts[cPts.length - 1].x} cy={cPts[cPts.length - 1].y} r="2.5" fill="#1D4ED8" />
-      <text x={firstX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+      <text x={firstX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
         &apos;{String(years[0]).slice(2)}
       </text>
-      <text x={lastX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+      <text x={lastX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
       <line x1="0" y1="68" x2="10" y2="68" stroke="#7F1D1D" strokeWidth="1.5" />
@@ -253,7 +253,7 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
       {items.map(({ label, value, alert }) => (
         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid #F5F5F5' }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>{label}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#A3A3A3' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#6B6B6B' }}>
             {value.toLocaleString()}
           </span>
         </div>
@@ -288,7 +288,7 @@ function OpenViolationsCard({ open, classC, classB, rentImpairing }: {
               {label}
               {tooltip && <TooltipIcon text={tooltip} />}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#A3A3A3' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#6B6B6B' }}>
               {value.toLocaleString()}
             </span>
           </div>
@@ -315,10 +315,10 @@ function TotalViolationsCard({ total, timeline }: { total: number; timeline: Tim
   let trendColor: string
   if (avgPerYear < 2) {
     trendLabel = '— Not enough history to determine trend'
-    trendColor = '#A3A3A3'
+    trendColor = '#6B6B6B'
   } else if (prior === 0) {
     trendLabel = recent > 0 ? '↑ Rising — no prior history' : '— No trend data'
-    trendColor = recent > 0 ? '#92400E' : '#A3A3A3'
+    trendColor = recent > 0 ? '#92400E' : '#6B6B6B'
   } else {
     const pct = Math.round(((recent - prior) / prior) * 100)
     const counts = `(${recent.toLocaleString()} vs ${prior.toLocaleString()} prior 2 yrs)`
@@ -364,10 +364,10 @@ function TotalComplaintsCard({ total, timeline }: { total: number; timeline: Tim
   let trendColor: string
   if (avgPerYear < 2) {
     trendLabel = '— Not enough history to determine trend'
-    trendColor = '#A3A3A3'
+    trendColor = '#6B6B6B'
   } else if (prior === 0) {
     trendLabel = recent > 0 ? '↑ Rising — no prior history' : '— No trend data'
-    trendColor = recent > 0 ? '#92400E' : '#A3A3A3'
+    trendColor = recent > 0 ? '#92400E' : '#6B6B6B'
   } else {
     const pct = Math.round(((recent - prior) / prior) * 100)
     const counts = `(${recent.toLocaleString()} vs ${prior.toLocaleString()} prior 2 yrs)`
@@ -425,7 +425,7 @@ function ComplaintResolutionCard({ data }: { data: ComplaintResolutionItem[] }) 
           )
         })}
         <span />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({total.toLocaleString()})</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', textAlign: 'right', paddingTop: 6 }}>({total.toLocaleString()})</span>
       </div>
     </div>
   )
@@ -449,8 +449,8 @@ function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) 
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0 16px' }}>
         <span />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', whiteSpace: 'nowrap' }}>Last 12 mo.</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', whiteSpace: 'nowrap' }}>Prior 4 yr.</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', textAlign: 'right', whiteSpace: 'nowrap' }}>Last 12 mo.</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', textAlign: 'right', whiteSpace: 'nowrap' }}>Prior 4 yr.</span>
         {TYPES.map(({ key, label }) => {
           const d = get(key)
           return (
@@ -462,8 +462,8 @@ function ComplaintTypePeriodCard({ data }: { data: ComplaintTypePeriodItem[] }) 
           )
         })}
         <span />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({recentTotal.toLocaleString()})</span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#A3A3A3', textAlign: 'right', paddingTop: 6 }}>({priorTotal.toLocaleString()})</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', textAlign: 'right', paddingTop: 6 }}>({recentTotal.toLocaleString()})</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6B6B6B', textAlign: 'right', paddingTop: 6 }}>({priorTotal.toLocaleString()})</span>
       </div>
     </div>
   )
@@ -691,6 +691,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
   function cwUrl(window: 'all' | '5yr') {
     const q = new URLSearchParams()
     if (window === 'all') q.set('cw', 'all')
+    if (showCharts) q.set('charts', '1')
     const qs = q.toString()
     return `/hpd/building/${bin}${qs ? `?${qs}` : ''}`
   }
@@ -806,23 +807,31 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         {showCharts && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, margin: '12px 0' }}>
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-              <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-                Violations over time
-              </h2>
-              <ViolationTimeline data={violationTimeline} latestDate={latestViolDate} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Violations over time</h2>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
+                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
+                </div>
+              </div>
+              <ViolationTimeline data={violationTimeline} latestDate={latestViolDate} showFull={cw === 'all'} />
             </div>
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
-              <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 16, marginTop: 0 }}>
-                Complaints over time
-              </h2>
-              <ViolationTimeline data={complaintTimeline} latestDate={latestComplDate} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Complaints over time</h2>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
+                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
+                </div>
+              </div>
+              <ViolationTimeline data={complaintTimeline} latestDate={latestComplDate} showFull={cw === 'all'} />
             </div>
           </div>
         )}
 
         {/* KPI rows */}
         <div style={{ marginBottom: 4 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 6 }}>
             Housing Preservation & Development Violations
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -833,7 +842,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         </div>
 
         <div style={{ marginTop: 12, marginBottom: 12 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 6 }}>
             Housing Preservation & Development Complaints
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -889,7 +898,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
               padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
-              border: show === 'violations' ? '0.5px solid #111111' : '0.5px solid #A3A3A3',
+              border: show === 'violations' ? '0.5px solid #111111' : '0.5px solid #6B6B6B',
               background: show === 'violations' ? '#111111' : '#FFFFFF',
               color: show === 'violations' ? '#FFFFFF' : '#111111',
             }}
@@ -901,7 +910,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
               padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
-              border: show === 'complaints' ? '0.5px solid #111111' : '0.5px solid #A3A3A3',
+              border: show === 'complaints' ? '0.5px solid #111111' : '0.5px solid #6B6B6B',
               background: show === 'complaints' ? '#111111' : '#FFFFFF',
               color: show === 'complaints' ? '#FFFFFF' : '#111111',
             }}
@@ -918,7 +927,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
                   Violation log
                 </h2>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
                   {violationsLog.total_count.toLocaleString()} violations
                   {vcls ? ` · Class ${vcls}` : ''}
                   {vst ? ` · ${vst}` : ''}
@@ -952,7 +961,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                   ))}
                   {violationsLog.violations.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#A3A3A3', fontFamily: 'var(--font-mono)' }}>
+                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
                         No violations match the current filters.
                       </td>
                     </tr>
@@ -972,7 +981,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
                   Complaint log
                 </h2>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#A3A3A3', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
                   {complaintsLog.total_count.toLocaleString()} complaints
                   {ccat ? ` · ${ccat}` : ''}
                   {cst ? ` · ${cst}` : ''}
@@ -1006,7 +1015,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                   ))}
                   {complaintsLog.complaints.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#A3A3A3', fontFamily: 'var(--font-mono)' }}>
+                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
                         No complaints match the current filters.
                       </td>
                     </tr>
@@ -1025,7 +1034,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           </p>
           <Link
             href={`/dob/building/${bin}`}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '8px 14px', borderRadius: 8, border: '0.5px solid #A3A3A3', color: '#111111', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '8px 14px', borderRadius: 8, border: '0.5px solid #6B6B6B', color: '#111111', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             Building Safety →
           </Link>

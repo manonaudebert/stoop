@@ -107,14 +107,14 @@ function SeverityViz({ rate, percentile, medianRate }: {
       {/* Median — line 3, y=36 */}
       {medianRate !== null && (
         <text x={labelX} y={36} textAnchor={anchor as 'start' | 'middle' | 'end'}
-          fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">
+          fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#6B6B6B">
           (med. {medianRate.toFixed(1)}/yr)
         </text>
       )}
       {/* Axis labels */}
-      <text x={L}         y={Y + 20} fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">fewer</text>
-      <text x={L + W / 2} y={Y + 20} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">median</text>
-      <text x={L + W}     y={Y + 20} textAnchor="end"    fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#A3A3A3">most</text>
+      <text x={L}         y={Y + 20} fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#6B6B6B">fewer</text>
+      <text x={L + W / 2} y={Y + 20} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#6B6B6B">median</text>
+      <text x={L + W}     y={Y + 20} textAnchor="end"    fontFamily="'JetBrains Mono'" fontSize="7.5" fill="#6B6B6B">most</text>
     </svg>
   )
 }
@@ -178,19 +178,19 @@ function TrendViz({ timeline }: { timeline: TimelinePoint[] }) {
       <line x1={PL} y1={baseY}      x2={VW - PR} y2={baseY}      stroke="#E5E5E5" strokeWidth="0.5" />
 
       {/* Y axis labels */}
-      <text x={PL - 4} y={topY + 3}        textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">{yMax}</text>
-      <text x={PL - 4} y={toY(midVal) + 3} textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">{midVal}</text>
-      <text x={PL - 4} y={baseY + 3}       textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#A3A3A3">0</text>
+      <text x={PL - 4} y={topY + 3}        textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#6B6B6B">{yMax}</text>
+      <text x={PL - 4} y={toY(midVal) + 3} textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#6B6B6B">{midVal}</text>
+      <text x={PL - 4} y={baseY + 3}       textAnchor="end" fontFamily="'JetBrains Mono'" fontSize="7" fill="#6B6B6B">0</text>
 
       {/* Line + end dot */}
       <path d={linePath} fill="none" stroke="#111111" strokeWidth="1.5" strokeLinejoin="round" />
       <circle cx={lastPt.x} cy={lastPt.y} r="2.5" fill="#111111" />
 
       {/* X labels */}
-      <text x={points[0].x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+      <text x={points[0].x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
         &apos;{String(years[0]).slice(2)}
       </text>
-      <text x={lastPt.x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#A3A3A3">
+      <text x={lastPt.x} y={baseY + 13} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
         &apos;{String(years[years.length - 1]).slice(2)}
       </text>
     </svg>
@@ -390,7 +390,7 @@ export default async function BuildingPage({
     : notComparable
     ? 'Complaint trends are only tracked for residential buildings.'
     : prior2 === 0
-    ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: recent2 > 0 ? '#92400E' : '#A3A3A3' }}>
+    ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: recent2 > 0 ? '#92400E' : '#6B6B6B' }}>
         {recent2 > 0 ? '↑ Rising — no prior history' : '— No trend data'}
       </span>
     : (() => {
@@ -476,7 +476,7 @@ export default async function BuildingPage({
           return (
             <>
             <div style={{ marginBottom: 4 }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A3A3A3', marginBottom: 6 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6B6B6B', marginBottom: 6 }}>
                 Department of Buildings Complaints
               </div>
             </div>
@@ -519,12 +519,16 @@ export default async function BuildingPage({
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
                 Complaints over time
               </span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373' }}>monthly</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <Link href={`/dob/building/${bin}`} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: bw !== 'all' ? '#111111' : 'transparent', color: bw !== 'all' ? '#FFFFFF' : '#737373', border: bw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
+                <Link href={`/dob/building/${bin}?bw=all`} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: bw === 'all' ? '#111111' : 'transparent', color: bw === 'all' ? '#FFFFFF' : '#737373', border: bw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
+              </div>
             </div>
             <ComplaintTimeline
               data={timeline}
               firstDate={building.first_complaint_date}
               lastDate={building.latest_complaint_date}
+              showFull={bw === 'all'}
             />
           </div>
           <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
@@ -587,7 +591,7 @@ export default async function BuildingPage({
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',
                   background: status === 'ACTIVE' ? '#111111' : 'transparent',
                   color: status === 'ACTIVE' ? '#FFFFFF' : '#111111',
-                  border: status === 'ACTIVE' ? 'none' : '0.5px solid #A3A3A3',
+                  border: status === 'ACTIVE' ? 'none' : '0.5px solid #6B6B6B',
                   letterSpacing: '0.02em',
                 }}
               >
@@ -600,7 +604,7 @@ export default async function BuildingPage({
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',
                   background: !status ? '#111111' : 'transparent',
                   color: !status ? '#FFFFFF' : '#111111',
-                  border: !status ? 'none' : '0.5px solid #A3A3A3',
+                  border: !status ? 'none' : '0.5px solid #6B6B6B',
                   letterSpacing: '0.02em',
                 }}
               >

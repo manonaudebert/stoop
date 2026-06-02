@@ -19,7 +19,7 @@ export default function StatCard({ label, value, sub, subColor, tooltip }: Props
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
       {sub && (
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: subColor ?? '#A3A3A3', marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: subColor ?? '#6B6B6B', marginTop: 6, fontVariantNumeric: 'tabular-nums' }}>
           {sub}
         </div>
       )}

@@ -39,11 +39,15 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 export default function ViolationTimeline({
   data,
   latestDate,
+  showFull: showFullProp,
 }: {
   data: TimelinePoint[]
   latestDate?: string | null
+  showFull?: boolean
 }) {
-  const [showFull, setShowFull] = useState(false)
+  const [localShowFull, setLocalShowFull] = useState(false)
+  const controlled = showFullProp !== undefined
+  const showFull = controlled ? showFullProp : localShowFull
 
   if (!data.length) return <p style={{ fontSize: 13, color: '#525252' }}>No timeline data.</p>
 
@@ -70,13 +74,29 @@ export default function ViolationTimeline({
   }))
 
   const existingMonths = new Set(enriched.map(d => d.month))
+  const make0 = (m: string): EnrichedPoint => ({ month: m, old: 0, recent: 0 })
+
+  // Anchor both ends of the 5-year window so the chart always spans the full range
+  if (!showFull) {
+    if (!existingMonths.has(windowStartStr)) {
+      enriched.push(make0(windowStartStr))
+      existingMonths.add(windowStartStr)
+    }
+    const todayStr = toMonthStr(today)
+    if (!existingMonths.has(todayStr)) {
+      enriched.push(make0(todayStr))
+      existingMonths.add(todayStr)
+    }
+  }
+
+  enriched.sort((a, b) => a.month.localeCompare(b.month))
   const dataStart = enriched[0]?.month ?? ''
   const dataEnd = enriched[enriched.length - 1]?.month ?? ''
 
   if (!existingMonths.has(twoYearsStr) && twoYearsStr >= dataStart && twoYearsStr <= dataEnd) {
-    enriched.push({ month: twoYearsStr, old: 0, recent: 0 })
+    enriched.push(make0(twoYearsStr))
+    enriched.sort((a, b) => a.month.localeCompare(b.month))
   }
-  enriched.sort((a, b) => a.month.localeCompare(b.month))
 
   return (
     <>
@@ -84,9 +104,9 @@ export default function ViolationTimeline({
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#737373', margin: 0 }}>
           {latestDate && <>Latest violation: {fmtDate(latestDate)}.</>}
         </p>
-        {hasOlderData && (
+        {!controlled && hasOlderData && (
           <button
-            onClick={() => setShowFull(v => !v)}
+            onClick={() => setLocalShowFull(v => !v)}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
               color: '#7F1D1D', background: 'none', border: 'none',

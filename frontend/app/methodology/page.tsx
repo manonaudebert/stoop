@@ -46,12 +46,12 @@ const HPD_VIOLATION_CLASSES = [
     border: '0.5px solid #E5E5E5', examples: 'Administrative notices, permit-related items' },
 ]
 
-const HPD_COMPLAINT_TYPES: { label: string; weight: number; color: string; textColor: string; examples: string; border?: string }[] = [
-  { label: 'IMMEDIATE EMERGENCY', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+const HPD_COMPLAINT_TYPES: { badge: string; label: string; weight: number; color: string; textColor: string; examples: string; border?: string }[] = [
+  { badge: 'IE', label: 'Immediate Emergency', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
     examples: 'No heat in winter, gas leak, sewage backup, structural collapse risk' },
-  { label: 'EMERGENCY', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+  { badge: 'E',  label: 'Emergency', weight: 8, color: '#FEF3C7', textColor: '#92400E',
     examples: 'Mold, pest infestation, water leak, broken elevator' },
-  { label: 'NON EMERGENCY', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+  { badge: 'NE', label: 'Non Emergency', weight: 3, color: '#D1FAE5', textColor: '#065F46',
     examples: 'Cosmetic damage, minor repairs, general maintenance' },
 ]
 
@@ -263,7 +263,7 @@ export default function MethodologyPage() {
             <div>
               <p style={SECTION_HEADER}>Download &amp; normalize</p>
               <p style={PROSE}>
-                The full complaints CSV is downloaded directly from NYC Open Data on each sync.
+                Each sync fetches only records filed since the previous run via the Socrata JSON API.
                 Column names are mapped from the raw DOB headers (e.g., <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>Date Entered</code> → <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>date_entered</code>),
                 date columns are parsed, and borough is derived from the first digit of each
                 building&apos;s BIN (1 = Manhattan, 2 = Bronx, 3 = Brooklyn, 4 = Queens, 5 = Staten Island).
@@ -402,22 +402,29 @@ export default function MethodologyPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {HPD_COMPLAINT_TYPES.map(t => (
               <div key={t.label} style={{
-                display: 'flex', alignItems: 'center',
-                padding: '12px 18px', borderRadius: 8,
-                background: t.color, border: t.border ?? 'none',
-                gap: 16,
+                ...CARD, padding: '14px 18px',
+                display: 'flex', alignItems: 'flex-start', gap: 16,
               }}>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: t.textColor }}>
-                    {t.label}
+                <div style={{
+                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: t.color, border: t.border ?? 'none',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: t.textColor }}>
+                    {t.badge}
                   </span>
-                  <p style={{ ...PROSE, fontSize: 13, color: t.textColor, opacity: 0.8, margin: '3px 0 0' }}>
-                    {t.examples}
-                  </p>
                 </div>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: t.textColor, flexShrink: 0 }}>
-                  weight {t.weight}
-                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
+                      {t.label}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em' }}>
+                      weight {t.weight}
+                    </span>
+                  </div>
+                  <p style={{ ...PROSE, fontSize: 13 }}>{t.examples}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -489,7 +496,7 @@ export default function MethodologyPage() {
                 ))}
               </div>
               <p style={{ ...PROSE, fontSize: 12, marginTop: 10 }}>
-                Applied to all three datasets (DOB, HPD violations, HPD complaints). Complaints with no date recorded are treated as 2–5 years old (0.5×).
+                Applied to all three datasets (DOB, HPD violations, HPD complaints). Complaints with no date recorded contribute nothing to the weighted sum.
               </p>
             </div>
             <div style={{ ...CARD, background: '#FAFAFA' }}>

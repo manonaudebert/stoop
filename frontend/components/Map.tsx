@@ -79,6 +79,9 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
   onNtaListLoadRef.current = onNtaListLoad
   const clustersUrlRef = useRef(clustersUrl)
   clustersUrlRef.current = clustersUrl
+  // Monotonic token so out-of-order cluster fetches can be discarded
+  const loadSeqRef = useRef(0)
+  const loadAbortRef = useRef<AbortController | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawDataRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -137,14 +140,31 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     if (!b) return
     const zoom = map.getZoom()
     const url = `${clustersUrlRef.current}?west=${b.getWest()}&south=${b.getSouth()}&east=${b.getEast()}&north=${b.getNorth()}&zoom=${zoom.toFixed(2)}`
-    const res = await fetch(url)
-    if (!res.ok) {
-      console.error('Failed to load map data:', res.status)
+
+    // Cancel any in-flight request and claim a token so we can discard
+    // responses that resolve out of order (a stale viewport landing last
+    // would otherwise overwrite the dots for the area we moved to).
+    loadAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadAbortRef.current = controller
+    const seq = ++loadSeqRef.current
+
+    let geojson
+    try {
+      const res = await fetch(url, { signal: controller.signal })
+      if (!res.ok) {
+        console.error('Failed to load map data:', res.status)
+        return
+      }
+      geojson = await res.json()
+    } catch (err) {
+      if ((err as Error)?.name !== 'AbortError') console.error('Failed to load map data:', err)
       return
     }
-    const geojson = await res.json()
+
+    if (seq !== loadSeqRef.current) return  // a newer request superseded this one
+    if (!mapRef.current) return             // unmounted while fetch was in flight
     rawDataRef.current = geojson
-    if (!mapRef.current) return  // unmounted while fetch was in flight
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
     if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current)
   }, [])

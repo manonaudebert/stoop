@@ -436,6 +436,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         onNtaSelect={nta => nta && toggleNta(nta.code)}
         onNtaListLoad={setNtaList}
         clustersUrl={config.clustersUrl}
+        isMobile={isMobile}
       />
 
       {/* Nav bar */}

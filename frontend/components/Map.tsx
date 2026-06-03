@@ -66,11 +66,13 @@ type Props = {
   onNtaSelect: (nta: NtaSelection | null) => void
   onNtaListLoad: (ntas: NtaSelection[]) => void
   clustersUrl?: string
+  isMobile?: boolean
 }
 
-export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL }: Props) {
+export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL, isMobile = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
+  const navControlRef = useRef<mapboxgl.NavigationControl | null>(null)
   const onSelectRef = useRef(onBuildingSelect)
   onSelectRef.current = onBuildingSelect
   const onNtaSelectRef = useRef(onNtaSelect)
@@ -200,7 +202,8 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     })
     mapRef.current = map
 
-    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
+    // Nav control is added/removed by the isMobile effect below — on mobile
+    // it would collide with the bottom sheets, and pinch-to-zoom covers it.
 
     map.on('load', () => {
       // NTA boundaries — loaded once, toggled via visibility
@@ -433,6 +436,22 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
 
     return () => { map.remove(); mapRef.current = null }
   }, [loadClusters])
+
+  // Show the zoom/compass control on desktop only — on mobile it overlaps the
+  // bottom sheets, and touch gestures (pinch/rotate) make it redundant.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    if (isMobile) {
+      if (navControlRef.current) {
+        map.removeControl(navControlRef.current)
+        navControlRef.current = null
+      }
+    } else if (!navControlRef.current) {
+      navControlRef.current = new mapboxgl.NavigationControl()
+      map.addControl(navControlRef.current, 'bottom-right')
+    }
+  }, [isMobile])
 
   return <div ref={containerRef} className="w-full h-full" />
 }

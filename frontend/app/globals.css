@@ -112,5 +112,4 @@ body {
   .lb-stats        { gap: 10px !important; }
   .lb-emerg-col    { display: none !important; }
   .lb-emerg-inline { display: block !important; }
-  .lb-toggle-pill  { min-width: 88px !important; }
 }

@@ -156,11 +156,11 @@ export default async function DobLeaderboardPage({
       <BuildingNavBar backHref="/" backLabel="Map" />
 
       {/* Page header */}
-      <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0', position: 'relative' }}>
-        <div className="flex justify-end mb-4 md:absolute md:top-6 md:right-6 md:mb-0">
-          <LeaderboardToggle active="dob" borough={borough} />
-        </div>
+      <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ marginBottom: 20 }}>
+            <LeaderboardToggle active="dob" borough={borough} />
+          </div>
           <div style={{ marginBottom: 12 }}>
             <div className="lb-header-meta" style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
               <h1 className="lb-title" style={{

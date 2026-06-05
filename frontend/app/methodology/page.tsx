@@ -185,9 +185,12 @@ export default function MethodologyPage() {
           <p style={{
             fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 500,
             color: '#111111', letterSpacing: '-0.01em', lineHeight: 1.4,
-            maxWidth: 620, margin: 0,
+            maxWidth: 620, margin: '0 0 20px',
           }}>
             Stoop makes the housing data NYC already collects useful to the tenants it affects most.
+          </p>
+          <p style={{ ...PROSE, maxWidth: 620 }}>
+            Stoop is a tool for NYC renters that turns public city records into plain-language building profiles. Search any NYC address with a complaint history to see its open violations, trends over time, and how it ranks against other buildings in the neighborhood. Toggle between two views: Housing Conditions covers tenant complaints about heat, hot water, mold, pests, and leaks from the NYC Department of Housing Preservation &amp; Development; Building Safety covers structural, electrical, and construction complaints from the NYC Department of Buildings.
           </p>
         </div>
       </div>
@@ -204,8 +207,8 @@ export default function MethodologyPage() {
           </h2>
           <p style={{ ...PROSE, maxWidth: 600 }}>
             Every metric and comparison on Stoop is derived from public records published
-            by the NYC Department of Buildings and the NYC Department of Housing Preservation
-            &amp; Development. Here's how raw data becomes the numbers you see, and how 
+            by the NYC Department of Buildings (DOB) and the NYC Department of Housing Preservation
+            &amp; Development (HPD). Here's how raw data becomes the numbers you see, and how 
             buildings are compared fairly regardless of size, given publicly available data. 
           </p>
         </div>

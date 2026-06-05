@@ -228,6 +228,53 @@ class TestGetBuilding:
         assert data["priority_a_complaints"] == 2
         assert data["normalized_percentile"] == 75.0
 
+    async def test_hpd_only_building_returns_zero_complaint_stub(self, client):
+        # building_summary has no row (no DOB complaints), but buildings table does.
+        # Route should return 200 with zero-complaint stub rather than 404.
+        fallback_row = {
+            "bin": SAMPLE_BIN,
+            "address": "123 TEST ST",
+            "zip_code": "10001",
+            "borough": "MANHATTAN",
+            "latitude": 40.7128,
+            "longitude": -74.0060,
+            "nta_code": "MN2501",
+            "nta_name": "Hudson Yards",
+            "construction_year": "1980",
+        }
+        mock_db = make_mock_db(
+            MockResult([]),                     # building_summary: miss
+            MockResult([MockRow(fallback_row)]), # buildings table: hit
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/building/{SAMPLE_BIN}")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["bin"] == SAMPLE_BIN
+        assert data["total_complaints"] == 0
+        assert data["open_complaints"] == 0
+        assert data["complaints"] == []
+
+    async def test_status_filter_is_forwarded(self, client):
+        mock_db = make_mock_db(
+            MockResult([MockRow(BUILDING_SUMMARY_ROW)]),
+            MockResult(scalar_value=1),
+            MockResult([MockRow({**COMPLAINT_ROW, "status": "Open"})]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/building/{SAMPLE_BIN}?status=Open")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["complaints"][0]["status"] == "Open"
+
 
 # ---------------------------------------------------------------------------
 # API tests: GET /building/{bin}/timeline

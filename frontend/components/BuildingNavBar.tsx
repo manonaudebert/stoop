@@ -24,7 +24,7 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
   // strip leading arrow/prefix so callers can still pass "← Map", "← Back to map", or "Map"
   const rawLabel = backLabel.replace(/^←\s*(Back to\s*)?/i, '')
   const isMap    = /^map$/i.test(rawLabel)
-  const label    = isMap ? 'Map' : rawLabel
+  const label    = isMap ? 'MAP' : rawLabel
 
   function handleSelect(b: BuildingSummary) {
     router.push(`${buildingBasePath}/${b.bin}`)
@@ -53,7 +53,8 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
         {/* Back link */}
         <Link href={backHref} style={{
           display: 'flex', alignItems: 'center', gap: 5,
-          fontSize: 13, fontWeight: 400, color: '#A3A3A3',
+          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+          textTransform: 'uppercase', color: '#A3A3A3',
           textDecoration: 'none', paddingLeft: 20, whiteSpace: 'nowrap',
         }}>
           {isMap

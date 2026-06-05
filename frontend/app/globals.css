@@ -7,7 +7,7 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
 
-  --color-brand:   #7F1D1D;
+  --color-brand:   #84A98C;
   --color-ink:     #111111;
   --color-paper:   #FAFAFA;
   --color-surface: #FFFFFF;
@@ -76,8 +76,8 @@ body {
    outline is suppressed). Ring borders the white field, so it stays visible
    on both light pages and the dark map header. */
 .search-field:focus-within {
-  box-shadow: 0 0 0 2px var(--brand-oxblood);
-  border-color: var(--brand-oxblood) !important;
+  box-shadow: 0 0 0 2px #84A98C;
+  border-color: #84A98C !important;
 }
 
 @keyframes pulse-bg {

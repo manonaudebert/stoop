@@ -178,7 +178,7 @@ export default async function DobLeaderboardPage({
             fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252',
             lineHeight: 1.6, margin: '0 0 20px', maxWidth: 640,
           }}>
-            Ranked by complaints filed in the last 2 years with the Department of Buildings. Ties broken by serious complaints (Priority A+B) in the same window. The trend arrow shows whether the annual complaint rate is rising or falling compared to the prior 3 years.
+            Ranked by complaints filed in the last 2 years with the Department of Buildings. Ties are broken by serious complaints (Priority A+B) in the same window. The trend arrow shows whether the annual complaint rate is rising or falling compared to the prior 3 years.
           </p>
 
           {/* Borough tabs */}

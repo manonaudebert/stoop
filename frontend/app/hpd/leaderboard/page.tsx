@@ -180,7 +180,7 @@ export default async function HpdLeaderboardPage({
             fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252',
             lineHeight: 1.6, margin: '0 0 20px', maxWidth: 640,
           }}>
-            Ranked by Housing Preservation & Development (HPD) complaints filed in the last 2 years. Ties broken by emergency complaints (Emergency + Immediate Emergency) in the same window. The trend arrow shows whether the annual complaint rate is rising or falling compared to the prior 3 years.
+            Ranked by Housing Preservation & Development (HPD) complaints filed in the last 2 years. Ties are broken by emergency complaints (Emergency + Immediate Emergency) in the same window. The trend arrow shows whether the annual complaint rate is rising or falling compared to the prior 3 years.
           </p>
 
           {/* Borough tabs */}

@@ -679,10 +679,10 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               About
             </p>
             <p style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 500, color: '#111111', lineHeight: 1.4, letterSpacing: '-0.01em', margin: '0 0 14px' }}>
-              Stoop surfaces the complaint and violation history of NYC residential buildings, sourced from public city records and ranked against buildings in the same neighborhood.
+              The city collects complaint and violation data on residential buildings in NYC. Stoop makes it actually useful. 
             </p>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252', lineHeight: 1.6, margin: '0 0 22px' }}>
-              Search an address to see open violations, complaint trends, and how a building compares before you sign a lease.
+              Before you sign a lease, search any address to see open violations, complaint trends, and how a building stacks up in its neighborhood.
             </p>
             <button
               onClick={dismissWelcome}

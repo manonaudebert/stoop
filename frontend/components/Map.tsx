@@ -223,7 +223,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         type: 'line',
         source: 'nta-boundaries',
         layout: { visibility: showNtaBorders ? 'visible' : 'none' },
-        paint: { 'line-color': '#525252', 'line-width': 1, 'line-opacity': 0.3 },
+        paint: { 'line-color': '#111111', 'line-width': 1, 'line-opacity': 0.6 },
       })
       map.addLayer({
         id: 'nta-label',

@@ -4,7 +4,7 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 
 export const metadata: Metadata = {
   title: "about — stoop",
-  description: 'How stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
+  description: 'How Stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
 // ── design tokens ─────────────────────────────────────────────────────────────
@@ -187,7 +187,7 @@ export default function MethodologyPage() {
             color: '#111111', letterSpacing: '-0.01em', lineHeight: 1.4,
             maxWidth: 620, margin: 0,
           }}>
-            Stoop makes the building and housing data NYC already collects actually useful to the tenants it affects most.
+            Stoop makes the housing data NYC already collects useful to the tenants it affects most.
           </p>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function MethodologyPage() {
             How it works
           </h2>
           <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every metric and comparison on stoop is derived from public records published
+            Every metric and comparison on Stoop is derived from public records published
             by the NYC Department of Buildings and the NYC Department of Housing Preservation
             &amp; Development. Here's how raw data becomes the numbers you see, and how 
             buildings are compared fairly regardless of size, given publicly available data. 
@@ -255,58 +255,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 2. Data processing ─────────────────────────────────────────── */}
-        <section style={{ marginBottom: '3rem' }}>
-          <SectionTitle>Data processing</SectionTitle>
-          <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            <div>
-              <p style={SECTION_HEADER}>Download &amp; normalize</p>
-              <p style={PROSE}>
-                Each sync fetches only records filed since the previous run via the Socrata JSON API.
-                Column names are mapped from the raw DOB headers (e.g., <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>Date Entered</code> → <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>date_entered</code>),
-                date columns are parsed, and borough is derived from the first digit of each
-                building&apos;s BIN (1 = Manhattan, 2 = Bronx, 3 = Brooklyn, 4 = Queens, 5 = Staten Island).
-              </p>
-            </div>
-
-            <div style={{ height: '0.5px', background: '#E5E5E5' }} />
-
-            <div>
-              <p style={SECTION_HEADER}>Deduplication</p>
-              <p style={PROSE}>
-                Some rows appear more than once in the raw export (e.g., when a complaint status
-                is updated). Duplicates are resolved by keeping the <em>last</em> occurrence of
-                each unique <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>complaint_number</code>, which reflects the most recent known status.
-              </p>
-            </div>
-
-            <div style={{ height: '0.5px', background: '#E5E5E5' }} />
-
-            <div>
-              <p style={SECTION_HEADER}>BIN validation</p>
-              <p style={PROSE}>
-                BINs consisting entirely of zeros (e.g., <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>0000000</code>) are treated as missing
-                and excluded from scoring. Complaints with no valid BIN cannot be attributed
-                to a specific building.
-              </p>
-            </div>
-
-            <div style={{ height: '0.5px', background: '#E5E5E5' }} />
-
-            <div>
-              <p style={SECTION_HEADER}>Neighborhood assignment</p>
-              <p style={PROSE}>
-                Each building is assigned to an NTA via point-in-polygon using NYC&apos;s 2020 NTA
-                boundaries. A spatial index (STRtree) is used for efficient bulk matching.
-                Buildings outside all NTA polygons — typically those missing or slightly off their
-                recorded coordinates — are excluded from neighborhood comparisons but still scored.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 3. Priority classification ─────────────────────────────────── */}
+        {/* ── 2. Priority classification ─────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>DOB complaint priority</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
@@ -351,7 +300,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 4. HPD violation severity ──────────────────────────────────── */}
+        {/* ── 3. HPD violation severity ──────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>HPD violation severity</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
@@ -390,14 +339,14 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 5. HPD complaint urgency ────────────────────────────────────── */}
+        {/* ── 4. HPD complaint urgency ────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>HPD tenant complaint urgency</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
             HPD tenant complaints are classified by urgency when filed. Because complaints are
             typically closed once an inspector visits or a violation is issued, raw open counts
             understate the building&apos;s history. The weighted complaint sum captures the full
-            record — with higher weight for urgent and recent complaints.
+            record with higher weight for urgent and recent complaints.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {HPD_COMPLAINT_TYPES.map(t => (
@@ -430,7 +379,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 6. Building size normalization ─────────────────────────────── */}
+        {/* ── 5. Building size normalization ─────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Building size normalization</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
@@ -512,13 +461,13 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        {/* ── 7. Risk level ──────────────────────────────────────────────── */}
+        {/* ── 6. Risk level ──────────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Risk level</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
             A building&apos;s neighborhood percentile is mapped to a risk level label shown
             on building pages and the map. The label reflects how the building compares
-            to residential peers within the same neighborhood — not citywide.
+            to residential peers within the same neighborhood, not citywide.
           </p>
           <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
             {RISK_LEVELS.map((r, i) => (
@@ -543,7 +492,7 @@ export default function MethodologyPage() {
           </p>
         </section>
 
-        {/* ── 9. Special cases ───────────────────────────────────────────── */}
+        {/* ── 7. Special cases ───────────────────────────────────────────── */}
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Special cases</SectionTitle>
           <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -574,8 +523,8 @@ export default function MethodologyPage() {
                   Not comparable
                 </p>
                 <p style={{ ...PROSE, fontSize: 13 }}>
-                  Buildings in non-residential NTAs — parks, airports, cemeteries, and similar
-                  areas (NTA type ≠ 0) — are excluded from percentile ranking because there are
+                  Buildings in non-residential NTAs, parks, airports, cemeteries, and similar
+                  areas (NTA type ≠ 0), are excluded from percentile ranking because there are
                   no meaningful residential peers to compare against.
                 </p>
               </div>
@@ -591,10 +540,10 @@ export default function MethodologyPage() {
               <p style={SECTION_HEADER}>Neighborhood percentile</p>
               <p style={PROSE}>
                 Percentile comparisons are <strong style={{ color: '#111111', fontWeight: 500 }}>neighborhood-relative</strong>,
-                not absolute — a building is compared only to residential peers in its own NTA.
+                not absolute. A building is compared only to residential peers in its own NTA.
                 Within each NTA, buildings are ranked by weighted complaint density from lowest to highest.
                 A building at the 80th percentile has higher weighted complaint density than 80% of its residential
-                peers — meaning it received relatively more or more serious complaints. Percentiles
+                peers, meaning it received relatively more or more serious complaints. Percentiles
                 are computed independently per NTA, so the same density may rank high in one
                 neighborhood and low in another.
               </p>
@@ -655,7 +604,7 @@ export default function MethodologyPage() {
               <p style={{ ...PROSE, fontSize: 13, marginBottom: 12 }}>
                 Sorted by HPD tenant complaints filed in the last 2 years. Ties broken by
                 emergency complaints (Emergency + Immediate Emergency) in the same 2-year
-                window — counting all emergency complaints regardless of whether they are
+                window, counting all emergency complaints regardless of whether they are
                 still open.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -681,7 +630,7 @@ export default function MethodologyPage() {
               {[
                 {
                   title: 'Complaint ≠ confirmed violation',
-                  body: 'DOB and HPD complaints are reports filed by the public or other agencies — they are not confirmed findings. HPD violations are formally issued after inspection and carry more weight. Scores reflect the full record of complaints and violations, not confirmed outcomes only.',
+                  body: 'DOB and HPD complaints are reports filed by the public or other agencies. They are not confirmed findings. HPD violations are formally issued after inspection and carry more weight. Scores reflect the full record of complaints and violations, not confirmed outcomes only.',
                 },
                 {
                   title: 'Records begin in 2007',
@@ -693,11 +642,11 @@ export default function MethodologyPage() {
                 },
                 {
                   title: 'Scale estimation',
-                  body: 'Building scale is estimated from footprint area and roof height. Buildings missing either value cannot be size-normalized and fall back to raw count percentiles within their NTA. Scale is a proxy — it does not account for unit density or occupancy.',
+                  body: 'Building scale is estimated from footprint area and roof height. Buildings missing either value cannot be size-normalized and fall back to raw count percentiles within their NTA. Scale is a proxy; it does not account for unit density or occupancy.',
                 },
                 {
                   title: 'Sync frequency',
-                  body: 'All datasets are refreshed periodically from NYC Open Data. There may be a lag of several days between a complaint being filed and it appearing here.',
+                  body: 'All datasets are refreshed periodically (weekly) from NYC Open Data. There may be a lag of several days between a complaint being filed and it appearing here.',
                 },
               ].map((item, i) => (
                 <div key={item.title}>

@@ -112,4 +112,6 @@ body {
   .lb-stats        { gap: 10px !important; }
   .lb-emerg-col    { display: none !important; }
   .lb-emerg-inline { display: block !important; }
+  .search-spacer   { display: none !important; }
+  .search-bar-group { flex: 1 !important; }
 }

@@ -61,13 +61,13 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
             ? <Map size={13} strokeWidth={1.75} />
             : <ChevronLeft size={13} strokeWidth={1.75} />
           }
-          {label}
+          <span className="hidden sm:inline">{label}</span>
         </Link>
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="search-spacer" style={{ flex: 1 }} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '0 1 460px' }}>
+      <div className="search-bar-group" style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '0 1 460px' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <SearchBar onSelect={handleSelect} searchUrl={searchUrl} />
         </div>

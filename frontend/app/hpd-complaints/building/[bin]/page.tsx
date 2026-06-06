@@ -73,6 +73,42 @@ function ComplaintRow({ c }: { c: HpdComplaint }) {
   )
 }
 
+function ComplaintCard({ c }: { c: HpdComplaint }) {
+  const isOpen = c.complaint_status === 'Open'
+  const isEmergency = c.type === 'EMERGENCY'
+  return (
+    <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #E5E5E5' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{
+          display: 'inline-block', padding: '2px 7px', borderRadius: 4,
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
+          fontWeight: 500,
+          color: isEmergency ? '#7F1D1D' : '#525252',
+          background: isEmergency ? '#FEF2F2' : '#F5F5F5',
+        }}>
+          {isEmergency ? 'Emergency' : 'Non-emergency'}
+        </span>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: isOpen ? '#7F1D1D' : '#737373' }}>
+          {isOpen ? 'Open' : 'Closed'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+        <span>{fmtDate(c.received_date)}</span>
+        {c.apartment && <span>Apt {c.apartment}</span>}
+      </div>
+      <div style={{ fontSize: 12, color: '#111111', lineHeight: 1.4 }}>
+        {c.major_category ?? '—'}
+        {c.minor_category && c.minor_category !== c.major_category
+          ? <span style={{ color: '#525252' }}> · {c.minor_category}</span>
+          : null}
+      </div>
+      {c.status_description && (
+        <div style={{ fontSize: 11, color: '#525252', marginTop: 4 }}>{c.status_description}</div>
+      )}
+    </div>
+  )
+}
+
 export default async function HpdComplaintsBuildingPage({
   params,
   searchParams,
@@ -303,7 +339,7 @@ export default async function HpdComplaintsBuildingPage({
             </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
+          <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
@@ -335,6 +371,16 @@ export default async function HpdComplaintsBuildingPage({
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="log-cards-wrap">
+            {building.complaints.map(c => (
+              <ComplaintCard key={c.problem_id} c={c} />
+            ))}
+            {building.complaints.length === 0 && (
+              <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
+                No complaints match the current filters.
+              </div>
+            )}
           </div>
 
           {/* Pagination */}

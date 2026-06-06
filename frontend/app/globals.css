@@ -98,7 +98,14 @@ body {
   transform-origin: center;
 }
 
+/* Violation/complaint log: table on desktop, stacked cards on mobile */
+.log-table-wrap { display: block; }
+.log-cards-wrap { display: none; }
+
 @media (max-width: 640px) {
+  .log-table-wrap { display: none !important; }
+  .log-cards-wrap { display: block !important; }
+
   /* Prevent iOS Safari from zooming in when the search input is focused */
   .search-field input { font-size: 16px !important; }
 

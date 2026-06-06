@@ -50,7 +50,17 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><Providers>{children}</Providers></body>
+      <body className="min-h-full flex flex-col">
+        <style>{`
+          .log-table-wrap { display: block; }
+          .log-cards-wrap { display: none; }
+          @media (max-width: 640px) {
+            .log-table-wrap { display: none !important; }
+            .log-cards-wrap { display: block !important; }
+          }
+        `}</style>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

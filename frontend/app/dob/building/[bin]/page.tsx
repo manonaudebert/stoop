@@ -267,6 +267,52 @@ function ComplaintRow({ c }: { c: Complaint }) {
   )
 }
 
+function ComplaintCard({ c }: { c: Complaint }) {
+  const dot = PRIORITY_DOT[c.category_priority ?? ''] ?? '#D4D4D4'
+  const isActive = c.status === 'ACTIVE'
+  return (
+    <div style={{ borderBottom: '0.5px solid #E5E5E5', display: 'flex' }}>
+      <div style={{ width: 4, flexShrink: 0, background: dot }} />
+      <div style={{ padding: '14px 16px', flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+          <PriorityBadge priority={c.category_priority} />
+          <span style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
+            letterSpacing: '0.05em', textTransform: 'uppercase',
+            padding: '3px 8px', borderRadius: 4,
+            background: isActive ? '#7F1D1D' : '#FFFFFF',
+            color: isActive ? '#FFFFFF' : '#111111',
+            border: isActive ? 'none' : '0.5px solid #E5E5E5',
+          }}>
+            {c.status ?? '—'}
+          </span>
+        </div>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginBottom: 6 }}>
+          {fmtDate(c.date_entered)}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#111111', lineHeight: 1.4, marginBottom: 2 }}>
+          {c.category_description ?? c.complaint_category ?? '—'}
+        </div>
+        {c.complaint_category && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+            {c.complaint_category}
+          </div>
+        )}
+        {(c.disposition_date || c.disposition_description) && (
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid #F0F0F0' }}>
+            {c.disposition_date && (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginBottom: 4 }}>
+                Closed {fmtDate(c.disposition_date)}
+              </div>
+            )}
+            <OutcomeCell description={c.disposition_description} code={c.disposition_code} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── page ──────────────────────────────────────────────────────────────────────
 
 export default async function BuildingPage({
@@ -570,7 +616,7 @@ export default async function BuildingPage({
         </div>
 
         {/* Complaint log */}
-        <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12 }}>
+        <div id="complaint-log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, scrollMarginTop: 72 }}>
 
           {/* Log header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: '0.5px solid #E5E5E5' }}>
@@ -585,7 +631,7 @@ export default async function BuildingPage({
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <Link
-                href={`/dob/building/${bin}?status=ACTIVE`}
+                href={`/dob/building/${bin}?status=ACTIVE#complaint-log`}
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',
@@ -598,7 +644,7 @@ export default async function BuildingPage({
                 Active only
               </Link>
               <Link
-                href={`/dob/building/${bin}`}
+                href={`/dob/building/${bin}#complaint-log`}
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
                   padding: '7px 12px', borderRadius: 8, textDecoration: 'none',
@@ -614,7 +660,7 @@ export default async function BuildingPage({
           </div>
 
           {/* Table */}
-          <div style={{ overflowX: 'auto' }}>
+          <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
@@ -634,6 +680,9 @@ export default async function BuildingPage({
                 {building.complaints.map(c => <ComplaintRow key={c.id} c={c} />)}
               </tbody>
             </table>
+          </div>
+          <div className="log-cards-wrap">
+            {building.complaints.map(c => <ComplaintCard key={c.id} c={c} />)}
           </div>
 
           <Pagination page={page} totalPages={totalPages} prevHref={pageUrl(page - 1)} nextHref={pageUrl(page + 1)} />

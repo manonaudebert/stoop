@@ -131,6 +131,67 @@ function ComplaintRow({ c }: { c: HpdComplaint }) {
   )
 }
 
+function ViolationCard({ v }: { v: HpdViolation }) {
+  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.C
+  const isOpen = v.violation_status === 'Open'
+  return (
+    <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #E5E5E5' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', fontWeight: 500, color: cls.color, background: cls.bg }}>
+          Class {v.violation_class ?? '?'}
+        </span>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: isOpen ? '#7F1D1D' : '#737373' }}>
+          {isOpen ? 'Open' : 'Closed'}
+        </span>
+        {v.rent_impairing === 'Y' && (
+          <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', color: '#EF4637' }}>RENT IMPAIRING</span>
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+        <span>{fmtDate(v.nov_issued_date)}</span>
+        {v.apartment && <span>Apt {v.apartment}</span>}
+      </div>
+      <div style={{ fontSize: 12, color: '#111111', lineHeight: 1.4 }}>
+        {v.order_short_description ?? stripLegalPrefix(v.nov_description) ?? '—'}
+        {v.order_category && <span style={{ color: '#525252' }}> · {v.order_category}</span>}
+      </div>
+      {v.nov_description && (
+        <div style={{ fontSize: 11, color: '#525252', marginTop: 4, lineHeight: 1.4 }}>{v.nov_description}</div>
+      )}
+    </div>
+  )
+}
+
+function ComplaintCard({ c }: { c: HpdComplaint }) {
+  const isOpen = c.complaint_status === 'Open'
+  const isEmergency = c.type === 'EMERGENCY'
+  return (
+    <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #E5E5E5' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', fontWeight: 500, color: isEmergency ? '#7F1D1D' : '#525252', background: isEmergency ? '#FEF2F2' : '#F5F5F5' }}>
+          {isEmergency ? 'Emergency' : 'Non-emergency'}
+        </span>
+        <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: isOpen ? '#7F1D1D' : '#737373' }}>
+          {isOpen ? 'Open' : 'Closed'}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
+        <span>{fmtDate(c.received_date)}</span>
+        {c.apartment && <span>Apt {c.apartment}</span>}
+      </div>
+      <div style={{ fontSize: 12, color: '#111111', lineHeight: 1.4 }}>
+        {c.major_category ?? '—'}
+        {c.minor_category && c.minor_category !== c.major_category
+          ? <span style={{ color: '#525252' }}> · {c.minor_category}</span>
+          : null}
+      </div>
+      {c.status_description && (
+        <div style={{ fontSize: 11, color: '#525252', marginTop: 4 }}>{c.status_description}</div>
+      )}
+    </div>
+  )
+}
+
 // ── mini visualizations ────────────────────────────────────────────────────────
 
 function HazardViz({ openC, openB }: { openC: number; openB: number }) {
@@ -894,7 +955,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
         {/* Log toggle buttons */}
         <div id="log-controls" style={{ display: 'flex', gap: 8, marginBottom: 12, scrollMarginTop: '72px' }}>
           <Link
-            href={show === 'violations' ? `/hpd/building/${bin}` : `/hpd/building/${bin}?show=violations#log-controls`}
+            href={show === 'violations' ? `/hpd/building/${bin}#log-controls` : `/hpd/building/${bin}?show=violations#log-controls`}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
               padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
@@ -906,7 +967,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             {show === 'violations' ? 'Hide violations ↑' : 'See violations →'}
           </Link>
           <Link
-            href={show === 'complaints' ? `/hpd/building/${bin}` : `/hpd/building/${bin}?show=complaints#log-controls`}
+            href={show === 'complaints' ? `/hpd/building/${bin}#log-controls` : `/hpd/building/${bin}?show=complaints#log-controls`}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500,
               padding: '8px 14px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap',
@@ -944,7 +1005,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <FilterPill label="Closed" active={vst === 'Close'}  href={violFilterUrl({ vst: 'Close' })} />
               </div>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
@@ -968,6 +1029,16 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="log-cards-wrap">
+              {violationsLog.violations.map((v: HpdViolation) => (
+                <ViolationCard key={v.violation_id} v={v} />
+              ))}
+              {violationsLog.violations.length === 0 && (
+                <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
+                  No violations match the current filters.
+                </div>
+              )}
             </div>
             <Pagination page={vpage} totalPages={violTotalPages} prevHref={violPageUrl(vpage - 1)} nextHref={violPageUrl(vpage + 1)} />
           </div>
@@ -998,7 +1069,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                 <FilterPill label="Closed" active={cst === 'Close'}  href={complFilterUrl({ cst: 'Close' })} />
               </div>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
@@ -1022,6 +1093,16 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="log-cards-wrap">
+              {complaintsLog.complaints.map((c: HpdComplaint) => (
+                <ComplaintCard key={c.problem_id} c={c} />
+              ))}
+              {complaintsLog.complaints.length === 0 && (
+                <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
+                  No complaints match the current filters.
+                </div>
+              )}
             </div>
             <Pagination page={cpage} totalPages={complTotalPages} prevHref={complPageUrl(cpage - 1)} nextHref={complPageUrl(cpage + 1)} />
           </div>

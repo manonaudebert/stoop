@@ -5,17 +5,17 @@ import { searchBuildings } from '@/lib/api'
 import type { BuildingSummary } from '@/lib/types'
 
 const RISK_TIER: Record<string, { color: string }> = {
-  'Very high':      { color: '#7F1D1D' },
-  'High':           { color: '#7F1D1D' },
-  'Emergency':      { color: '#7F1D1D' },
-  'Hazardous':      { color: '#7F1D1D' },
-  'Moderate':       { color: '#525252' },
-  'Non-hazardous':  { color: '#525252' },
-  'Low':            { color: '#525252' },
-  'Very low':       { color: '#525252' },
-  'Resolved':       { color: '#525252' },
-  'Insufficient data': { color: '#525252' },
-  'Not comparable':    { color: '#525252' },
+  'Emergency':         { color: '#7F1D1D' },
+  'Very high':         { color: '#7F1D1D' },
+  'Hazardous':         { color: '#BC4B33' },
+  'High':              { color: '#BC4B33' },
+  'Moderate':          { color: '#E4A11B' },
+  'Non-hazardous':     { color: '#84A98C' },
+  'Low':               { color: '#84A98C' },
+  'Very low':          { color: '#C5E0C8' },
+  'Resolved':          { color: '#C5E0C8' },
+  'Insufficient data': { color: '#C5E0C8' },
+  'Not comparable':    { color: '#C5E0C8' },
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,7 +173,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
                   onClick={() => select(b)}
                 >
                   {tierLabel && (
-                    <span style={{
+                    <span className="hidden sm:inline-block" style={{
                       fontFamily: 'var(--font-mono)', flexShrink: 0,
                       fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
                       color: tier?.color ?? '#737373',
@@ -189,6 +189,12 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
                       {b.borough} · {b.zip_code}
                     </p>
                   </div>
+                  {tierLabel && (
+                    <span
+                      className="sm:hidden"
+                      style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: tier?.color ?? '#737373' }}
+                    />
+                  )}
                 </li>
               )
             })

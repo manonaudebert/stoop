@@ -7,15 +7,25 @@ import type { SelectedBuilding } from './BuildingSidebar'
 
 const DEFAULT_CLUSTERS_URL = '/api/proxy/map/clusters'
 
-// Cluster color: worst risk level among the buildings in the cluster
+// Cluster color: the 75th-percentile (upper-quartile) risk tier among the
+// buildings in the cluster. Mapbox clusterProperties can only accumulate, so we
+// tally per-tier counts (n1..n4) on the cluster and derive
+// n0 = point_count − (n1+n2+n3+n4), where tier 0 folds in
+// Very low / Insufficient data / Not comparable / null. The p75 tier is the
+// first whose running total reaches three-quarters of the cluster size —
+// surfacing problem areas without the worst single building dominating.
 const clusterColor: mapboxgl.Expression = [
-  'step', ['coalesce', ['get', 'worst_risk'], -1],
-  '#C5E0C8',     // < 0  — not comparable / insufficient data → same as very low
-  0, '#C5E0C8',  // >= 0 — very low
-  1, '#84A98C',  // >= 1 — low
-  2, '#E4A11B',  // >= 2 — moderate
-  3, '#BC4B33',  // >= 3 — high
-  4, '#7F1D1D',  // >= 4 — very high
+  'let',
+  'q', ['*', ['get', 'point_count'], 0.75],
+  'n0', ['-', ['get', 'point_count'], ['+', ['get', 'n1'], ['get', 'n2'], ['get', 'n3'], ['get', 'n4']]],
+  [
+    'case',
+    ['>=', ['var', 'n0'], ['var', 'q']],                                                          '#A8CFAC', // very low
+    ['>=', ['+', ['var', 'n0'], ['get', 'n1']], ['var', 'q']],                                    '#84A98C', // low
+    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2']], ['var', 'q']],                     '#E4A11B', // moderate
+    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2'], ['get', 'n3']], ['var', 'q']],      '#BC4B33', // high
+    '#7F1D1D', // very high
+  ],
 ]
 
 const NO_MATCH = ['==', ['get', 'bin'], ''] as mapboxgl.FilterSpecification
@@ -269,11 +279,11 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         clusterProperties: {
           open_complaints:  ['+', ['get', 'open_complaints']],
           total_complaints: ['+', ['get', 'total_complaints']],
-          // worst risk level in cluster: Very low=0 … Very high=4, Insufficient data=-1
-          worst_risk: ['max', ['match',
-            ['coalesce', ['get', 'risk_level'], 'Insufficient data'],
-            'Very low', 0, 'Insufficient data', 0, 'Low', 1, 'Moderate', 2, 'High', 3, 'Very high', 4, -1,
-          ]],
+          // Per-tier counts so the cluster color can be the median tier (see clusterColor).
+          n1: ['+', ['case', ['==', ['get', 'risk_level'], 'Low'],       1, 0]],
+          n2: ['+', ['case', ['==', ['get', 'risk_level'], 'Moderate'],  1, 0]],
+          n3: ['+', ['case', ['==', ['get', 'risk_level'], 'High'],      1, 0]],
+          n4: ['+', ['case', ['==', ['get', 'risk_level'], 'Very high'], 1, 0]],
         },
       })
 
@@ -287,7 +297,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
           'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 50, 28],
           'circle-opacity': 0.9,
           'circle-stroke-width': 1.5,
-          'circle-stroke-color': 'rgba(0, 0, 0, 0.18)',
+          'circle-stroke-color': 'rgba(0, 0, 0, 0.38)',
         },
       })
 
@@ -311,18 +321,18 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-color': ['match', ['coalesce', ['get', 'risk_level'], ''],
-            'Very low',          '#C5E0C8',
-            'Insufficient data', '#C5E0C8',
-            'Not comparable',    '#C5E0C8',
+            'Very low',          '#A8CFAC',
+            'Insufficient data', '#A8CFAC',
+            'Not comparable',    '#A8CFAC',
             'Low',               '#84A98C',
             'Moderate',          '#E4A11B',
             'High',              '#BC4B33',
             'Very high',         '#7F1D1D',
-            '#C5E0C8',
+            '#A8CFAC',
           ],
           'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'total_complaints'], 1], 1, 5, 100, 8, 500, 11],
           'circle-stroke-width': 1.5,
-          'circle-stroke-color': 'rgba(0, 0, 0, 0.18)',
+          'circle-stroke-color': 'rgba(0, 0, 0, 0.38)',
         },
       })
 

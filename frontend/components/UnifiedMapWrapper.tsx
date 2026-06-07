@@ -21,7 +21,7 @@ type UnifiedSelected =
   | { dataset: 'HPD'; building: HpdSelectedBuilding }
 
 const DOB_LEGEND = [
-  { tier: 'very-low',  color: '#C5E0C8', label: 'Very low'  },
+  { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
   { tier: 'low',       color: '#84A98C', label: 'Low'       },
   { tier: 'moderate',  color: '#E4A11B', label: 'Moderate'  },
   { tier: 'high',      color: '#BC4B33', label: 'High'      },
@@ -29,7 +29,7 @@ const DOB_LEGEND = [
 ]
 
 const HPD_LEGEND = [
-  { tier: 'very-low',  color: '#C5E0C8', label: 'Very low'  },
+  { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
   { tier: 'low',       color: '#84A98C', label: 'Low'       },
   { tier: 'moderate',  color: '#E4A11B', label: 'Moderate'  },
   { tier: 'high',      color: '#BC4B33', label: 'High'      },

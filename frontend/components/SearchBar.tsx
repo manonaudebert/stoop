@@ -12,10 +12,10 @@ const RISK_TIER: Record<string, { color: string }> = {
   'Moderate':          { color: '#E4A11B' },
   'Non-hazardous':     { color: '#84A98C' },
   'Low':               { color: '#84A98C' },
-  'Very low':          { color: '#C5E0C8' },
-  'Resolved':          { color: '#C5E0C8' },
-  'Insufficient data': { color: '#C5E0C8' },
-  'Not comparable':    { color: '#C5E0C8' },
+  'Very low':          { color: '#A8CFAC' },
+  'Resolved':          { color: '#A8CFAC' },
+  'Insufficient data': { color: '#A8CFAC' },
+  'Not comparable':    { color: '#A8CFAC' },
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

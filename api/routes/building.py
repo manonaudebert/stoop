@@ -148,11 +148,11 @@ async def search_buildings(
         summary_rows = trgm_rows.all()
 
     if not summary_rows:
-        cache_set(cache_key, [], ttl_seconds=600)
+        cache_set(cache_key, [], ttl_seconds=3600)
         return []
 
     results = [BuildingSummaryResponse(**dict(r._mapping)) for r in summary_rows]
-    cache_set(cache_key, results, ttl_seconds=600)
+    cache_set(cache_key, results, ttl_seconds=3600)
     return results
 
 
@@ -378,5 +378,5 @@ async def get_neighborhood(bin: str, db: AsyncSession = Depends(get_db)):
         nta_percentile=nta_percentile,
         median_serious_rate=float(stats.median_serious_rate) if stats.median_serious_rate is not None else None,
     )
-    cache_set(cache_key, result, ttl_seconds=3600)
+    cache_set(cache_key, result, ttl_seconds=86400)
     return result

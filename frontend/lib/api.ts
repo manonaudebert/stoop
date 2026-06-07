@@ -18,15 +18,28 @@ function getConfig(): { base: string; headers: HeadersInit } {
   return { base: '/api/proxy', headers: {} }
 }
 
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+// Source data refreshes weekly via the ingest pipeline, so server-side reads
+// can sit in Next's Data Cache for a day before revalidating. This keeps repeat
+// page renders from re-hitting FastAPI/Neon, letting the database scale to zero.
+// `revalidate` only affects server-side fetches; the client path goes through
+// /api/proxy (cache: 'no-store') and ignores it.
+const DAY = 86400
+
+type GetOptions = { signal?: AbortSignal; revalidate?: number }
+
+async function get<T>(path: string, opts: GetOptions = {}): Promise<T> {
   const { base, headers } = getConfig()
-  const res = await fetch(`${base}${path}`, { headers, signal })
+  const res = await fetch(`${base}${path}`, {
+    headers,
+    signal: opts.signal,
+    next: { revalidate: opts.revalidate ?? DAY },
+  })
   if (!res.ok) throw new ApiError(res.status, path)
   return res.json()
 }
 
 export async function searchBuildings(q: string, signal?: AbortSignal): Promise<BuildingSummary[]> {
-  return get(`/building/search?q=${encodeURIComponent(q)}`, signal)
+  return get(`/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
 }
 
 export async function getBuilding(
@@ -66,7 +79,7 @@ export async function getLeaderboardRecent(borough?: string): Promise<BuildingSu
 // ── HPD violations ────────────────────────────────────────────────────────────
 
 export async function searchHpdBuildings(q: string, signal?: AbortSignal): Promise<HpdBuildingSummary[]> {
-  return get(`/hpd/building/search?q=${encodeURIComponent(q)}`, signal)
+  return get(`/hpd/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
 }
 
 export async function getHpdBuilding(
@@ -105,7 +118,7 @@ export async function getHpdComplaintLeaderboard(borough?: string): Promise<HpdC
 }
 
 export async function searchHpdComplaintBuildings(q: string, signal?: AbortSignal): Promise<HpdComplaintBuildingSummary[]> {
-  return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`, signal)
+  return get(`/hpd-complaints/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
 }
 
 export async function getHpdComplaintBuilding(

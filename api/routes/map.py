@@ -110,7 +110,7 @@ async def get_clusters(
         })
 
     geojson = {"type": "FeatureCollection", "features": features}
-    cache_set(cache_key, geojson, ttl_seconds=1800)
+    cache_set(cache_key, geojson, ttl_seconds=86400)
     return JSONResponse(content=geojson)
 
 
@@ -151,5 +151,5 @@ async def get_heatmap(
         }
         for r in rows
     ]
-    cache_set(cache_key, result, ttl_seconds=3600)
+    cache_set(cache_key, result, ttl_seconds=86400)
     return result

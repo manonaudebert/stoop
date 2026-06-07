@@ -40,6 +40,38 @@ app.add_middleware(
 )
 
 
+# Edge/CDN cache lifetimes. Source data refreshes weekly via ingest/sync_all.py,
+# so we can cache aggressively: serve fresh for a day, then background-revalidate
+# (stale-while-revalidate) for up to a week. This lets the CDN absorb repeat
+# traffic so Neon stays scaled-to-zero instead of waking on every page view.
+_DAY = 86400
+_WEEK = 604800
+
+
+def _cache_control_for(path: str) -> str | None:
+    """Pick a Cache-Control policy for a successful GET, keyed by route shape.
+    Returns None for paths that should not be cached (e.g. /health)."""
+    if path == "/health":
+        return None
+    # Search is query-driven and user-facing; keep it fresher than static data.
+    if path.endswith("/search"):
+        return "public, s-maxage=3600, stale-while-revalidate=86400"
+    # Everything else (building detail, breakdowns, timelines, leaderboards,
+    # map clusters/heatmap) is derived from the weekly materialized views.
+    return f"public, s-maxage={_DAY}, stale-while-revalidate={_WEEK}"
+
+
+@app.middleware("http")
+async def set_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "GET" and response.status_code == 200 \
+            and "cache-control" not in response.headers:
+        policy = _cache_control_for(request.url.path)
+        if policy:
+            response.headers["Cache-Control"] = policy
+    return response
+
+
 @app.middleware("http")
 async def verify_internal_key(request: Request, call_next):
     # Allow CORS preflight and health checks through

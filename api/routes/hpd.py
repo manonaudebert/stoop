@@ -125,7 +125,7 @@ async def get_hpd_clusters(
         })
 
     geojson = {"type": "FeatureCollection", "features": features}
-    cache_set(cache_key, geojson, ttl_seconds=1800)
+    cache_set(cache_key, geojson, ttl_seconds=86400)
     return JSONResponse(content=geojson)
 
 
@@ -198,7 +198,7 @@ async def search_hpd_buildings(
         {"q": q, **like_params, **exact_params, **word_params, **prefix_params},
     )
     results = [_row_to_summary(r) for r in rows.all()]
-    cache_set(cache_key, results, ttl_seconds=600)
+    cache_set(cache_key, results, ttl_seconds=3600)
     return results
 
 

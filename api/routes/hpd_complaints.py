@@ -157,7 +157,7 @@ async def get_hpd_complaint_clusters(
         })
 
     geojson = {"type": "FeatureCollection", "features": features}
-    cache_set(cache_key, geojson, ttl_seconds=1800)
+    cache_set(cache_key, geojson, ttl_seconds=86400)
     return JSONResponse(content=geojson)
 
 
@@ -245,7 +245,7 @@ async def search_hpd_complaint_buildings(
         summary_rows = trgm_rows.all()
 
     results = [_row_to_summary(r) for r in summary_rows]
-    cache_set(cache_key, results, ttl_seconds=600)
+    cache_set(cache_key, results, ttl_seconds=3600)
     return results
 
 

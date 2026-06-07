@@ -74,13 +74,18 @@ async def get_hpd_complaint_leaderboard(
 
 # ── map queries — backed by hpd_complaints_building_summary mat view ──────────
 
+# Zoomed out: a deterministic citywide sample per borough. Ordering by
+# hashtext(bin) (bin is unique) is a location-independent scramble, so the
+# sample is spatially representative — unlike a bare LIMIT, which follows heap
+# order and can omit whole areas (e.g. upper Manhattan). It's also stable, so
+# dots don't reshuffle as you pan and the result caches under a constant key.
+# No bbox filter: the clustered view shows the whole city regardless of viewport.
 _BOROUGH_CAPPED_SQL = text("""
     SELECT *
     FROM hpd_complaints_building_summary
     WHERE borough = :borough
-      AND latitude  BETWEEN :south AND :north
-      AND longitude BETWEEN :west  AND :east
       AND latitude IS NOT NULL
+    ORDER BY hashtext(bin)
     LIMIT :per_borough
 """)
 
@@ -104,20 +109,26 @@ async def get_hpd_complaint_clusters(
     zoom: float = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    cache_key = f"hpd_complaint_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f},{zoom:.2f}"
+    if zoom >= CLUSTER_MAX_ZOOM:
+        # Individual dots: fetch everything in the viewport (bbox-dependent)
+        cache_key = f"hpd_complaint_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
+    else:
+        # Clustering: one stable citywide sample, independent of the viewport
+        cache_key = "hpd_complaint_clusters:citywide"
     cached = cache_get(cache_key)
     if cached:
         return JSONResponse(content=cached)
 
-    bbox = {"south": south, "north": north, "west": west, "east": east}
-
     if zoom >= CLUSTER_MAX_ZOOM:
+        bbox = {"south": south, "north": north, "west": west, "east": east}
         result = await db.execute(_BBOX_SQL, bbox)
         all_rows = result.all()
     else:
+        # Deterministic per-borough sample so all boroughs and neighborhoods
+        # are represented (see _BOROUGH_CAPPED_SQL).
         all_rows = []
         for borough in BOROUGHS:
-            result = await db.execute(_BOROUGH_CAPPED_SQL, {**bbox, "borough": borough, "per_borough": PER_BOROUGH_LIMIT})
+            result = await db.execute(_BOROUGH_CAPPED_SQL, {"borough": borough, "per_borough": PER_BOROUGH_LIMIT})
             all_rows.extend(result.all())
 
     features = []

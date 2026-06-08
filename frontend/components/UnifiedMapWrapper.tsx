@@ -22,16 +22,16 @@ type UnifiedSelected =
 
 const DOB_LEGEND = [
   { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
-  { tier: 'low',       color: '#84A98C', label: 'Low'       },
-  { tier: 'moderate',  color: '#E4A11B', label: 'Moderate'  },
+  { tier: 'low',       color: '#688F72', label: 'Low'       },
+  { tier: 'moderate',  color: '#C77F0A', label: 'Moderate'  },
   { tier: 'high',      color: '#BC4B33', label: 'High'      },
   { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
 ]
 
 const HPD_LEGEND = [
   { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
-  { tier: 'low',       color: '#84A98C', label: 'Low'       },
-  { tier: 'moderate',  color: '#E4A11B', label: 'Moderate'  },
+  { tier: 'low',       color: '#688F72', label: 'Low'       },
+  { tier: 'moderate',  color: '#C77F0A', label: 'Moderate'  },
   { tier: 'high',      color: '#BC4B33', label: 'High'      },
   { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
 ]

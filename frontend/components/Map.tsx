@@ -21,8 +21,8 @@ const clusterColor: mapboxgl.Expression = [
   [
     'case',
     ['>=', ['var', 'n0'], ['var', 'q']],                                                          '#A8CFAC', // very low
-    ['>=', ['+', ['var', 'n0'], ['get', 'n1']], ['var', 'q']],                                    '#84A98C', // low
-    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2']], ['var', 'q']],                     '#E4A11B', // moderate
+    ['>=', ['+', ['var', 'n0'], ['get', 'n1']], ['var', 'q']],                                    '#688F72', // low
+    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2']], ['var', 'q']],                     '#C77F0A', // moderate
     ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2'], ['get', 'n3']], ['var', 'q']],      '#BC4B33', // high
     '#7F1D1D', // very high
   ],
@@ -297,7 +297,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
           'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 50, 28],
           'circle-opacity': 0.9,
           'circle-stroke-width': 1.5,
-          'circle-stroke-color': 'rgba(0, 0, 0, 0.38)',
+          'circle-stroke-color': 'rgba(0, 0, 0, 0.45)',
         },
       })
 
@@ -324,15 +324,15 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
             'Very low',          '#A8CFAC',
             'Insufficient data', '#A8CFAC',
             'Not comparable',    '#A8CFAC',
-            'Low',               '#84A98C',
-            'Moderate',          '#E4A11B',
+            'Low',               '#688F72',
+            'Moderate',          '#C77F0A',
             'High',              '#BC4B33',
             'Very high',         '#7F1D1D',
             '#A8CFAC',
           ],
           'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'total_complaints'], 1], 1, 5, 100, 8, 500, 11],
           'circle-stroke-width': 1.5,
-          'circle-stroke-color': 'rgba(0, 0, 0, 0.38)',
+          'circle-stroke-color': 'rgba(0, 0, 0, 0.45)',
         },
       })
 

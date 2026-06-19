@@ -4,7 +4,7 @@ export default function Loading() {
       {/* Nav bar skeleton */}
       <div style={{ background: '#111111', height: 52 }} />
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
+      <div className="px-4 sm:px-6 pt-8" style={{ maxWidth: 1260, margin: '0 auto' }}>
         {/* Hero block */}
         <div style={{ marginBottom: 32 }}>
           <div className="skeleton" style={{ height: 11, width: 80, marginBottom: 12 }} />

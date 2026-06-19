@@ -19,20 +19,15 @@ type NtaItem   = { code: string; name: string }
 const CLUSTERS_URL = '/api/proxy/map/unified/clusters'
 const SEARCH_URL   = '/api/proxy/building/search'
 
-// Kept in sync with NO_DATA_COLOR in Map.tsx (duplicated rather than imported
-// so this component's bundle doesn't pull in mapbox-gl, which is ssr:false).
-const NO_DATA_COLOR = '#C4C2B8'
-
 const LEGEND = [
-  { tier: 'very-low',  color: '#A8CFAC',      label: 'Very low'  },
-  { tier: 'low',       color: '#688F72',      label: 'Low'       },
-  { tier: 'moderate',  color: '#C77F0A',      label: 'Moderate'  },
-  { tier: 'high',      color: '#BC4B33',      label: 'High'      },
-  { tier: 'very-high', color: '#7F1D1D',      label: 'Very high' },
-  { tier: 'no-data',   color: NO_DATA_COLOR,  label: 'No data'   },
+  { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
+  { tier: 'low',       color: '#688F72', label: 'Low'       },
+  { tier: 'moderate',  color: '#C77F0A', label: 'Moderate'  },
+  { tier: 'high',      color: '#BC4B33', label: 'High'      },
+  { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
 ]
 
-const ALL_TIERS = new Set(['very-low', 'low', 'moderate', 'high', 'very-high', 'no-data'])
+const ALL_TIERS = new Set(['very-low', 'low', 'moderate', 'high', 'very-high'])
 
 // The lens never changes which points show — only the color dimension and the
 // surrounding explainer copy.
@@ -231,14 +226,14 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
             onClick={() => switchLens(d)}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              padding: '5px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: 7, border: 'none', cursor: 'pointer',
               background: lens === d ? '#111111' : 'transparent',
               transition: 'background 0.15s',
               gap: 3,
             }}
           >
             <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
+              fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
               textTransform: 'uppercase', fontWeight: 600,
               color: lens === d ? '#FFFFFF' : '#525252',
               transition: 'color 0.15s',
@@ -281,10 +276,15 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   const legendInner = (
     <>
       {/* Risk level */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-          Risk level
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
+            Risk level
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#111111', margin: '3px 0 0' }}>
+            {lens === 'HPD' ? 'Housing conditions' : 'Building safety'}
+          </p>
+        </div>
         {visibleTiers.size < LEGEND.length && (
           <button
             onClick={() => setVisibleTiers(new Set(ALL_TIERS))}
@@ -391,7 +391,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   )
 
   const sidebar = selected
-    ? <CombinedBuildingSidebar building={selected} onClose={() => setSelected(null)} />
+    ? <CombinedBuildingSidebar building={selected} onClose={() => setSelected(null)} activeLens={lens} />
     : null
 
   const sheetChevron = (open: boolean) => (
@@ -528,31 +528,31 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         </div>
       </div>
 
-      {/* ───────── Desktop: floating cards ───────── */}
+      {/* ───────── Desktop: color-by + sidebar on the left, legend on the right ───────── */}
       {!isMobile && (
         <>
-          {/* Floating dataset toggle (top-right) */}
           <div
-            className="absolute right-4 z-10"
-            style={{ top: 74, maxWidth: 'min(260px, calc(100vw - 2rem))' }}
+            className="absolute left-4 z-10"
+            style={{ top: 74, width: 240, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
           >
+            {/* Color-by toggle sits beside the building sidebar it describes. */}
             <div style={{
               background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #6B6B6B',
               display: 'flex', flexDirection: 'column', width: '100%',
             }}>
               {datasetInner}
             </div>
+            {sidebar}
           </div>
 
-          {/* Left panel — legend + sidebar */}
+          {/* Risk-level legend, top-right */}
           <div
-            className="absolute left-4 z-10"
-            style={{ top: 74, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 82px)', overflowY: 'auto' }}
+            className="absolute right-4 z-10"
+            style={{ top: 74, width: 210 }}
           >
-            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: 210, border: '0.5px solid #6B6B6B' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '14px 16px', width: '100%', border: '0.5px solid #6B6B6B' }}>
               {legendInner}
             </div>
-            {sidebar}
           </div>
         </>
       )}

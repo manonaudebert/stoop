@@ -24,15 +24,11 @@ const RISK_PALETTE = {
   'very-high': '#7F1D1D',
 } as const
 
-// Buildings with no record in the active lens are "no data", not low risk:
-// they render in this neutral grey and are excluded from cluster severity.
-export const NO_DATA_COLOR = '#C4C2B8'
-
-// Unclustered dot color. A building absent from the active dataset
-// (<prefix>_present === 0) is greyed out; otherwise it colors by its risk tier.
+// Unclustered dot color. Buildings absent from the active lens are filtered
+// before they reach the source, so this expression only sees present buildings.
 function dotColor(prefix: string, riskField: string): mapboxgl.Expression {
   return ['case',
-    ['==', ['get', `${prefix}_present`], 0], NO_DATA_COLOR,
+    ['==', ['get', `${prefix}_present`], 0], '#C4C2B8',
     ['match', ['coalesce', ['get', riskField], ''],
       'Very low',          RISK_PALETTE['very-low'],
       'Insufficient data', RISK_PALETTE['very-low'],
@@ -51,19 +47,15 @@ function dotRadius(totalField: string): mapboxgl.Expression {
 }
 
 // Cluster color: the 75th-percentile (upper-quartile) risk tier among the
-// buildings in the cluster THAT HAVE DATA for the active lens. Mapbox
-// clusterProperties only accumulate, so we tally per-tier counts
-// (<prefix>_n1..n4) plus a present count (<prefix>_present) on the cluster, and
-// derive n0 = present − (n1+n2+n3+n4) — the present-but-light buildings (Very
-// low / Insufficient data / Not comparable). The denominator is `present`, NOT
-// point_count, so buildings absent from this dataset don't dilute the color
-// toward "low". A cluster with no data in this lens shows the no-data grey.
+// buildings in the cluster. Mapbox clusterProperties tally per-tier counts
+// (<prefix>_n1..n4) plus a present count (<prefix>_present), and we derive
+// n0 = present − (n1+n2+n3+n4) for Very low / Insufficient data / Not comparable.
 function clusterColor(prefix: string): mapboxgl.Expression {
   const n = (i: number): mapboxgl.Expression => ['get', `${prefix}_n${i}`]
   const present: mapboxgl.Expression = ['get', `${prefix}_present`]
   return [
     'case',
-    ['==', present, 0], NO_DATA_COLOR,
+    ['==', present, 0], '#C4C2B8',
     [
       'let',
       'q', ['*', present, 0.75],
@@ -92,8 +84,8 @@ const RISK_TO_TIER: Record<string, string> = {
   'Not comparable':    'very-low',
 }
 
-// A building with no risk for the active lens (absent from that dataset) is its
-// own "no-data" tier — kept visible by default, distinct from measured-low.
+// A building absent from the active lens returns 'no-data', which is not in
+// ALL_TIERS, so applyTierFilter removes it from the source (hidden, not grey).
 function featureTier(riskLevel: string | null | undefined): string {
   if (!riskLevel) return 'no-data'
   return RISK_TO_TIER[riskLevel] ?? 'very-low'

@@ -1144,19 +1144,6 @@ function pctHeadline(vp: number | null, cp: number | null): string {
           </div>
         )}
 
-        {/* DOB cross-link note */}
-        <div style={{ background: '#FAFAFA', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 20, marginBottom: 12 }}>
-          <p style={{ fontSize: 13, color: '#525252', margin: 0, lineHeight: 1.5, flex: 1 }}>
-            Building safety complaints, construction, permits, and structural issues filed with the NYC Dept. of Buildings, are scored separately.
-          </p>
-          <Link
-            href={`/dob/building/${bin}`}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, padding: '8px 14px', borderRadius: 8, border: '0.5px solid #6B6B6B', color: '#111111', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            Building Safety →
-          </Link>
-        </div>
-
         <div style={{ textAlign: 'center', paddingTop: 8 }}>
           <a href="https://portal.311.nyc.gov/" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#737373', textDecoration: 'none' }}>
             See something wrong?{' '}

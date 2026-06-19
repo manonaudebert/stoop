@@ -1,4 +1,3 @@
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getBuilding, getTimeline, getBreakdown, getNeighborhood, ApiError } from '@/lib/api'
 import { fmtDate } from '@/lib/fmt'
@@ -327,6 +326,9 @@ export default async function BuildingPage({
   const page = Number(pageStr ?? 1)
   const breakdownYears = bw === 'all' ? undefined : 5
 
+  const backHref  = from === 'leaderboard' ? '/dob/leaderboard' : '/'
+  const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
+
   let building, timeline, breakdown, neighborhood
   try {
     ;[building, timeline, breakdown] = await Promise.all([
@@ -335,11 +337,36 @@ export default async function BuildingPage({
       getBreakdown(bin, breakdownYears),
     ])
   } catch (err) {
-    if (err instanceof ApiError && err.status === 404) notFound()
+    // No DOB record for this building — keep the nav + dataset tabs (so the
+    // reader can jump to Housing Conditions, which may have data) and show a
+    // clear "no records" message instead of 404ing.
+    if (err instanceof ApiError && err.status === 404) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+          <BuildingNavBar backHref={backHref} backLabel={backLabel} />
+          <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
+            <BuildingCrossLinks items={[
+              { label: 'Building Safety' },
+              { label: 'Housing Conditions', href: `/hpd/building/${bin}` },
+            ]} />
+            <div style={{ padding: '4rem 0' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: '0 0 12px' }}>
+                BIN {bin}
+              </p>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
+                No DOB building-safety records on file
+              </h2>
+              <p style={{ fontSize: 15, color: '#525252', lineHeight: 1.7, margin: 0, maxWidth: 620 }}>
+                This building has no Department of Buildings records on record. It may still have housing
+                conditions tracked by HPD — check the Housing Conditions tab above.
+              </p>
+            </div>
+          </main>
+        </div>
+      )
+    }
     throw err
   }
-  const backHref  = from === 'leaderboard' ? '/dob/leaderboard' : '/'
-  const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
   const eyebrow = tierEyebrow(building.risk_level)
 
   // ── empty state ──────────────────────────────────────────────────────────
@@ -348,6 +375,10 @@ export default async function BuildingPage({
       <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
         <BuildingNavBar backHref={backHref} backLabel={backLabel} />
         <div className="px-4 sm:px-6 pt-8" style={{ maxWidth: 1260, margin: '0 auto' }}>
+            <BuildingCrossLinks items={[
+              { label: 'Building Safety' },
+              { label: 'Housing Conditions', href: `/hpd/building/${bin}` },
+            ]} />
             <BuildingHero
               address={building.address ?? ''}
               meta={[building.borough, `ZIP ${building.zip_code}`, `BIN ${building.bin}`, building.construction_year && `Built ${building.construction_year}`].filter(Boolean).join(' · ')}
@@ -361,27 +392,10 @@ export default async function BuildingPage({
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
               No building complaint records with the Department of Buildings
             </h2>
-            <p style={{ fontSize: 15, color: '#525252', lineHeight: 1.7, marginBottom: 32 }}>
-              This doesn&apos;t mean no issues have ever existed — complaints may have been filed under a different BIN,
-              before electronic records began in 2007, or may be tracked by a different agency such as HPD.
-              If you have concerns about this building, check HPD&apos;s building records at hpdonline.nyc.gov.
+            <p style={{ fontSize: 15, color: '#525252', lineHeight: 1.7, margin: 0 }}>
+              This building has no DOB complaints. This doesn&apos;t mean no issues have ever existed.
+              Complaints may have been filed under a different BIN or with a different agency.
             </p>
-            <a
-              href="https://hpdonline.nyc.gov"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                fontSize: 13, fontWeight: 500, padding: '10px 20px',
-                background: '#111111', color: '#FFFFFF', borderRadius: 8, textDecoration: 'none',
-              }}
-            >
-              View on HPD Online
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </a>
           </main>
       </div>
     )

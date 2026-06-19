@@ -1,9 +1,9 @@
 import React from 'react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
 import { fmtDate } from '@/lib/fmt'
 import RankViz from '@/components/RankViz'
 import {
+  getBuilding,
   getHpdBuilding, getHpdTimeline, getHpdBreakdown, getHpdBreakdownRecent, getHpdOpenViolationAges,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
   getHpdComplaintMinorBreakdown,
@@ -572,7 +572,43 @@ export default async function HpdOverviewPage({
     getHpdComplaintMinorBreakdown(bin, cw === 'all' ? 0 : 5).catch(() => []),
   ])
 
-  if (!violations && !complaints) notFound()
+  // No HPD records for this building — mirror the DOB empty state: keep the nav
+  // + dataset tabs (so the reader can jump to Building Safety) and a full hero
+  // header. The address comes from the DOB record since HPD has none.
+  if (!violations && !complaints) {
+    const dob = await getBuilding(bin, 1).catch(() => null)
+    return (
+      <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+        <BuildingNavBar backHref="/hpd" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd/building" />
+        <div className="px-4 sm:px-6 pt-8" style={{ maxWidth: 1260, margin: '0 auto' }}>
+          <BuildingCrossLinks items={[
+            { label: 'Building Safety', href: `/dob/building/${bin}` },
+            { label: 'Housing Conditions' },
+          ]} />
+          <BuildingHero
+            address={dob?.address ?? 'Unknown address'}
+            meta={[dob?.borough, dob?.zip_code && `ZIP ${dob.zip_code}`, `BIN ${bin}`].filter(Boolean).join(' · ')}
+            explainerLabel="Data Source: NYC Housing Preservation & Development"
+            explainerText={[
+              "New York City Department of Housing Preservation & Development (HPD) oversees housing conditions that impact tenant safety and quality of life.",
+              "Complaints are reports submitted by tenants or the public, while violations are issued after HPD inspectors verify that a building condition violates the NYC Housing Maintenance Code or Multiple Dwelling Law.",
+            ]}
+            badge={<div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', marginBottom: 6 }}>No HPD records on file</div>}
+            bordered
+          />
+        </div>
+        <main style={{ maxWidth: 640, margin: '0 auto', padding: '4rem 1.5rem', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500, color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px' }}>
+            No HPD housing records on file
+          </h2>
+          <p style={{ fontSize: 15, color: '#525252', lineHeight: 1.7, margin: 0 }}>
+            This building has no HPD complaints or violations on record. It may still have building-safety
+            activity with the Department of Buildings — check the Building Safety tab above.
+          </p>
+        </main>
+      </div>
+    )
+  }
 
   // Log data — only fetched when the log is toggled open
   const violationsLog = show === 'violations'

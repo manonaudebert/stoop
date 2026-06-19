@@ -3,30 +3,82 @@
 import { useEffect, useRef, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import type { SelectedBuilding } from './BuildingSidebar'
 
-const DEFAULT_CLUSTERS_URL = '/api/proxy/map/clusters'
+const DEFAULT_CLUSTERS_URL = '/api/proxy/map/unified/clusters'
+
+// The unified source carries both risk dimensions per building. `lens` decides
+// which one drives the colors. The risk field, per-tier cluster-count prefix,
+// and the total-complaints field used for dot size all swap together.
+export type Lens = 'DOB' | 'HPD'
+
+const LENS_FIELDS = {
+  DOB: { risk: 'dob_risk_level', total: 'dob_total', prefix: 'dob' },
+  HPD: { risk: 'hpd_risk_level', total: 'hpd_total', prefix: 'hpd' },
+} as const
+
+const RISK_PALETTE = {
+  'very-low':  '#A8CFAC',
+  'low':       '#688F72',
+  'moderate':  '#C77F0A',
+  'high':      '#BC4B33',
+  'very-high': '#7F1D1D',
+} as const
+
+// Buildings with no record in the active lens are "no data", not low risk:
+// they render in this neutral grey and are excluded from cluster severity.
+export const NO_DATA_COLOR = '#C4C2B8'
+
+// Unclustered dot color. A building absent from the active dataset
+// (<prefix>_present === 0) is greyed out; otherwise it colors by its risk tier.
+function dotColor(prefix: string, riskField: string): mapboxgl.Expression {
+  return ['case',
+    ['==', ['get', `${prefix}_present`], 0], NO_DATA_COLOR,
+    ['match', ['coalesce', ['get', riskField], ''],
+      'Very low',          RISK_PALETTE['very-low'],
+      'Insufficient data', RISK_PALETTE['very-low'],
+      'Not comparable',    RISK_PALETTE['very-low'],
+      'Low',               RISK_PALETTE['low'],
+      'Moderate',          RISK_PALETTE['moderate'],
+      'High',              RISK_PALETTE['high'],
+      'Very high',         RISK_PALETTE['very-high'],
+      RISK_PALETTE['very-low'],
+    ],
+  ]
+}
+
+function dotRadius(totalField: string): mapboxgl.Expression {
+  return ['interpolate', ['linear'], ['coalesce', ['get', totalField], 1], 1, 5, 100, 8, 500, 11]
+}
 
 // Cluster color: the 75th-percentile (upper-quartile) risk tier among the
-// buildings in the cluster. Mapbox clusterProperties can only accumulate, so we
-// tally per-tier counts (n1..n4) on the cluster and derive
-// n0 = point_count − (n1+n2+n3+n4), where tier 0 folds in
-// Very low / Insufficient data / Not comparable / null. The p75 tier is the
-// first whose running total reaches three-quarters of the cluster size —
-// surfacing problem areas without the worst single building dominating.
-const clusterColor: mapboxgl.Expression = [
-  'let',
-  'q', ['*', ['get', 'point_count'], 0.75],
-  'n0', ['-', ['get', 'point_count'], ['+', ['get', 'n1'], ['get', 'n2'], ['get', 'n3'], ['get', 'n4']]],
-  [
+// buildings in the cluster THAT HAVE DATA for the active lens. Mapbox
+// clusterProperties only accumulate, so we tally per-tier counts
+// (<prefix>_n1..n4) plus a present count (<prefix>_present) on the cluster, and
+// derive n0 = present − (n1+n2+n3+n4) — the present-but-light buildings (Very
+// low / Insufficient data / Not comparable). The denominator is `present`, NOT
+// point_count, so buildings absent from this dataset don't dilute the color
+// toward "low". A cluster with no data in this lens shows the no-data grey.
+function clusterColor(prefix: string): mapboxgl.Expression {
+  const n = (i: number): mapboxgl.Expression => ['get', `${prefix}_n${i}`]
+  const present: mapboxgl.Expression = ['get', `${prefix}_present`]
+  return [
     'case',
-    ['>=', ['var', 'n0'], ['var', 'q']],                                                          '#A8CFAC', // very low
-    ['>=', ['+', ['var', 'n0'], ['get', 'n1']], ['var', 'q']],                                    '#688F72', // low
-    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2']], ['var', 'q']],                     '#C77F0A', // moderate
-    ['>=', ['+', ['var', 'n0'], ['get', 'n1'], ['get', 'n2'], ['get', 'n3']], ['var', 'q']],      '#BC4B33', // high
-    '#7F1D1D', // very high
-  ],
-]
+    ['==', present, 0], NO_DATA_COLOR,
+    [
+      'let',
+      'q', ['*', present, 0.75],
+      'n0', ['-', present, ['+', n(1), n(2), n(3), n(4)]],
+      [
+        'case',
+        ['>=', ['var', 'n0'], ['var', 'q']],                              RISK_PALETTE['very-low'],
+        ['>=', ['+', ['var', 'n0'], n(1)], ['var', 'q']],                 RISK_PALETTE['low'],
+        ['>=', ['+', ['var', 'n0'], n(1), n(2)], ['var', 'q']],           RISK_PALETTE['moderate'],
+        ['>=', ['+', ['var', 'n0'], n(1), n(2), n(3)], ['var', 'q']],     RISK_PALETTE['high'],
+        RISK_PALETTE['very-high'],
+      ],
+    ],
+  ]
+}
 
 const NO_MATCH = ['==', ['get', 'bin'], ''] as mapboxgl.FilterSpecification
 
@@ -40,18 +92,20 @@ const RISK_TO_TIER: Record<string, string> = {
   'Not comparable':    'very-low',
 }
 
+// A building with no risk for the active lens (absent from that dataset) is its
+// own "no-data" tier — kept visible by default, distinct from measured-low.
 function featureTier(riskLevel: string | null | undefined): string {
   if (!riskLevel) return 'no-data'
-  return RISK_TO_TIER[riskLevel] ?? 'no-data'
+  return RISK_TO_TIER[riskLevel] ?? 'very-low'
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyTierFilter(src: mapboxgl.GeoJSONSource, raw: any, visible: Set<string>, ntaCodes: string[]) {
+function applyTierFilter(src: mapboxgl.GeoJSONSource, raw: any, visible: Set<string>, ntaCodes: string[], riskField: string) {
   src.setData({
     ...raw,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     features: raw.features.filter((f: any) =>
-      visible.has(featureTier(f.properties?.risk_level)) &&
+      visible.has(featureTier(f.properties?.[riskField])) &&
       (ntaCodes.length === 0 || ntaCodes.includes(f.properties?.nta_code))
     ),
   })
@@ -67,9 +121,11 @@ const NTA_LAYERS = ['nta-fill', 'nta-line', 'nta-label'] as const
 type NtaSelection = { code: string; name: string }
 
 type Props = {
-  onBuildingSelect: (building: SelectedBuilding | null) => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onBuildingSelect: (properties: any | null) => void
   flyTarget: { lng: number; lat: number; id: number } | null
   selectedBin: string | null
+  lens: Lens
   visibleTiers: string[]
   showNtaBorders: boolean
   selectedNtas: string[]
@@ -79,7 +135,7 @@ type Props = {
   isMobile?: boolean
 }
 
-export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL, isMobile = false }: Props) {
+export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL, isMobile = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const navControlRef = useRef<mapboxgl.NavigationControl | null>(null)
@@ -104,6 +160,8 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
   selectedNtasRef.current = selectedNtas
   const showNtaBordersRef = useRef(showNtaBorders)
   showNtaBordersRef.current = showNtaBorders
+  const lensRef = useRef(lens)
+  lensRef.current = lens
 
   useEffect(() => {
     if (!flyTarget || !mapRef.current) return
@@ -116,7 +174,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const raw = rawDataRef.current
     if (!map || !raw) return
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
-    if (src) applyTierFilter(src, raw, new Set(visibleTiers), selectedNtasRef.current)
+    if (src) applyTierFilter(src, raw, new Set(visibleTiers), selectedNtasRef.current, LENS_FIELDS[lensRef.current].risk)
   }, [visibleTiers])
 
   useEffect(() => {
@@ -124,8 +182,27 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     const raw = rawDataRef.current
     if (!map || !raw) return
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
-    if (src) applyTierFilter(src, raw, new Set(visibleTiersRef.current), selectedNtas)
+    if (src) applyTierFilter(src, raw, new Set(visibleTiersRef.current), selectedNtas, LENS_FIELDS[lensRef.current].risk)
   }, [selectedNtas])
+
+  // Switch the color lens: repaint dots + clusters and re-filter (the tier
+  // filter keys off the active lens's risk field) — no refetch, the source
+  // already carries both dimensions.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const { risk, total, prefix } = LENS_FIELDS[lens]
+    if (map.getLayer('unclustered')) {
+      map.setPaintProperty('unclustered', 'circle-color', dotColor(prefix, risk))
+      map.setPaintProperty('unclustered', 'circle-radius', dotRadius(total))
+    }
+    if (map.getLayer('clusters')) {
+      map.setPaintProperty('clusters', 'circle-color', clusterColor(prefix))
+    }
+    const raw = rawDataRef.current
+    const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
+    if (src && raw) applyTierFilter(src, raw, new Set(visibleTiersRef.current), selectedNtasRef.current, risk)
+  }, [lens])
 
   // Toggle NTA border visibility
   useEffect(() => {
@@ -178,7 +255,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     if (!mapRef.current) return             // unmounted while fetch was in flight
     rawDataRef.current = geojson
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
-    if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current)
+    if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current, LENS_FIELDS[lensRef.current].risk)
   }, [])
 
   // Reload building data when the clusters endpoint changes (dataset toggle)
@@ -276,14 +353,21 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         cluster: true,
         clusterMaxZoom: 13,
         clusterRadius: 40,
+        // Per-tier counts AND a present count for BOTH lenses, so cluster color
+        // can switch between DOB and HPD risk — and key severity off buildings
+        // that have data, not the raw point count — without rebuilding the
+        // source (see clusterColor).
         clusterProperties: {
-          open_complaints:  ['+', ['get', 'open_complaints']],
-          total_complaints: ['+', ['get', 'total_complaints']],
-          // Per-tier counts so the cluster color can be the median tier (see clusterColor).
-          n1: ['+', ['case', ['==', ['get', 'risk_level'], 'Low'],       1, 0]],
-          n2: ['+', ['case', ['==', ['get', 'risk_level'], 'Moderate'],  1, 0]],
-          n3: ['+', ['case', ['==', ['get', 'risk_level'], 'High'],      1, 0]],
-          n4: ['+', ['case', ['==', ['get', 'risk_level'], 'Very high'], 1, 0]],
+          dob_present: ['+', ['get', 'dob_present']],
+          dob_n1: ['+', ['case', ['==', ['get', 'dob_risk_level'], 'Low'],       1, 0]],
+          dob_n2: ['+', ['case', ['==', ['get', 'dob_risk_level'], 'Moderate'],  1, 0]],
+          dob_n3: ['+', ['case', ['==', ['get', 'dob_risk_level'], 'High'],      1, 0]],
+          dob_n4: ['+', ['case', ['==', ['get', 'dob_risk_level'], 'Very high'], 1, 0]],
+          hpd_present: ['+', ['get', 'hpd_present']],
+          hpd_n1: ['+', ['case', ['==', ['get', 'hpd_risk_level'], 'Low'],       1, 0]],
+          hpd_n2: ['+', ['case', ['==', ['get', 'hpd_risk_level'], 'Moderate'],  1, 0]],
+          hpd_n3: ['+', ['case', ['==', ['get', 'hpd_risk_level'], 'High'],      1, 0]],
+          hpd_n4: ['+', ['case', ['==', ['get', 'hpd_risk_level'], 'Very high'], 1, 0]],
         },
       })
 
@@ -293,7 +377,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         source: 'buildings',
         filter: ['has', 'point_count'],
         paint: {
-          'circle-color': clusterColor,
+          'circle-color': clusterColor(LENS_FIELDS[lensRef.current].prefix),
           'circle-radius': ['step', ['get', 'point_count'], 16, 10, 22, 50, 28],
           'circle-opacity': 0.9,
           'circle-stroke-width': 1.5,
@@ -320,17 +404,8 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
         source: 'buildings',
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-color': ['match', ['coalesce', ['get', 'risk_level'], ''],
-            'Very low',          '#A8CFAC',
-            'Insufficient data', '#A8CFAC',
-            'Not comparable',    '#A8CFAC',
-            'Low',               '#688F72',
-            'Moderate',          '#C77F0A',
-            'High',              '#BC4B33',
-            'Very high',         '#7F1D1D',
-            '#A8CFAC',
-          ],
-          'circle-radius': ['interpolate', ['linear'], ['coalesce', ['get', 'total_complaints'], 1], 1, 5, 100, 8, 500, 11],
+          'circle-color': dotColor(LENS_FIELDS[lensRef.current].prefix, LENS_FIELDS[lensRef.current].risk),
+          'circle-radius': dotRadius(LENS_FIELDS[lensRef.current].total),
           'circle-stroke-width': 1.5,
           'circle-stroke-color': 'rgba(0, 0, 0, 0.45)',
         },
@@ -406,16 +481,9 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, visibleT
     map.on('click', 'unclustered', e => {
       const props = e.features?.[0]?.properties
       if (!props?.bin) return
-      onSelectRef.current({
-        bin: props.bin,
-        address: props.address ?? null,
-        borough: props.borough ?? null,
-        zip_code: props.zip_code ?? null,
-        total_complaints: props.total_complaints ?? 0,
-        open_complaints: props.open_complaints ?? 0,
-        priority_a_complaints: props.priority_a_complaints ?? 0,
-        risk_level: props.risk_level ?? null,
-      })
+      // Hand the full union feature to the wrapper — it carries both DOB and
+      // HPD fields for the combined sidebar.
+      onSelectRef.current(props)
     })
 
     map.on('click', e => {

@@ -33,7 +33,7 @@ export const metadata: Metadata = {
         url: "https://www.stoopnyc.org/ogimage.png",
         width: 1200,
         height: 630,
-        alt: "stoop — NYC building complaint and violation history",
+        alt: "stoop: NYC building complaint and violation history",
       },
     ],
     type: "website",

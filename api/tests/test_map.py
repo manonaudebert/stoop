@@ -159,6 +159,99 @@ class TestGetClustersZoomedOut:
 
 
 # ---------------------------------------------------------------------------
+# Tests: GET /map/unified/clusters — DOB + HPD joined on bin
+# ---------------------------------------------------------------------------
+
+UNIFIED_ROW = {
+    "bin": "1099042",
+    "address": "123 TEST ST",
+    "borough": "Manhattan",
+    "zip_code": "10001",
+    "nta_code": "MN2501",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "dob_risk_level": "High",
+    "dob_total": 10,
+    "dob_open": 3,
+    "dob_priority_a": 2,
+    "hpd_risk_level": "Very high",
+    "hpd_total": 40,
+    "hpd_open": 12,
+    "hpd_open_emergency": 4,
+    "hpd_heat": 6,
+    "hpd_latest_date": None,
+}
+
+
+class TestGetUnifiedClusters:
+    async def test_feature_carries_both_dob_and_hpd_fields(self, client):
+        mock_db = make_mock_db(MockResult([MockRow(UNIFIED_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/map/unified/clusters?{BBOX_PARAMS}&zoom={CLUSTER_MAX_ZOOM}")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        feature = resp.json()["features"][0]
+        assert feature["geometry"]["coordinates"] == [-74.0060, 40.7128]
+        props = feature["properties"]
+        assert props["bin"] == "1099042"
+        assert props["dob_risk_level"] == "High"
+        assert props["dob_total"] == 10
+        assert props["hpd_risk_level"] == "Very high"
+        assert props["hpd_open_emergency"] == 4
+        assert props["dob_present"] == 1
+        assert props["hpd_present"] == 1
+
+    async def test_building_present_in_only_one_dataset_keeps_nulls(self, client):
+        # HPD-only building: the FULL OUTER JOIN leaves all dob_* columns null.
+        hpd_only = {**UNIFIED_ROW, "dob_risk_level": None, "dob_total": None,
+                    "dob_open": None, "dob_priority_a": None}
+        mock_db = make_mock_db(MockResult([MockRow(hpd_only)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/map/unified/clusters?{BBOX_PARAMS}&zoom={CLUSTER_MAX_ZOOM}")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        props = resp.json()["features"][0]["properties"]
+        assert props["dob_total"] is None
+        assert props["hpd_total"] == 40
+        # Absent from DOB → not low risk, just "no data" for that lens.
+        assert props["dob_present"] == 0
+        assert props["hpd_present"] == 1
+
+    async def test_zoomed_out_issues_five_borough_queries(self, client):
+        mock_db = make_mock_db(
+            MockResult([MockRow(UNIFIED_ROW)]),  # Manhattan
+            MockResult([]),                      # Brooklyn
+            MockResult([]),                      # Queens
+            MockResult([]),                      # Bronx
+            MockResult([]),                      # Staten Island
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/map/unified/clusters?{BBOX_PARAMS}&zoom={CLUSTER_MAX_ZOOM - 1}")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        features = resp.json()["features"]
+        assert len(features) == 1
+        assert features[0]["properties"]["bin"] == "1099042"
+
+    async def test_returns_empty_feature_collection_when_no_buildings(self, client):
+        mock_db = make_mock_db(MockResult([]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get(f"/map/unified/clusters?{BBOX_PARAMS}&zoom={CLUSTER_MAX_ZOOM}")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.json()["features"] == []
+
+
+# ---------------------------------------------------------------------------
 # Tests: GET /map/heatmap
 # ---------------------------------------------------------------------------
 

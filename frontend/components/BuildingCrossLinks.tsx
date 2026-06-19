@@ -4,24 +4,39 @@ type Item = { label: string; href?: string }
 
 export default function BuildingCrossLinks({ items }: { items: Item[] }) {
   return (
-    <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+    <div
+      role="tablist"
+      aria-label="Dataset"
+      style={{ display: 'flex', gap: 26, borderBottom: '1px solid #E5E5E5', marginBottom: 24 }}
+    >
       {items.map(item => {
         const active = !item.href
         const base: React.CSSProperties = {
-          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.07em',
+          fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.1em',
           textTransform: 'uppercase', textDecoration: 'none',
-          padding: '5px 12px', borderRadius: 20, border: '0.5px solid',
-          display: 'inline-block', lineHeight: 1,
+          background: 'none', padding: '4px 1px 12px', marginBottom: '-1px',
+          borderBottom: '2px solid transparent', lineHeight: 1.25,
         }
         if (active) {
           return (
-            <span key={item.label} style={{ ...base, background: '#111111', borderColor: '#111111', color: '#FFFFFF' }}>
+            <span
+              key={item.label}
+              role="tab"
+              aria-selected="true"
+              style={{ ...base, color: '#111111', fontWeight: 600, borderBottomColor: '#111111' }}
+            >
               {item.label}
             </span>
           )
         }
         return (
-          <Link key={item.label} href={item.href!} style={{ ...base, background: 'transparent', borderColor: '#D4D4D4', color: '#525252' }}>
+          <Link
+            key={item.label}
+            href={item.href!}
+            role="tab"
+            aria-selected="false"
+            style={{ ...base, color: '#9A9A9A' }}
+          >
             {item.label}
           </Link>
         )

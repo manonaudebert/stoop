@@ -224,7 +224,7 @@ export default function MethodologyPage() {
               id="eabe-havv"
               title="DOB Complaints Received"
               agency="NYC Dept. of Buildings"
-              description="Every complaint filed with the DOB since 2007, including category, status, inspection dates, and disposition. Primary dataset behind the DOB risk level and neighborhood percentile ranking."
+              description="Complaints filed with the DOB since 1988, including category, status, inspection dates, and disposition. Primary dataset behind the DOB risk level and neighborhood percentile ranking."
               href="https://data.cityofnewyork.us/Housing-Development/DOB-Complaints-Received/eabe-havv"
             />
             <DataSourceCard
@@ -636,8 +636,8 @@ export default function MethodologyPage() {
                   body: 'DOB and HPD complaints are reports filed by the public or other agencies. They are not confirmed findings. HPD violations are formally issued after inspection and carry more weight. Scores reflect the full record of complaints and violations, not confirmed outcomes only.',
                 },
                 {
-                  title: 'Records begin in 2007',
-                  body: 'Electronic DOB complaint records are available from 2007 onwards. HPD violation and complaint records vary in depth. Complaints filed before the digital record period, or those never digitized, are not reflected in scores.',
+                  title: 'Records begin in 1988',
+                  body: 'DOB complaint records go back to 1988. HPD violation and complaint records vary in depth. Complaints never digitized, or filed before the record period, are not reflected in scores.',
                 },
                 {
                   title: 'BIN matching',

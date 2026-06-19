@@ -5,64 +5,54 @@ import Link from 'next/link'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
-import BuildingSidebar, { type SelectedBuilding } from './BuildingSidebar'
-import HpdBuildingSidebar, { type HpdSelectedBuilding } from './HpdBuildingSidebar'
+import CombinedBuildingSidebar, { type UnifiedBuilding } from './CombinedBuildingSidebar'
+import type { Lens } from './Map'
 import type { BuildingSummary, HpdComplaintBuildingSummary } from '@/lib/types'
 
 const Map = dynamic(() => import('./Map'), { ssr: false })
 
-type Dataset = 'HPD' | 'DOB'
-
 type FlyTarget = { lng: number; lat: number; id: number }
 type NtaItem   = { code: string; name: string }
 
-type UnifiedSelected =
-  | { dataset: 'DOB'; building: SelectedBuilding }
-  | { dataset: 'HPD'; building: HpdSelectedBuilding }
+// One endpoint, one search index — the map shows every building from both
+// datasets and the lens only changes which risk drives the colors.
+const CLUSTERS_URL = '/api/proxy/map/unified/clusters'
+const SEARCH_URL   = '/api/proxy/building/search'
 
-const DOB_LEGEND = [
-  { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
-  { tier: 'low',       color: '#688F72', label: 'Low'       },
-  { tier: 'moderate',  color: '#C77F0A', label: 'Moderate'  },
-  { tier: 'high',      color: '#BC4B33', label: 'High'      },
-  { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
+// Kept in sync with NO_DATA_COLOR in Map.tsx (duplicated rather than imported
+// so this component's bundle doesn't pull in mapbox-gl, which is ssr:false).
+const NO_DATA_COLOR = '#C4C2B8'
+
+const LEGEND = [
+  { tier: 'very-low',  color: '#A8CFAC',      label: 'Very low'  },
+  { tier: 'low',       color: '#688F72',      label: 'Low'       },
+  { tier: 'moderate',  color: '#C77F0A',      label: 'Moderate'  },
+  { tier: 'high',      color: '#BC4B33',      label: 'High'      },
+  { tier: 'very-high', color: '#7F1D1D',      label: 'Very high' },
+  { tier: 'no-data',   color: NO_DATA_COLOR,  label: 'No data'   },
 ]
 
-const HPD_LEGEND = [
-  { tier: 'very-low',  color: '#A8CFAC', label: 'Very low'  },
-  { tier: 'low',       color: '#688F72', label: 'Low'       },
-  { tier: 'moderate',  color: '#C77F0A', label: 'Moderate'  },
-  { tier: 'high',      color: '#BC4B33', label: 'High'      },
-  { tier: 'very-high', color: '#7F1D1D', label: 'Very high' },
-]
+const ALL_TIERS = new Set(['very-low', 'low', 'moderate', 'high', 'very-high', 'no-data'])
 
-const ALL_TIERS = new Set(['very-low', 'low', 'moderate', 'high', 'very-high'])
-
-const DATASET_CONFIG = {
+// The lens never changes which points show — only the color dimension and the
+// surrounding explainer copy.
+const LENS_CONFIG: Record<Lens, { subtitle: string; explainer: string }> = {
   DOB: {
-    clustersUrl:  '/api/proxy/map/clusters',
-    searchUrl:    '/api/proxy/building/search',
-    subtitle:     'Construction activity, building safety, and code enforcement reported to the Department of Buildings (DOB)',
-    legendLabel:  'Complaint level',
-    legend:       DOB_LEGEND,
-    accentColor:  '#7F1D1D',
-    explainer:    'The DOB oversees construction, building safety, and code enforcement across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311.',
+    subtitle:  'Coloring buildings by construction, building safety, and code enforcement reported to the Department of Buildings (DOB)',
+    explainer: 'The DOB oversees construction, building safety, and code enforcement across NYC. Complaints may relate to unsafe construction, structural concerns, illegal work, or building code violations reported by residents, inspectors, or 311.',
   },
   HPD: {
-    clustersUrl:  '/api/proxy/hpd-complaints/map/clusters',
-    searchUrl:    '/api/proxy/hpd-complaints/building/search',
-    subtitle:     'Housing conditions, tenant complaints, and maintenance violations reported to NYC Housing Preservation & Development (HPD)',
-    legendLabel:  'Complaint level',
-    legend:       HPD_LEGEND,
-    accentColor:  '#7F1D1D',
-    explainer:    'HPD tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants, residents, or 311, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law.',
+    subtitle:  'Coloring buildings by housing conditions, tenant complaints, and maintenance violations reported to NYC Housing Preservation & Development (HPD)',
+    explainer: 'HPD tracks housing conditions that impact tenant safety and quality of life. Complaints are reports submitted by tenants, residents, or 311, while violations are issued after HPD inspectors verify that a building condition violates NYC housing law.',
   },
 }
 
-export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode?: Dataset }) {
+const ACCENT_COLOR = '#7F1D1D'
+
+export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode?: Lens }) {
   const router = useRouter()
-  const [dataset,         setDataset]         = useState<Dataset>(initialMode)
-  const [selected,        setSelected]        = useState<UnifiedSelected | null>(null)
+  const [lens,            setLens]            = useState<Lens>(initialMode)
+  const [selected,        setSelected]        = useState<UnifiedBuilding | null>(null)
   const [flyTarget,       setFlyTarget]       = useState<FlyTarget | null>(null)
   const [visibleTiers,    setVisibleTiers]    = useState<Set<string>>(new Set(ALL_TIERS))
   const [showNtaBorders,   setShowNtaBorders]   = useState(false)
@@ -102,7 +92,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     setShowWelcome(false)
   }
 
-  const config            = DATASET_CONFIG[dataset]
+  const config            = LENS_CONFIG[lens]
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])
   const selectedNtasArray = useMemo(() => [...selectedNtas], [selectedNtas])
 
@@ -125,85 +115,68 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     if (selected) setExplainerExpanded(false)
   }, [selected])
 
-  function switchDataset(d: Dataset) {
-    if (d === dataset) return
-    setDataset(d)
-    setSelected(null)
+  function switchLens(d: Lens) {
+    if (d === lens) return
+    setLens(d)
+    // The selection stays — the combined sidebar shows both datasets regardless
+    // of the active color lens.
     setVisibleTiers(new Set(ALL_TIERS))
     setExplainerExpanded(false)
     router.replace(d === 'DOB' ? '/?mode=dob' : '/', { scroll: false })
   }
 
-  function handleDobSearchSelect(b: BuildingSummary) {
-    setSelected({
-      dataset: 'DOB',
-      building: {
-        bin: b.bin,
-        address: b.address,
-        borough: b.borough,
-        zip_code: b.zip_code,
-        total_complaints: b.total_complaints,
-        open_complaints: b.open_complaints,
-        priority_a_complaints: b.priority_a_complaints,
-        risk_level: b.risk_level ?? null,
-      },
-    })
+  // Search hits the DOB building index (broad residential coverage) for the
+  // DOB half, then fetches the HPD complaint summary so the combined sidebar
+  // can render both halves. Either half may legitimately have no record.
+  async function handleSearchSelect(b: BuildingSummary) {
     if (b.latitude != null && b.longitude != null) {
       setFlyTarget(prev => ({ lat: b.latitude!, lng: b.longitude!, id: (prev?.id ?? 0) + 1 }))
     }
-  }
-
-  function handleHpdSearchSelect(b: HpdComplaintBuildingSummary) {
-    setSelected({
-      dataset: 'HPD',
-      building: {
-        bin: b.bin,
-        address: b.address,
-        borough: b.borough,
-        zip_code: b.zip_code,
-        risk_level: b.risk_level ?? null,
-        total_complaints: b.total_complaints,
-        open_complaints: b.open_complaints,
-        open_emergency_complaints: b.open_emergency_complaints,
-      },
-    })
-    if (b.latitude != null && b.longitude != null) {
-      setFlyTarget(prev => ({ lat: b.latitude!, lng: b.longitude!, id: (prev?.id ?? 0) + 1 }))
+    const base: UnifiedBuilding = {
+      bin:            b.bin,
+      address:        b.address,
+      borough:        b.borough,
+      zip_code:       b.zip_code,
+      dob_risk_level: b.risk_level ?? null,
+      dob_total:      b.total_complaints,
+      dob_open:       b.open_complaints,
+      dob_priority_a: b.priority_a_complaints,
+    }
+    setSelected(base)
+    try {
+      const res = await fetch(`/api/proxy/hpd-complaints/building/search?q=${encodeURIComponent(b.bin)}`)
+      const results: HpdComplaintBuildingSummary[] = res.ok ? await res.json() : []
+      const h = results.find(r => r.bin === b.bin)
+      setSelected(prev => prev && prev.bin === b.bin ? {
+        ...prev,
+        hpd_risk_level:     h?.risk_level ?? null,
+        hpd_total:          h?.total_complaints ?? null,
+        hpd_open:           h?.open_complaints ?? null,
+        hpd_open_emergency: h?.open_emergency_complaints ?? null,
+      } : prev)
+    } catch {
+      /* HPD half stays unresolved — sidebar shows "No HPD records" */
     }
   }
 
+  // Map clicks carry the full union feature: both datasets in one object.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleMapSelect(raw: any) {
     if (!raw) { setSelected(null); return }
-    if (dataset === 'DOB') {
-      setSelected({
-        dataset: 'DOB',
-        building: {
-          bin:                    raw.bin,
-          address:                raw.address ?? null,
-          borough:                raw.borough ?? null,
-          zip_code:               raw.zip_code ?? null,
-          total_complaints:       raw.total_complaints ?? 0,
-          open_complaints:        raw.open_complaints ?? 0,
-          priority_a_complaints:  raw.priority_a_complaints ?? 0,
-          risk_level:             raw.risk_level ?? null,
-        },
-      })
-    } else {
-      setSelected({
-        dataset: 'HPD',
-        building: {
-          bin:                        raw.bin,
-          address:                    raw.address ?? null,
-          borough:                    raw.borough ?? null,
-          zip_code:                   raw.zip_code ?? null,
-          risk_level:                 raw.risk_level ?? null,
-          total_complaints:           raw.total_complaints ?? 0,
-          open_complaints:            raw.open_complaints ?? 0,
-          open_emergency_complaints:  raw.open_emergency_complaints ?? 0,
-        },
-      })
-    }
+    setSelected({
+      bin:                raw.bin,
+      address:            raw.address ?? null,
+      borough:            raw.borough ?? null,
+      zip_code:           raw.zip_code ?? null,
+      dob_risk_level:     raw.dob_risk_level ?? null,
+      dob_total:          raw.dob_total ?? null,
+      dob_open:           raw.dob_open ?? null,
+      dob_priority_a:     raw.dob_priority_a ?? null,
+      hpd_risk_level:     raw.hpd_risk_level ?? null,
+      hpd_total:          raw.hpd_total ?? null,
+      hpd_open:           raw.hpd_open ?? null,
+      hpd_open_emergency: raw.hpd_open_emergency ?? null,
+    })
   }
 
   function toggleTier(tier: string) {
@@ -238,22 +211,28 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     </div>
   )
 
-  const selectedBin = selected?.building.bin ?? null
+  const selectedBin = selected?.bin ?? null
 
   // ── Shared overlay content (rendered in floating cards on desktop, bottom sheets on mobile) ──
 
   const datasetInner = (
     <>
+      {/* Color-by label */}
+      <div style={{ padding: '8px 12px 0' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252' }}>
+          Color by
+        </span>
+      </div>
       {/* Toggle row */}
       <div style={{ padding: 4, display: 'flex', gap: 3 }}>
-        {(['HPD', 'DOB'] as Dataset[]).map(d => (
+        {(['HPD', 'DOB'] as Lens[]).map(d => (
           <button
             key={d}
-            onClick={() => switchDataset(d)}
+            onClick={() => switchLens(d)}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '5px 10px', borderRadius: 9, border: 'none', cursor: 'pointer',
-              background: dataset === d ? '#111111' : 'transparent',
+              background: lens === d ? '#111111' : 'transparent',
               transition: 'background 0.15s',
               gap: 3,
             }}
@@ -261,7 +240,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
             <span style={{
               fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em',
               textTransform: 'uppercase', fontWeight: 600,
-              color: dataset === d ? '#FFFFFF' : '#525252',
+              color: lens === d ? '#FFFFFF' : '#525252',
               transition: 'color 0.15s',
             }}>
               {d === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
@@ -304,19 +283,19 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
       {/* Risk level */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
-          {config.legendLabel}
+          Risk level
         </p>
-        {visibleTiers.size < config.legend.length && (
+        {visibleTiers.size < LEGEND.length && (
           <button
             onClick={() => setVisibleTiers(new Set(ALL_TIERS))}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: ACCENT_COLOR, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             Reset
           </button>
         )}
       </div>
 
-      {config.legend.map(({ tier, color, label }) => {
+      {LEGEND.map(({ tier, color, label }) => {
         const active = visibleTiers.has(tier)
         return (
           <div
@@ -359,7 +338,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               {selectedNtas.size > 0 && (
                 <button
                   onClick={e => { e.stopPropagation(); setSelectedNtas(new Set()) }}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: config.accentColor, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: ACCENT_COLOR, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
                   Clear
                 </button>
@@ -411,12 +390,9 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     </>
   )
 
-  const sidebar =
-    selected?.dataset === 'DOB'
-      ? <BuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
-      : selected?.dataset === 'HPD'
-      ? <HpdBuildingSidebar building={selected.building} onClose={() => setSelected(null)} />
-      : null
+  const sidebar = selected
+    ? <CombinedBuildingSidebar building={selected} onClose={() => setSelected(null)} />
+    : null
 
   const sheetChevron = (open: boolean) => (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
@@ -435,7 +411,8 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         selectedNtas={selectedNtasArray}
         onNtaSelect={nta => nta && toggleNta(nta.code)}
         onNtaListLoad={setNtaList}
-        clustersUrl={config.clustersUrl}
+        clustersUrl={CLUSTERS_URL}
+        lens={lens}
         isMobile={isMobile}
       />
 
@@ -461,20 +438,13 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
           {/* Search + desktop links — fills the row between logo and hamburger on mobile */}
           <div className="flex-1 sm:flex-initial sm:basis-[420px]" style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {dataset === 'DOB' ? (
-                <SearchBar
-                  onSelect={handleDobSearchSelect}
-                  searchUrl={config.searchUrl}
-                />
-              ) : (
-                <SearchBar
-                  onSelect={handleHpdSearchSelect as Parameters<typeof SearchBar>[0]['onSelect']}
-                  searchUrl={config.searchUrl}
-                />
-              )}
+              <SearchBar
+                onSelect={handleSearchSelect}
+                searchUrl={SEARCH_URL}
+              />
             </div>
             <Link
-              href={dataset === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
+              href={lens === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
               className="hidden sm:inline"
               style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
@@ -532,7 +502,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               }}
             >
               <Link
-                href={dataset === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
+                href={lens === 'HPD' ? '/hpd/leaderboard' : '/dob/leaderboard'}
                 onClick={() => setNavMenuOpen(false)}
                 style={{
                   display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px',
@@ -628,7 +598,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, padding: '0 16px', background: 'none', border: 'none', cursor: 'pointer' }}
             >
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: '#111111', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {dataset === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
+                {lens === 'HPD' ? 'Housing Conditions' : 'Building Safety'}
               </span>
               {sheetChevron(mobileSheet === 'dataset')}
             </button>

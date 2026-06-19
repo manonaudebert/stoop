@@ -114,6 +114,125 @@ async def get_clusters(
     return JSONResponse(content=geojson)
 
 
+# ── unified DOB + HPD clusters ──────────────────────────────────────────────────
+#
+# One point per building across BOTH datasets. A FULL OUTER JOIN on bin means a
+# building shows up whether it has DOB records, HPD records, or both — the map
+# renders the union, never just one source. Each feature carries both risk
+# levels (dob_*/hpd_*) so the frontend can color by whichever lens is active
+# without refetching. Identity/geo columns are coalesced because a building may
+# be present in only one of the two summary tables.
+#
+# The bbox/borough predicates are written as per-table OR branches (rather than
+# filtering the coalesced column) so Postgres can still use each table's
+# lat/lng and borough indexes instead of materializing the full join first.
+
+_UNIFIED_SELECT = """
+    SELECT
+        COALESCE(d.bin, h.bin)             AS bin,
+        COALESCE(d.address, h.address)     AS address,
+        COALESCE(d.borough, h.borough)     AS borough,
+        COALESCE(d.zip_code, h.zip_code)   AS zip_code,
+        COALESCE(d.nta_code, h.nta_code)   AS nta_code,
+        COALESCE(d.latitude, h.latitude)   AS latitude,
+        COALESCE(d.longitude, h.longitude) AS longitude,
+        d.risk_level            AS dob_risk_level,
+        d.total_complaints      AS dob_total,
+        d.open_complaints       AS dob_open,
+        d.priority_a_complaints AS dob_priority_a,
+        h.risk_level                AS hpd_risk_level,
+        h.total_complaints          AS hpd_total,
+        h.open_complaints           AS hpd_open,
+        h.open_emergency_complaints AS hpd_open_emergency,
+        h.heat_complaints           AS hpd_heat,
+        h.latest_complaint_date     AS hpd_latest_date
+    FROM building_summary d
+    FULL OUTER JOIN hpd_complaints_building_summary h ON d.bin = h.bin
+"""
+
+_UNIFIED_BOROUGH_SQL = text(_UNIFIED_SELECT + """
+    WHERE (d.borough = :borough AND d.latitude IS NOT NULL)
+       OR (h.borough = :borough AND h.latitude IS NOT NULL)
+    ORDER BY hashtext(COALESCE(d.bin, h.bin))
+    LIMIT :per_borough
+""")
+
+_UNIFIED_BBOX_SQL = text(_UNIFIED_SELECT + """
+    WHERE (d.latitude  BETWEEN :south AND :north
+       AND d.longitude BETWEEN :west  AND :east)
+       OR (h.latitude  BETWEEN :south AND :north
+       AND h.longitude BETWEEN :west  AND :east)
+""")
+
+
+@router.get("/unified/clusters")
+@limiter.limit("120/minute")
+async def get_unified_clusters(
+    request: Request,
+    west: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    north: float = Query(...),
+    zoom: float = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """GeoJSON FeatureCollection of every building across DOB and HPD, joined on
+    bin. Powers the single consolidated map: each feature carries both datasets'
+    risk levels and stats so the active color lens is a paint swap, not a fetch."""
+    if zoom >= CLUSTER_MAX_ZOOM:
+        cache_key = f"unified_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
+    else:
+        cache_key = "unified_clusters:citywide"
+    cached = cache_get(cache_key)
+    if cached:
+        return JSONResponse(content=cached)
+
+    if zoom >= CLUSTER_MAX_ZOOM:
+        bbox = {"south": south, "north": north, "west": west, "east": east}
+        result = await db.execute(_UNIFIED_BBOX_SQL, bbox)
+        all_rows = result.all()
+    else:
+        all_rows = []
+        for borough in BOROUGHS:
+            result = await db.execute(_UNIFIED_BOROUGH_SQL, {"borough": borough, "per_borough": PER_BOROUGH_LIMIT})
+            all_rows.extend(result.all())
+
+    features = []
+    for r in all_rows:
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [r.longitude, r.latitude]},
+            "properties": {
+                "bin": r.bin,
+                "address": r.address,
+                "borough": r.borough,
+                "zip_code": r.zip_code,
+                "nta_code": r.nta_code,
+                # Presence flags (1/0) — a building absent from a dataset is
+                # "no data" for that lens, NOT low risk; the frontend greys it
+                # out and excludes it from that lens's cluster severity.
+                "dob_present": 1 if r.dob_risk_level is not None else 0,
+                "hpd_present": 1 if r.hpd_risk_level is not None else 0,
+                # DOB (building safety) — null when the building has no DOB record
+                "dob_risk_level":  r.dob_risk_level,
+                "dob_total":       r.dob_total,
+                "dob_open":        r.dob_open,
+                "dob_priority_a":  r.dob_priority_a,
+                # HPD (housing conditions) — null when the building has no HPD record
+                "hpd_risk_level":     r.hpd_risk_level,
+                "hpd_total":          r.hpd_total,
+                "hpd_open":           r.hpd_open,
+                "hpd_open_emergency": r.hpd_open_emergency,
+                "hpd_heat":           r.hpd_heat,
+                "hpd_latest_date":    str(r.hpd_latest_date) if r.hpd_latest_date else None,
+            },
+        })
+
+    geojson = {"type": "FeatureCollection", "features": features}
+    cache_set(cache_key, geojson, ttl_seconds=86400)
+    return JSONResponse(content=geojson)
+
+
 @router.get("/heatmap")
 async def get_heatmap(
     borough: str | None = None,

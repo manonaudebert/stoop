@@ -21,16 +21,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://stoopnyc.org"),
   title: "stoop",
   description: "NYC housing data, finally built for tenants.",
   openGraph: {
     title: "stoop",
     description: "Before you sign a lease, search any NYC address for open violations, complaint trends, and how a building compares to its neighbors.",
-    url: "https://www.stoopnyc.org/",
+    url: "https://stoopnyc.org/",
     siteName: "stoop",
     images: [
       {
-        url: "https://www.stoopnyc.org/ogimage.png",
+        url: "https://stoopnyc.org/ogimage.png",
         width: 1200,
         height: 630,
         alt: "stoop: NYC building complaint and violation history",

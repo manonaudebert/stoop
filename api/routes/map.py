@@ -123,11 +123,21 @@ async def get_clusters(
 # without refetching. Identity/geo columns are coalesced because a building may
 # be present in only one of the two summary tables.
 #
-# The bbox/borough predicates are written as per-table OR branches (rather than
-# filtering the coalesced column) so Postgres can still use each table's
-# lat/lng and borough indexes instead of materializing the full join first.
+# CRITICAL: the bbox/borough filter is applied to EACH table inside a CTE before
+# the join, not as an OR over the joined result. A FULL OUTER JOIN with a WHERE
+# that ORs predicates across both tables cannot push either predicate down — the
+# planner has to hash-join both whole tables (~780k rows) and then filter, which
+# made the map ~3x slower. Filtering each side first lets each table use its own
+# lat/lng and borough indexes, so the join runs over only the matching rows.
 
-_UNIFIED_SELECT = """
+_DOB_COLS = ("bin, address, borough, zip_code, nta_code, latitude, longitude, "
+             "risk_level, total_complaints, open_complaints, priority_a_complaints")
+_HPD_COLS = ("bin, address, borough, zip_code, nta_code, latitude, longitude, "
+             "risk_level, total_complaints, open_complaints, open_emergency_complaints, "
+             "heat_complaints, latest_complaint_date")
+
+# Joins the two pre-filtered CTEs (d, h) and projects the unified shape.
+_UNIFIED_JOIN = """
     SELECT
         COALESCE(d.bin, h.bin)             AS bin,
         COALESCE(d.address, h.address)     AS address,
@@ -146,22 +156,36 @@ _UNIFIED_SELECT = """
         h.open_emergency_complaints AS hpd_open_emergency,
         h.heat_complaints           AS hpd_heat,
         h.latest_complaint_date     AS hpd_latest_date
-    FROM building_summary d
-    FULL OUTER JOIN hpd_complaints_building_summary h ON d.bin = h.bin
+    FROM d
+    FULL OUTER JOIN h ON d.bin = h.bin
 """
 
-_UNIFIED_BOROUGH_SQL = text(_UNIFIED_SELECT + """
-    WHERE (d.borough = :borough AND d.latitude IS NOT NULL)
-       OR (h.borough = :borough AND h.latitude IS NOT NULL)
+_UNIFIED_BOROUGH_SQL = text(f"""
+    WITH d AS (
+        SELECT {_DOB_COLS} FROM building_summary
+        WHERE borough = :borough AND latitude IS NOT NULL
+    ),
+    h AS (
+        SELECT {_HPD_COLS} FROM hpd_complaints_building_summary
+        WHERE borough = :borough AND latitude IS NOT NULL
+    )
+    {_UNIFIED_JOIN}
     ORDER BY hashtext(COALESCE(d.bin, h.bin))
     LIMIT :per_borough
 """)
 
-_UNIFIED_BBOX_SQL = text(_UNIFIED_SELECT + """
-    WHERE (d.latitude  BETWEEN :south AND :north
-       AND d.longitude BETWEEN :west  AND :east)
-       OR (h.latitude  BETWEEN :south AND :north
-       AND h.longitude BETWEEN :west  AND :east)
+_UNIFIED_BBOX_SQL = text(f"""
+    WITH d AS (
+        SELECT {_DOB_COLS} FROM building_summary
+        WHERE latitude  BETWEEN :south AND :north
+          AND longitude BETWEEN :west  AND :east
+    ),
+    h AS (
+        SELECT {_HPD_COLS} FROM hpd_complaints_building_summary
+        WHERE latitude  BETWEEN :south AND :north
+          AND longitude BETWEEN :west  AND :east
+    )
+    {_UNIFIED_JOIN}
 """)
 
 

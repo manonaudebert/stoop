@@ -14,6 +14,7 @@ from routes.building import router as building_router
 from routes.hpd import router as hpd_router
 from routes.hpd_complaints import router as hpd_complaints_router
 from routes.map import router as map_router
+from routes.sf import router as sf_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,6 +90,7 @@ app.include_router(building_router)
 app.include_router(hpd_router)
 app.include_router(hpd_complaints_router)
 app.include_router(map_router)
+app.include_router(sf_router)
 
 
 @app.exception_handler(Exception)

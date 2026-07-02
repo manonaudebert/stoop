@@ -203,6 +203,82 @@ The algorithm is identical: compare the annualised rate of the last 2 years
 (`recent_complaint_count / 2`) against the prior 3-year window (`prior_complaint_count / 3`).
 A difference of more than ±1 complaint per year crosses the threshold.
 
+### SF leaderboard (`/sf/leaderboard`)
+
+Source: `sf_housing_complaints_summary` (left-joined to `sf_violations_summary` for the
+open-violations column). Ranks parcels by recent 311 activity.
+
+| Sort key | Column | Direction |
+|---|---|---|
+| Primary | `recent_complaint_count` (last 2 yr) | DESC |
+
+Eligibility: `recent_complaint_count > 0 AND total_complaints >= 5`, optionally filtered
+by `neighborhood`. Displayed columns: last-2yr complaints (big), open DBI violations
+(`status = active`), trend arrow. Same `trend_direction` algorithm as the NYC leaderboards.
+
+---
+
+## SF building page (`/sf/building/{mapblklot}`)
+
+San Francisco is a **parallel section** that reuses the NYC methodology (severity-weighted,
+recency-decayed, size-normalized, neighborhood-percentile-ranked) with SF sources. Grain is
+the **parcel** (`mapblklot`), not the individual building; ~86% of parcels are 1:1 with a
+building. Two panes mirror two of the three NYC panes.
+
+Views: `sf_housing_complaints_summary` (311 reports; analog of
+`hpd_complaints_building_summary`) and `sf_violations_summary` (DBI Notices of Violation;
+analog of `hpd_building_summary`). Both are parcel-grained materialized views defined in
+`ingest/migration/migrate_add_sf.sql` (and mirrored in `schema.sql`).
+
+### Severity weights (analog of HPD class)
+
+Two locked severity maps, both on the 15 / 8 / 3 scale (severe / serious / minor); the
+authoritative lists live in `SF_EXPANSION_PLAN.md` and the view `CASE` expressions.
+
+- **311 `service_subtype`** — e.g. `heat_lack_of_heat`, `paint_lead_violating_safe_practices`,
+  fire/smoke items = 15; pests, mold, plumbing, broken doors/windows = 8; general maintenance,
+  peeling paint, garbage, noise = 3. Regulatory subtypes (illegal construction/guest-room,
+  visitor-policy) = **0** (excluded from risk). Unknown subtypes default to 3.
+- **DBI NOV `nov_category_description`** — `fire section`, `smoke detection section`,
+  `lead section` = 15; `building`, `plumbing and electrical`, `interior surfaces`,
+  `sanitation`, `security requirements` sections = 8; everything else (incl. blank) = 3.
+
+### Recency decay, scale, and density
+
+Same shape as NYC: each record's severity weight is multiplied by a recency factor
+(`1.00` ≤2 yr, `0.50` 2–5 yr, `0.25` 5–10 yr; older contributes 0) and summed to
+`weighted_complaint_sum` / `weighted_violation_sum`.
+
+`estimated_scale` = parcel footprint area (`SUM` over footprints) × height
+(`MAX(hgt_median_m)`, floored at 1 m). Density = `weighted_sum / estimated_scale × 1000`.
+**Footprint fallback**: when a parcel has no footprint linkage, density falls back to the
+raw `weighted_sum` (unitless but orderable) so every building still participates in the
+neighborhood percentile instead of being forced to `Very low`.
+
+### Neighborhood percentile & risk level
+
+`PERCENT_RANK()` over density, **partitioned by `analysis_neighborhood`** (replaces NYC's
+`nta_code`; no residential-type filter — SF neighborhoods are already residential-weighted).
+Risk floors are tuned to SF volume: complaints `total_complaints < 2` and violations
+`total_violations < 3` → `Very low` before the percentile ranks them (SF averages ~3.1
+complaints/building, so the NYC floor of 5 would flatten most buildings). Otherwise the
+same percentile cutoffs as NYC: `<15` Very low, `<40` Low, `<70` Moderate, `<90` High,
+else Very high.
+
+### Panes and dropped NYC cards
+
+- **311 complaints pane** = what tenants *reported* (volume, category, recency, trend).
+  No `open_complaints` KPI — 311 auto-closes (~0.9% open); the open signal lives on the
+  violations pane instead. No `rent_impairing` — no SF equivalent field.
+- **DBI violations pane** = what's *unresolved*. `open_violations` = rows with
+  `status = active`; `open_lead_violations` / `open_fire_violations` filter that by category.
+
+### Top categories / timelines (live queries)
+
+`/complaints-breakdown` and `/violations-breakdown` mirror the NYC breakdown cards with the
+same 5-year / all-time (`years=0`) window toggle. Timelines are monthly `COUNT(*)` from the
+raw `sf_311_housing` / `sf_dbi_nov` tables.
+
 ---
 
 ## Cross-cutting rules

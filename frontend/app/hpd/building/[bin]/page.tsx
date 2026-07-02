@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { fmtDate } from '@/lib/fmt'
+import { pctHeadline, pctSub } from '@/lib/rankCopy'
 import RankViz from '@/components/RankViz'
 import {
   getBuilding,
@@ -20,6 +21,10 @@ import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import OpenViolationAgesCard from '@/components/OpenViolationAgesCard'
 import HorizontalBarChart from '@/components/HorizontalBarChart'
+import CombinedTrendViz from '@/components/CombinedTrendViz'
+import TrendStatCard from '@/components/TrendStatCard'
+import StatListCard from '@/components/StatListCard'
+import WindowToggle from '@/components/WindowToggle'
 import type { TimelinePoint, HpdViolation, HpdComplaint, ComplaintTypePeriodItem, ComplaintResolutionItem, ViolationAgeBucketItem } from '@/lib/types'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -234,76 +239,6 @@ function HazardViz({ openC, openB }: { openC: number; openB: number }) {
   )
 }
 
-function CombinedTrendViz({ violTimeline, complTimeline }: {
-  violTimeline: TimelinePoint[]; complTimeline: TimelinePoint[]
-}) {
-  const cutoffYear = new Date().getFullYear() - 5
-  const violByYear: Record<number, number> = {}
-  const complByYear: Record<number, number> = {}
-
-  for (const pt of violTimeline) {
-    const y = parseInt(pt.month.slice(0, 4))
-    if (y >= cutoffYear) violByYear[y] = (violByYear[y] ?? 0) + pt.count
-  }
-  for (const pt of complTimeline) {
-    const y = parseInt(pt.month.slice(0, 4))
-    if (y >= cutoffYear) complByYear[y] = (complByYear[y] ?? 0) + pt.count
-  }
-
-  const years = Array.from(
-    new Set([...Object.keys(violByYear), ...Object.keys(complByYear)].map(Number))
-  ).sort()
-
-  if (years.length < 2) {
-    return (
-      <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <line x1="0" y1="48" x2="220" y2="48" stroke="#E5E5E5" strokeWidth="0.5" />
-        <text x="110" y="30" textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="9" fill="#737373">not enough history</text>
-      </svg>
-    )
-  }
-
-  const violVals = years.map(y => violByYear[y] ?? 0)
-  const complVals = years.map(y => complByYear[y] ?? 0)
-  const maxVal = Math.max(...violVals, ...complVals, 1)
-  const baseY = 50
-  const padX = 8
-
-  function pts(vals: number[]) {
-    return vals.map((v, i) => ({
-      x: padX + (i / (years.length - 1)) * (220 - 2 * padX),
-      y: baseY - Math.round((v / maxVal) * (baseY - 10)),
-    }))
-  }
-
-  const vPts = pts(violVals)
-  const cPts = pts(complVals)
-  const vPath = vPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-  const cPath = cPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ')
-  const firstX = vPts[0].x
-  const lastX  = vPts[vPts.length - 1].x
-
-  return (
-    <svg viewBox="0 0 220 76" style={{ width: '100%', height: 'auto', display: 'block' }}>
-      <line x1="0" y1={baseY} x2="220" y2={baseY} stroke="#E5E5E5" strokeWidth="0.5" />
-      <path d={vPath} fill="none" stroke="#7F1D1D" strokeWidth="1.5" strokeLinejoin="round" />
-      <circle cx={vPts[vPts.length - 1].x} cy={vPts[vPts.length - 1].y} r="2.5" fill="#7F1D1D" />
-      <path d={cPath} fill="none" stroke="#1D4ED8" strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="4 2" />
-      <circle cx={cPts[cPts.length - 1].x} cy={cPts[cPts.length - 1].y} r="2.5" fill="#1D4ED8" />
-      <text x={firstX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
-        &apos;{String(years[0]).slice(2)}
-      </text>
-      <text x={lastX} y={baseY + 10} textAnchor="middle" fontFamily="'JetBrains Mono'" fontSize="8" fill="#6B6B6B">
-        &apos;{String(years[years.length - 1]).slice(2)}
-      </text>
-      <line x1="0" y1="68" x2="10" y2="68" stroke="#7F1D1D" strokeWidth="1.5" />
-      <text x="13" y="71" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Violations</text>
-      <line x1="68" y1="68" x2="78" y2="68" stroke="#1D4ED8" strokeWidth="1.5" strokeDasharray="4 2" />
-      <text x="81" y="71" fontFamily="'JetBrains Mono'" fontSize="8" fill="#525252">Complaints</text>
-    </svg>
-  )
-}
-
 function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) {
   const items = [
     { label: 'Open Class C violations (immed. hazardous)', value: openC, alert: true },
@@ -323,139 +258,6 @@ function OpenIssueMiniTable({ openC, openB }: { openC: number; openB: number }) 
   )
 }
 
-
-function OpenViolationsCard({ open, classC, classB, rentImpairing }: {
-  open: number; classC: number; classB: number; rentImpairing: number
-}) {
-  const rows = [
-    { label: 'Class C (immed. haz.)', value: classC, alert: classC > 0,
-      tooltip: 'Verified violations posing immediate danger to occupants, including no heat or hot water, lead paint, mold, rodent/roach infestations, and structural hazards. Default correction window is 24 hours, with longer windows for certain categories (e.g., 21 days for lead and pests).' },
-    { label: 'Class B (hazardous)',   value: classB, alert: classB > 0, tooltip: 'Verified hazardous violations that may affect health or safety, including leaks, mold, broken windows or doors, unsafe electrical conditions, and plumbing issues. Default correction window is 30 days.' },
-    { label: 'Rent-impairing',        value: rentImpairing, alert: rentImpairing > 0,
-      tooltip: 'A specific subset of violations designated by HPD under Multiple Dwelling Law as constituting a fire hazard or serious threat to life, health, or safety. If left uncorrected for more than six months, the landlord is barred from collecting rent (subject to the tenant following statutory procedures).' },
-  ]
-  return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
-        Open violations
-      </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
-        {open.toLocaleString()}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {rows.map(({ label, value, alert, tooltip }) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderTop: '0.5px solid #F5F5F5' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
-              {label}
-              {tooltip && <TooltipIcon text={tooltip} />}
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: alert && value > 0 ? '#7F1D1D' : value > 0 ? '#111111' : '#6B6B6B' }}>
-              {value.toLocaleString()}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TotalViolationsCard({ total, timeline }: { total: number; timeline: TimelinePoint[] }) {
-  const now = new Date()
-  const firstYear = timeline.length > 0 ? parseInt(timeline[0].month.slice(0, 4)) : now.getFullYear()
-  const yearsSpanned = now.getFullYear() - firstYear + 1
-  const avgPerYearRaw = yearsSpanned > 0 ? total / yearsSpanned : 0
-  const avgPerYear = Math.round(avgPerYearRaw)
-  const avgPerYearDisplay = avgPerYearRaw > 0 && avgPerYearRaw < 1 ? '<1' : avgPerYear.toLocaleString()
-
-  const twoYearsAgo  = `${now.getFullYear() - 2}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const fourYearsAgo = `${now.getFullYear() - 4}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const recent = timeline.filter(p => p.month >= twoYearsAgo).reduce((s, p) => s + p.count, 0)
-  const prior  = timeline.filter(p => p.month >= fourYearsAgo && p.month < twoYearsAgo).reduce((s, p) => s + p.count, 0)
-
-  let trendLabel: string
-  let trendColor: string
-  if (avgPerYear < 2) {
-    trendLabel = '— Not enough history to determine trend'
-    trendColor = '#6B6B6B'
-  } else if (prior === 0) {
-    trendLabel = recent > 0 ? '↑ Rising — no prior history' : '— No trend data'
-    trendColor = recent > 0 ? '#92400E' : '#6B6B6B'
-  } else {
-    const pct = Math.round(((recent - prior) / prior) * 100)
-    const counts = `(${recent.toLocaleString()} vs ${prior.toLocaleString()} prior 2 yrs)`
-    if (pct >= 10)       { trendLabel = `↑ Up ${pct}% in the last 2 years ${counts}`;             trendColor = '#7F1D1D' }
-    else if (pct <= -10) { trendLabel = `↓ Down ${Math.abs(pct)}% in the last 2 years ${counts}`; trendColor = '#166534' }
-    else                 { trendLabel = '→ Stable in the last 2 years';                            trendColor = '#737373' }
-  }
-
-  return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
-        Total violations since {firstYear}
-      </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
-        {total.toLocaleString()}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
-          {avgPerYearDisplay} per year avg.
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: trendColor }}>
-          {trendLabel}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function TotalComplaintsCard({ total, timeline }: { total: number; timeline: TimelinePoint[] }) {
-  const now = new Date()
-  const firstYear = timeline.length > 0 ? parseInt(timeline[0].month.slice(0, 4)) : now.getFullYear()
-  const yearsSpanned = now.getFullYear() - firstYear + 1
-  const avgPerYearRaw = yearsSpanned > 0 ? total / yearsSpanned : 0
-  const avgPerYear = Math.round(avgPerYearRaw)
-  const avgPerYearDisplay = avgPerYearRaw > 0 && avgPerYearRaw < 1 ? '<1' : avgPerYear.toLocaleString()
-
-  const twoYearsAgo  = `${now.getFullYear() - 2}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const fourYearsAgo = `${now.getFullYear() - 4}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const recent = timeline.filter(p => p.month >= twoYearsAgo).reduce((s, p) => s + p.count, 0)
-  const prior  = timeline.filter(p => p.month >= fourYearsAgo && p.month < twoYearsAgo).reduce((s, p) => s + p.count, 0)
-
-  let trendLabel: string
-  let trendColor: string
-  if (avgPerYear < 2) {
-    trendLabel = '— Not enough history to determine trend'
-    trendColor = '#6B6B6B'
-  } else if (prior === 0) {
-    trendLabel = recent > 0 ? '↑ Rising — no prior history' : '— No trend data'
-    trendColor = recent > 0 ? '#92400E' : '#6B6B6B'
-  } else {
-    const pct = Math.round(((recent - prior) / prior) * 100)
-    const counts = `(${recent.toLocaleString()} vs ${prior.toLocaleString()} prior 2 yrs)`
-    if (pct >= 10)       { trendLabel = `↑ Up ${pct}% in the last 2 years ${counts}`;             trendColor = '#7F1D1D' }
-    else if (pct <= -10) { trendLabel = `↓ Down ${Math.abs(pct)}% in the last 2 years ${counts}`; trendColor = '#166534' }
-    else                 { trendLabel = '→ Stable in the last 2 years';                            trendColor = '#737373' }
-  }
-
-  return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '18px 20px' }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', marginBottom: 8 }}>
-        Total complaints since {firstYear}
-      </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 500, color: '#111111', lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 14 }}>
-        {total.toLocaleString()}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
-          {avgPerYearDisplay} per year avg.
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: trendColor }}>
-          {trendLabel}
-        </span>
-      </div>
-    </div>
-  )
-}
 
 const RESOLUTION_ROWS: { keys: string[]; label: string }[] = [
   { keys: ['no_access', 'partial_no_access'],          label: 'No access' },
@@ -740,39 +542,11 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
   const violPct = violations?.violations_density_pct ?? null
   const complPct = complaints?.complaints_density_pct ?? null
 
-function pctHeadline(vp: number | null, cp: number | null): string {
-    const primary = vp ?? cp
-    const metric = vp !== null ? 'violations' : 'complaints'
-    if (primary === null) return 'Not enough data to compare building size'
-    const better = Math.round(100 - primary)
-    if (primary <= 20) return `Fewer ${metric} than ${better}% of nearby buildings`
-    if (primary <= 40) return `Below-average ${metric} for the neighborhood`
-    if (primary <= 60) return `Around average ${metric} for the neighborhood`
-    if (primary <= 80) return `Above-average ${metric} for the neighborhood`
-    return `More ${metric} than ${primary}% of nearby buildings`
-  }
-
-  function pctPhrase(pct: number, metric: string): string {
-    const r = Math.round(pct)
-    return pct >= 50
-      ? `more ${metric} than ${r}% of buildings`
-      : `fewer ${metric} than ${100 - r}% of buildings`
-  }
-
-  function pctSub(vp: number | null, cp: number | null, nta: string): string {
-    if (vp === null && cp === null)
-      return 'Building footprint or height data is missing — size-normalized ranking unavailable.'
-    const loc = nta || 'the neighborhood'
-    const parts: string[] = []
-    if (vp !== null) parts.push(pctPhrase(vp, 'violations'))
-    if (cp !== null) parts.push(pctPhrase(cp, 'complaints'))
-    const joined = parts.join(' and ')
-    const first = joined.charAt(0).toUpperCase() + joined.slice(1)
-    return `${first} in ${loc}.\nSize-normalized against residential buildings in the neighborhood for issues in the last 10 years.`
-  }
-
   const neighborhoodHeadline = pctHeadline(violPct, complPct)
-  const neighborhoodSub = pctSub(violPct, complPct, ntaName)
+  const neighborhoodSub = pctSub(violPct, complPct, ntaName, {
+    missingMessage: 'Building footprint or height data is missing — size-normalized ranking unavailable.',
+    trailingNote: 'Size-normalized against residential buildings in the neighborhood for issues in the last 10 years.',
+  })
 
   const metaLine   = [borough, zipCode && `ZIP ${zipCode}`, `BIN ${bin}`, ntaName].filter(Boolean).join(' · ')
 
@@ -893,7 +667,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
               </Link>
             }
           >
-            <CombinedTrendViz violTimeline={violationTimeline} complTimeline={complaintTimeline} />
+            <CombinedTrendViz seriesA={violationTimeline} seriesB={complaintTimeline} />
           </InsightCard>
           <InsightCard eyebrow="Severity" aside="open violations" headline={hazardHeadline} sub={hazardSub} tooltip="HPD violations are categorized by severity, from Class A (non-hazardous) to Class C (immediately hazardous conditions requiring urgent correction).">
             <HazardViz openC={breakdownOpenC} openB={breakdownOpenB} />
@@ -906,20 +680,14 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Violations over time</h2>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
-                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
-                </div>
+                <WindowToggle fiveYrHref={cwUrl('5yr')} allHref={cwUrl('all')} allTime={cw === 'all'} />
               </div>
               <ViolationTimeline data={violationTimeline} latestDate={latestViolDate} showFull={cw === 'all'} />
             </div>
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Complaints over time</h2>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
-                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
-                </div>
+                <WindowToggle fiveYrHref={cwUrl('5yr')} allHref={cwUrl('all')} allTime={cw === 'all'} />
               </div>
               <ViolationTimeline data={complaintTimeline} latestDate={latestComplDate} showFull={cw === 'all'} />
             </div>
@@ -932,8 +700,19 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             Housing Preservation & Development Violations
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <TotalViolationsCard total={totalViolations} timeline={violationTimeline} />
-            <OpenViolationsCard open={openViolations} classC={openClassC} classB={openClassB} rentImpairing={rentImpairing} />
+            <TrendStatCard noun="violations" total={totalViolations} timeline={violationTimeline} />
+            <StatListCard
+              title="Open violations"
+              value={openViolations}
+              rows={[
+                { label: 'Class C (immed. haz.)', value: openClassC, alert: openClassC > 0,
+                  tooltip: 'Verified violations posing immediate danger to occupants, including no heat or hot water, lead paint, mold, rodent/roach infestations, and structural hazards. Default correction window is 24 hours, with longer windows for certain categories (e.g., 21 days for lead and pests).' },
+                { label: 'Class B (hazardous)', value: openClassB, alert: openClassB > 0,
+                  tooltip: 'Verified hazardous violations that may affect health or safety, including leaks, mold, broken windows or doors, unsafe electrical conditions, and plumbing issues. Default correction window is 30 days.' },
+                { label: 'Rent-impairing', value: rentImpairing, alert: rentImpairing > 0,
+                  tooltip: 'A specific subset of violations designated by HPD under Multiple Dwelling Law as constituting a fire hazard or serious threat to life, health, or safety. If left uncorrected for more than six months, the landlord is barred from collecting rent (subject to the tenant following statutory procedures).' },
+              ]}
+            />
             <OpenViolationAgesCard data={openViolationAges} />
           </div>
         </div>
@@ -943,7 +722,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             Housing Preservation & Development Complaints
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <TotalComplaintsCard total={totalComplaints} timeline={complaintTimeline} />
+            <TrendStatCard noun="complaints" total={totalComplaints} timeline={complaintTimeline} />
             <ComplaintResolutionCard data={complaintResolution} />
             <ComplaintTypePeriodCard data={complaintTypePeriod} />
           </div>
@@ -955,10 +734,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
             <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>Top violation categories</h2>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
-                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
-                </div>
+                <WindowToggle fiveYrHref={cwUrl('5yr')} allHref={cwUrl('all')} allTime={cw === 'all'} />
               </div>
               <HorizontalBarChart
                 data={activeViolCategories.map(([category, count]) => ({ label: toTitleCase(category), count, tooltip: VIOLATION_CATEGORY_TOOLTIPS[category] }))}
@@ -973,10 +749,7 @@ function pctHeadline(vp: number | null, cp: number | null): string {
                   Top complaint groups
                   <TooltipIcon text="HPD complaint types grouped into tenant-relevant categories. Each complaint is assigned to one group based on its minor category." />
                 </span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <Link href={cwUrl('5yr')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw !== 'all' ? '#111111' : 'transparent', color: cw !== 'all' ? '#FFFFFF' : '#737373', border: cw !== 'all' ? 'none' : '0.5px solid #D4D4D4' }}>5 yrs</Link>
-                  <Link href={cwUrl('all')} scroll={false} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, padding: '4px 9px', borderRadius: 6, textDecoration: 'none', background: cw === 'all' ? '#111111' : 'transparent', color: cw === 'all' ? '#FFFFFF' : '#737373', border: cw === 'all' ? 'none' : '0.5px solid #D4D4D4' }}>All time</Link>
-                </div>
+                <WindowToggle fiveYrHref={cwUrl('5yr')} allHref={cwUrl('all')} allTime={cw === 'all'} />
               </div>
               <HorizontalBarChart
                 data={[...COMPLAINT_BREAKDOWN_GROUPS]

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
+import CityToggle from './CityToggle'
 import CombinedBuildingSidebar, { type UnifiedBuilding } from './CombinedBuildingSidebar'
 import type { Lens } from './Map'
 import type { BuildingSummary, HpdComplaintBuildingSummary } from '@/lib/types'
@@ -428,7 +429,9 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
 
           <div style={{ width: '0.5px', height: 16, background: '#333333', flexShrink: 0 }} />
 
-          <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#A3A3A3', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <CityToggle current="NYC" variant="dark" nycHref="/" sfHref="/sf/map" />
+
+          <span className="hidden md:inline" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: '#A3A3A3', whiteSpace: 'nowrap', flexShrink: 0 }}>
             Building and housing data for NYC tenants
           </span>
 

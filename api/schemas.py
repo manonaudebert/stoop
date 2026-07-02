@@ -227,3 +227,80 @@ class ComplaintMinorBreakdownItem(BaseModel):
 class ViolationAgeBucketItem(BaseModel):
     bucket: str   # <30d | 30-90d | 3-12mo | 1-3yr | 3yr+
     count: int
+
+
+# ── SF (San Francisco) ────────────────────────────────────────────────────────
+
+class Sf311ComplaintResponse(BaseModel):
+    service_request_id: str
+    service_name: str | None
+    service_subtype: str | None
+    address: str | None
+    requested_datetime: str | None
+    status_description: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class SfNovResponse(BaseModel):
+    row_id: str
+    mapblklot: str | None
+    status: str | None
+    nov_category_description: str | None
+    item: str | None
+    nov_item_description: str | None
+    date_filed: date | None
+    neighborhood: str | None
+    location_lat: float | None
+    location_lon: float | None
+
+    model_config = {"from_attributes": True}
+
+
+class SfBuildingSummaryResponse(BaseModel):
+    mapblklot: str
+    address: str | None
+    neighborhood: str | None
+    latitude: float | None
+    longitude: float | None
+    # 311 complaints domain
+    total_complaints: int = 0
+    recent_complaint_count: int = 0
+    prior_complaint_count: int = 0
+    trend_direction: str | None = None
+    heat_complaints: int = 0
+    lead_complaints: int = 0
+    pest_complaints: int = 0
+    latest_complaint_date: date | None = None
+    complaints_density_pct: float | None = None
+    complaints_risk_level: str | None = None
+    # DBI violations domain
+    total_violations: int = 0
+    open_violations: int = 0
+    open_lead_violations: int = 0
+    open_fire_violations: int = 0
+    latest_violation_date: date | None = None
+    violations_density_pct: float | None = None
+    violations_risk_level: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class SfBuildingDetailResponse(SfBuildingSummaryResponse):
+    complaints: list[Sf311ComplaintResponse] = []
+    violations: list[SfNovResponse] = []
+    complaints_total_count: int = 0
+    violations_total_count: int = 0
+    page: int = 1
+    page_size: int = 50
+
+
+class SfComplaintBreakdownItem(BaseModel):
+    subtype: str
+    count: int
+
+
+class SfViolationBreakdownItem(BaseModel):
+    category: str
+    count: int
+    open_count: int

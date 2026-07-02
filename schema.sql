@@ -374,6 +374,7 @@ FROM final;
 
 CREATE UNIQUE INDEX IF NOT EXISTS building_summary_bin_idx            ON building_summary(bin);
 CREATE INDEX IF NOT EXISTS building_summary_borough_idx               ON building_summary(borough);
+CREATE INDEX IF NOT EXISTS building_summary_lat_idx                   ON building_summary(latitude);
 CREATE INDEX IF NOT EXISTS building_summary_zip_idx                   ON building_summary(zip_code);
 CREATE INDEX IF NOT EXISTS building_summary_total_idx                 ON building_summary(total_complaints DESC);
 CREATE INDEX IF NOT EXISTS building_summary_open_idx                  ON building_summary(open_complaints DESC);
@@ -624,3 +625,389 @@ CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_density_pct_idx
     ON hpd_complaints_building_summary(complaints_density_pct);
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_risk_level_idx
     ON hpd_complaints_building_summary(risk_level);
+
+-- ── SF (San Francisco) ────────────────────────────────────────────────────────
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE TABLE IF NOT EXISTS sf_parcels (
+    mapblklot             TEXT PRIMARY KEY,
+    blklot                TEXT,
+    analysis_neighborhood TEXT,
+    centroid_latitude     DOUBLE PRECISION,
+    centroid_longitude    DOUBLE PRECISION
+);
+CREATE INDEX IF NOT EXISTS idx_sf_parcels_neighborhood ON sf_parcels(analysis_neighborhood);
+
+CREATE TABLE IF NOT EXISTS sf_footprints (
+    mblr               TEXT PRIMARY KEY,
+    mapblklot          TEXT,
+    footprint_area_sqm DOUBLE PRECISION,
+    hgt_median_m       DOUBLE PRECISION
+);
+CREATE INDEX IF NOT EXISTS idx_sf_footprints_mapblklot ON sf_footprints(mapblklot);
+
+CREATE TABLE IF NOT EXISTS sf_311_housing (
+    service_request_id TEXT PRIMARY KEY,
+    service_name       TEXT,
+    service_subtype    TEXT,
+    address            TEXT,
+    point_lat          DOUBLE PRECISION,
+    point_lon          DOUBLE PRECISION,
+    requested_datetime TIMESTAMPTZ,
+    status_description TEXT,
+    mapblklot          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sf_311_mapblklot ON sf_311_housing(mapblklot);
+CREATE INDEX IF NOT EXISTS idx_sf_311_datetime  ON sf_311_housing(requested_datetime);
+CREATE INDEX IF NOT EXISTS idx_sf_311_subtype   ON sf_311_housing(service_subtype);
+
+CREATE TABLE IF NOT EXISTS sf_dbi_nov (
+    row_id                   TEXT PRIMARY KEY,
+    block                    TEXT,
+    lot                      TEXT,
+    mapblklot                TEXT,
+    status                   TEXT,
+    nov_category_description TEXT,
+    item                     TEXT,
+    nov_item_description     TEXT,
+    date_filed               DATE,
+    neighborhood             TEXT,
+    location_lat             DOUBLE PRECISION,
+    location_lon             DOUBLE PRECISION
+);
+CREATE INDEX IF NOT EXISTS idx_sf_dbi_nov_mapblklot ON sf_dbi_nov(mapblklot);
+CREATE INDEX IF NOT EXISTS idx_sf_dbi_nov_status    ON sf_dbi_nov(status);
+CREATE INDEX IF NOT EXISTS idx_sf_dbi_nov_date      ON sf_dbi_nov(date_filed);
+
+CREATE TABLE IF NOT EXISTS sf_addresses (
+    eas_fullid     TEXT PRIMARY KEY,
+    address        TEXT,
+    parcel_number  TEXT,
+    eas_baseid     TEXT,
+    latitude       DOUBLE PRECISION,
+    longitude      DOUBLE PRECISION,
+    nhood          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sf_addresses_parcel       ON sf_addresses(parcel_number);
+CREATE INDEX IF NOT EXISTS idx_sf_addresses_address_trgm ON sf_addresses USING gin(address gin_trgm_ops);
+
+-- ── sf_housing_complaints_summary ────────────────────────────────────────────
+-- Mirrors hpd_complaints_building_summary, parcel-grained. See
+-- ingest/migration/migrate_add_sf.sql for the authoritative definition and
+-- METRICS.md for the methodology (severity map, decay weights, risk floors).
+DROP MATERIALIZED VIEW IF EXISTS sf_housing_complaints_summary;
+CREATE MATERIALIZED VIEW sf_housing_complaints_summary AS
+WITH footprint_agg AS (
+    SELECT
+        mapblklot,
+        SUM(footprint_area_sqm) AS footprint_area_sqm,
+        MAX(hgt_median_m)       AS hgt_median_m
+    FROM sf_footprints
+    WHERE mapblklot IS NOT NULL
+    GROUP BY mapblklot
+),
+eas_repr AS (
+    SELECT DISTINCT ON (parcel_number)
+        parcel_number AS mapblklot,
+        address
+    FROM sf_addresses
+    WHERE parcel_number IS NOT NULL
+    ORDER BY parcel_number, eas_fullid
+),
+base AS (
+    SELECT
+        c.mapblklot,
+        MAX(e.address)                                    AS address,
+        MAX(p.centroid_latitude)                          AS latitude,
+        MAX(p.centroid_longitude)                         AS longitude,
+        MAX(p.analysis_neighborhood)                      AS neighborhood,
+        MAX(f.footprint_area_sqm)                         AS footprint_area_sqm,
+        MAX(f.hgt_median_m)                               AS hgt_median_m,
+        COUNT(*)                                          AS total_complaints,
+        COUNT(*) FILTER (
+            WHERE c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'
+        )                                                 AS recent_complaint_count,
+        COUNT(*) FILTER (
+            WHERE c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
+              AND c.requested_datetime <  CURRENT_TIMESTAMP - INTERVAL '2 years'
+        )                                                 AS prior_complaint_count,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
+                  IN ('heat_lack_of_heat', 'hot_water_lack_of_hot_water')
+        )                                                 AS heat_complaints,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
+                  = 'paint_lead_violating_safe_practices'
+        )                                                 AS lead_complaints,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
+                  IN ('infestation_rodent_insect', 'infestation_bed_bugs')
+        )                                                 AS pest_complaints,
+        MAX(c.requested_datetime::date)                   AS latest_complaint_date,
+        COALESCE(SUM(
+            CASE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
+                WHEN 'heat_lack_of_heat'                                   THEN 15.0
+                WHEN 'hot_water_lack_of_hot_water'                         THEN 15.0
+                WHEN 'paint_lead_violating_safe_practices'                 THEN 15.0
+                WHEN 'blocked_exit_common_areas'                           THEN 15.0
+                WHEN 'fire_hazard'                                         THEN 15.0
+                WHEN 'elevators_no_working_elevator_7_or_more_stories'     THEN 15.0
+                WHEN 'electrical_hazardous_condition'                      THEN 15.0
+                WHEN 'fire_alarm_system'                                   THEN 15.0
+                WHEN 'smoke_detectors_missing_broken_unit_interior'        THEN 15.0
+                WHEN 'fire_extinguishers_missing_expired'                  THEN 15.0
+                WHEN 'fire_sprinkler_system'                               THEN 15.0
+                WHEN 'smoke_detectors_missing_broken_common_areas'         THEN 15.0
+                WHEN 'infestation_rodent_insect'                           THEN  8.0
+                WHEN 'mold_and_mildew'                                     THEN  8.0
+                WHEN 'plumbing_broken_leaking'                             THEN  8.0
+                WHEN 'infestation_bed_bugs'                                THEN  8.0
+                WHEN 'elevators_everthing_else'                            THEN  8.0
+                WHEN 'doors_windows_broken_defective'                      THEN  8.0
+                WHEN 'bathroom'                                            THEN  8.0
+                WHEN 'ventilation_inadequate_or_none'                      THEN  8.0
+                WHEN 'security_inadequately_secured_perimeter'             THEN  8.0
+                WHEN 'deck_stairs_handrails'                               THEN  8.0
+                WHEN 'light_wells_dirty_flooded'                           THEN  8.0
+                WHEN 'general_maintenance_not_in_list_above'               THEN  3.0
+                WHEN 'inadequately_maintained_building_exterior'           THEN  3.0
+                WHEN 'paint_peeling'                                       THEN  3.0
+                WHEN 'garbage_receptacles'                                 THEN  3.0
+                WHEN 'clutter_hoarder_unit_interior_storage'               THEN  3.0
+                WHEN 'electrical_non_hazard'                               THEN  3.0
+                WHEN 'second_hand_smoke'                                   THEN  3.0
+                WHEN 'noise_caused_by_building_systems'                    THEN  3.0
+                WHEN 'kitchen_community'                                   THEN  3.0
+                WHEN 'mail_service_delivery_problem'                       THEN  3.0
+                WHEN 'illegal_construction_no_permit_exceeds_permit_scope' THEN  0.0
+                WHEN 'illegal_guest_room_conversions'                      THEN  0.0
+                WHEN 'visitor_policy_violations'                           THEN  0.0
+                ELSE 3.0
+            END *
+            CASE
+                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'  THEN 1.00
+                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'  THEN 0.50
+                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '10 years' THEN 0.25
+            END
+        ), 0.0)                                           AS weighted_complaint_sum
+    FROM sf_311_housing c
+    JOIN sf_parcels p ON c.mapblklot = p.mapblklot
+    LEFT JOIN footprint_agg f ON f.mapblklot = c.mapblklot
+    LEFT JOIN eas_repr e ON e.mapblklot = c.mapblklot
+    WHERE c.mapblklot IS NOT NULL
+    GROUP BY c.mapblklot
+),
+with_scale AS (
+    SELECT *,
+        CASE
+            WHEN footprint_area_sqm > 0 AND hgt_median_m > 0
+            THEN footprint_area_sqm * GREATEST(hgt_median_m, 1.0)
+        END AS estimated_scale
+    FROM base
+),
+with_density AS (
+    SELECT *,
+        ROUND(COALESCE(
+            weighted_complaint_sum / NULLIF(estimated_scale, 0) * 1000,
+            weighted_complaint_sum
+        )::numeric, 4) AS weighted_complaints_density
+    FROM with_scale
+),
+with_trend AS (
+    SELECT *,
+        CASE
+            WHEN (recent_complaint_count::float / 2.0)
+               - (prior_complaint_count::float  / 3.0) >  1 THEN 'worsening'
+            WHEN (recent_complaint_count::float / 2.0)
+               - (prior_complaint_count::float  / 3.0) < -1 THEN 'improving'
+            ELSE 'stable'
+        END AS trend_direction
+    FROM with_density
+),
+neighborhood_density_pct AS (
+    SELECT mapblklot,
+        ROUND((
+            PERCENT_RANK() OVER (
+                PARTITION BY neighborhood
+                ORDER BY weighted_complaints_density ASC
+            ) * 100
+        )::numeric, 1) AS complaints_density_pct
+    FROM with_trend
+    WHERE neighborhood IS NOT NULL
+)
+SELECT
+    wt.mapblklot,
+    wt.address,
+    wt.latitude,
+    wt.longitude,
+    wt.neighborhood,
+    wt.total_complaints,
+    wt.recent_complaint_count,
+    wt.prior_complaint_count,
+    wt.trend_direction,
+    wt.heat_complaints,
+    wt.lead_complaints,
+    wt.pest_complaints,
+    wt.latest_complaint_date,
+    wt.weighted_complaint_sum,
+    wt.estimated_scale,
+    wt.weighted_complaints_density,
+    np.complaints_density_pct,
+    CASE
+        WHEN wt.total_complaints < 2               THEN 'Very low'
+        WHEN np.complaints_density_pct IS NULL     THEN 'Very low'
+        WHEN np.complaints_density_pct < 15        THEN 'Very low'
+        WHEN np.complaints_density_pct < 40        THEN 'Low'
+        WHEN np.complaints_density_pct < 70        THEN 'Moderate'
+        WHEN np.complaints_density_pct < 90        THEN 'High'
+        ELSE                                            'Very high'
+    END AS risk_level
+FROM with_trend wt
+LEFT JOIN neighborhood_density_pct np ON wt.mapblklot = np.mapblklot;
+
+CREATE UNIQUE INDEX IF NOT EXISTS sf_housing_complaints_summary_mapblklot_idx
+    ON sf_housing_complaints_summary(mapblklot);
+CREATE INDEX IF NOT EXISTS sf_housing_complaints_summary_neighborhood_idx
+    ON sf_housing_complaints_summary(neighborhood);
+CREATE INDEX IF NOT EXISTS sf_housing_complaints_summary_lat_idx
+    ON sf_housing_complaints_summary(latitude);
+CREATE INDEX IF NOT EXISTS sf_housing_complaints_summary_recent_idx
+    ON sf_housing_complaints_summary(recent_complaint_count DESC);
+CREATE INDEX IF NOT EXISTS sf_housing_complaints_summary_risk_idx
+    ON sf_housing_complaints_summary(risk_level);
+CREATE INDEX IF NOT EXISTS sf_housing_complaints_summary_density_pct_idx
+    ON sf_housing_complaints_summary(complaints_density_pct);
+
+-- ── sf_violations_summary ────────────────────────────────────────────────────
+-- Mirrors hpd_building_summary, parcel-grained. See migrate_add_sf.sql / METRICS.md.
+DROP MATERIALIZED VIEW IF EXISTS sf_violations_summary;
+CREATE MATERIALIZED VIEW sf_violations_summary AS
+WITH footprint_agg AS (
+    SELECT
+        mapblklot,
+        SUM(footprint_area_sqm) AS footprint_area_sqm,
+        MAX(hgt_median_m)       AS hgt_median_m
+    FROM sf_footprints
+    WHERE mapblklot IS NOT NULL
+    GROUP BY mapblklot
+),
+eas_repr AS (
+    SELECT DISTINCT ON (parcel_number)
+        parcel_number AS mapblklot,
+        address
+    FROM sf_addresses
+    WHERE parcel_number IS NOT NULL
+    ORDER BY parcel_number, eas_fullid
+),
+base AS (
+    SELECT
+        v.mapblklot,
+        MAX(e.address)                                              AS address,
+        MAX(p.centroid_latitude)                                    AS latitude,
+        MAX(p.centroid_longitude)                                   AS longitude,
+        COALESCE(MAX(p.analysis_neighborhood), MAX(v.neighborhood)) AS neighborhood,
+        MAX(f.footprint_area_sqm)                                   AS footprint_area_sqm,
+        MAX(f.hgt_median_m)                                         AS hgt_median_m,
+        COUNT(*)                                                    AS total_violations,
+        COUNT(*) FILTER (WHERE LOWER(v.status) = 'active')          AS open_violations,
+        COUNT(*) FILTER (
+            WHERE LOWER(v.nov_category_description) = 'lead section'
+              AND LOWER(v.status) = 'active'
+        )                                                           AS open_lead_violations,
+        COUNT(*) FILTER (
+            WHERE LOWER(v.nov_category_description) = 'fire section'
+              AND LOWER(v.status) = 'active'
+        )                                                           AS open_fire_violations,
+        MAX(v.date_filed)                                           AS latest_violation_date,
+        COALESCE(SUM(
+            CASE LOWER(v.nov_category_description)
+                WHEN 'fire section'                    THEN 15.0
+                WHEN 'smoke detection section'         THEN 15.0
+                WHEN 'lead section'                    THEN 15.0
+                WHEN 'building section'                THEN  8.0
+                WHEN 'plumbing and electrical section' THEN  8.0
+                WHEN 'interior surfaces section'       THEN  8.0
+                WHEN 'sanitation section'              THEN  8.0
+                WHEN 'security requirements section'   THEN  8.0
+                ELSE 3.0
+            END *
+            CASE
+                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
+            END
+        ), 0.0)                                                     AS weighted_violation_sum
+    FROM sf_dbi_nov v
+    JOIN sf_parcels p ON v.mapblklot = p.mapblklot
+    LEFT JOIN footprint_agg f ON f.mapblklot = v.mapblklot
+    LEFT JOIN eas_repr e ON e.mapblklot = v.mapblklot
+    WHERE v.mapblklot IS NOT NULL
+    GROUP BY v.mapblklot
+),
+with_scale AS (
+    SELECT *,
+        CASE
+            WHEN footprint_area_sqm > 0 AND hgt_median_m > 0
+            THEN footprint_area_sqm * GREATEST(hgt_median_m, 1.0)
+        END AS estimated_scale
+    FROM base
+),
+with_density AS (
+    SELECT *,
+        ROUND(COALESCE(
+            weighted_violation_sum / NULLIF(estimated_scale, 0) * 1000,
+            weighted_violation_sum
+        )::numeric, 4) AS weighted_violations_density
+    FROM with_scale
+),
+neighborhood_density_pct AS (
+    SELECT mapblklot,
+        ROUND((
+            PERCENT_RANK() OVER (
+                PARTITION BY neighborhood
+                ORDER BY weighted_violations_density ASC
+            ) * 100
+        )::numeric, 1) AS violations_density_pct
+    FROM with_density
+    WHERE neighborhood IS NOT NULL
+)
+SELECT
+    wd.mapblklot,
+    wd.address,
+    wd.latitude,
+    wd.longitude,
+    wd.neighborhood,
+    wd.total_violations,
+    wd.open_violations,
+    wd.open_lead_violations,
+    wd.open_fire_violations,
+    wd.latest_violation_date,
+    wd.weighted_violation_sum,
+    wd.estimated_scale,
+    wd.weighted_violations_density,
+    np.violations_density_pct,
+    CASE
+        WHEN wd.total_violations < 3               THEN 'Very low'
+        WHEN np.violations_density_pct IS NULL     THEN 'Very low'
+        WHEN np.violations_density_pct < 15        THEN 'Very low'
+        WHEN np.violations_density_pct < 40        THEN 'Low'
+        WHEN np.violations_density_pct < 70        THEN 'Moderate'
+        WHEN np.violations_density_pct < 90        THEN 'High'
+        ELSE                                            'Very high'
+    END AS risk_level
+FROM with_density wd
+LEFT JOIN neighborhood_density_pct np ON wd.mapblklot = np.mapblklot;
+
+CREATE UNIQUE INDEX IF NOT EXISTS sf_violations_summary_mapblklot_idx
+    ON sf_violations_summary(mapblklot);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_neighborhood_idx
+    ON sf_violations_summary(neighborhood);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_lat_idx
+    ON sf_violations_summary(latitude);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_open_idx
+    ON sf_violations_summary(open_violations DESC);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_risk_idx
+    ON sf_violations_summary(risk_level);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_density_pct_idx
+    ON sf_violations_summary(violations_density_pct);

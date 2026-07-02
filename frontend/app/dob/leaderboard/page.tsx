@@ -3,6 +3,7 @@ import { getLeaderboardRecent } from '@/lib/api'
 import type { BuildingSummary } from '@/lib/types'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import LeaderboardToggle from '@/components/LeaderboardToggle'
+import CityToggle from '@/components/CityToggle'
 import TooltipIcon from '@/components/TooltipIcon'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
@@ -158,6 +159,10 @@ export default async function DobLeaderboardPage({
       {/* Page header */}
       <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ marginBottom: 12 }}>
+            <CityToggle current="NYC" nycHref="/dob/leaderboard" sfHref="/sf/leaderboard" />
+          </div>
+
           <div style={{ marginBottom: 20 }}>
             <LeaderboardToggle active="dob" borough={borough} />
           </div>

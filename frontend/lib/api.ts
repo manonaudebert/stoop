@@ -1,4 +1,4 @@
-import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem } from './types'
+import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem } from './types'
 
 export class ApiError extends Error {
   constructor(public status: number, path: string) {
@@ -152,4 +152,45 @@ export async function getHpdComplaintTypePeriodBreakdown(bin: string): Promise<C
 
 export async function getHpdComplaintResolutionBreakdown(bin: string): Promise<ComplaintResolutionItem[]> {
   return get(`/hpd-complaints/building/${bin}/resolution-breakdown`)
+}
+
+// ── SF (San Francisco) ────────────────────────────────────────────────────────
+
+export async function searchSfBuildings(q: string, signal?: AbortSignal): Promise<SfBuildingSummary[]> {
+  return get(`/sf/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
+}
+
+export async function getSfLeaderboard(neighborhood?: string): Promise<SfBuildingSummary[]> {
+  const params = neighborhood ? `?neighborhood=${encodeURIComponent(neighborhood)}` : ''
+  return get(`/sf/building/leaderboard${params}`)
+}
+
+export async function getSfBuilding(
+  mapblklot: string,
+  page = 1,
+  show?: 'complaints' | 'violations',
+  vst?: 'Open' | 'Close',
+): Promise<SfBuildingDetail> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (show) params.set('show', show)
+  if (vst) params.set('vst', vst)
+  return get(`/sf/building/${mapblklot}?${params}`)
+}
+
+export async function getSfComplaintsTimeline(mapblklot: string): Promise<TimelinePoint[]> {
+  return get(`/sf/building/${mapblklot}/complaints-timeline`)
+}
+
+export async function getSfViolationsTimeline(mapblklot: string): Promise<TimelinePoint[]> {
+  return get(`/sf/building/${mapblklot}/violations-timeline`)
+}
+
+export async function getSfComplaintsBreakdown(mapblklot: string, years?: number): Promise<SfComplaintBreakdownItem[]> {
+  const qs = years !== undefined ? `?years=${years}` : ''
+  return get(`/sf/building/${mapblklot}/complaints-breakdown${qs}`)
+}
+
+export async function getSfViolationsBreakdown(mapblklot: string, years?: number): Promise<SfViolationBreakdownItem[]> {
+  const qs = years !== undefined ? `?years=${years}` : ''
+  return get(`/sf/building/${mapblklot}/violations-breakdown${qs}`)
 }

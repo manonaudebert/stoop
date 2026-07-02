@@ -211,3 +211,74 @@ export interface ViolationAgeBucketItem {
   bucket: string  // <30d | 30-90d | 3-12mo | 1-3yr | 3yr+
   count: number
 }
+
+// ── SF (San Francisco) ────────────────────────────────────────────────────────
+
+export interface Sf311Complaint {
+  service_request_id: string
+  service_name: string | null
+  service_subtype: string | null
+  address: string | null
+  requested_datetime: string | null
+  status_description: string | null
+}
+
+export interface SfNov {
+  row_id: string
+  mapblklot: string | null
+  status: string | null
+  nov_category_description: string | null
+  item: string | null
+  nov_item_description: string | null
+  date_filed: string | null
+  neighborhood: string | null
+  location_lat: number | null
+  location_lon: number | null
+}
+
+export interface SfBuildingSummary {
+  mapblklot: string
+  address: string | null
+  neighborhood: string | null
+  latitude: number | null
+  longitude: number | null
+  // 311 complaints domain
+  total_complaints: number
+  recent_complaint_count: number
+  prior_complaint_count: number
+  trend_direction: string | null
+  heat_complaints: number
+  lead_complaints: number
+  pest_complaints: number
+  latest_complaint_date: string | null
+  complaints_density_pct: number | null
+  complaints_risk_level: string | null
+  // DBI violations domain
+  total_violations: number
+  open_violations: number
+  open_lead_violations: number
+  open_fire_violations: number
+  latest_violation_date: string | null
+  violations_density_pct: number | null
+  violations_risk_level: string | null
+}
+
+export interface SfBuildingDetail extends SfBuildingSummary {
+  complaints: Sf311Complaint[]
+  violations: SfNov[]
+  complaints_total_count: number
+  violations_total_count: number
+  page: number
+  page_size: number
+}
+
+export interface SfComplaintBreakdownItem {
+  subtype: string
+  count: number
+}
+
+export interface SfViolationBreakdownItem {
+  category: string
+  count: number
+  open_count: number
+}

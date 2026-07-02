@@ -64,6 +64,28 @@ Only attempt after C1–C6 land and tests are green.
 
 ---
 
+## Map cluster caching — approved, NEXT (clusters only)
+**Goal:** toggling NYC↔SF and reloading the map should be cheap/fast. Today the map cluster
+fetches go through `frontend/app/api/proxy/[...path]/route.ts`, which returns **no
+`Cache-Control`**, so nothing between the browser and the backend caches them — every load hits
+the serverless function → backend (which does cache in an in-process LRU, 24h TTL).
+
+**Setup:** deployed on **Vercel** (Edge Network CDN) with the domain fronted by **Cloudflare**.
+
+**Plan (scoped to the cluster GET endpoints only — leave building-detail/search `no-store`):**
+- Emit tiered cache headers on cluster responses: `Cache-Control` (browser),
+  `Vercel-CDN-Cache-Control` (Vercel Edge), `CDN-Cache-Control` (Cloudflare).
+- Cluster endpoints to cover: `map/unified/clusters`, `map/heatmap`, `sf/map/clusters`
+  (confirm exact proxied paths).
+- **Data refreshes only ~weekly**, so cache **aggressively**: long edge `s-maxage` (a day+)
+  plus `stale-while-revalidate`; short browser `max-age`. No need for short TTLs.
+- **Cache-bust on sync:** because data is weekly, a long TTL risks showing week-old (or older)
+  clusters. Add a versioned cache key / purge step tied to the weekly sync so fresh data shows
+  promptly. (Decide mechanism: query-param version bumped at sync, or a Cloudflare purge.)
+- **Cloudflare caveat:** Cloudflare does **not** cache `/api/proxy/*` by default (only static
+  extensions). Lighting up the Cloudflare tier needs a **Cache Rule** in the dashboard; browser
+  + Vercel Edge tiers work from the headers alone.
+
 ## Before merging
 - Run backend tests: `cd api && ../.venv/bin/python -m pytest tests/ -v` (currently 95 pass).
 - Build the frontend to catch type errors from the shared-component refactors.

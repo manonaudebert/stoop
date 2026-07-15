@@ -64,27 +64,26 @@ Only attempt after C1–C6 land and tests are green.
 
 ---
 
-## Map cluster caching — approved, NEXT (clusters only)
-**Goal:** toggling NYC↔SF and reloading the map should be cheap/fast. Today the map cluster
-fetches go through `frontend/app/api/proxy/[...path]/route.ts`, which returns **no
-`Cache-Control`**, so nothing between the browser and the backend caches them — every load hits
-the serverless function → backend (which does cache in an in-process LRU, 24h TTL).
+## Map (and API) edge caching — ✅ DONE (forward backend headers)
+Root cause: `api/main.py:52-73` already sets `Cache-Control` on all cacheable GETs (clusters,
+building detail, leaderboards, breakdowns, timelines — `s-maxage=1day, SWR=1week`; search 1h),
+but the proxy (`frontend/app/api/proxy/[...path]/route.ts`) discarded it (only forwarded
+`content-type`), so nothing between browser and backend cached. Fix: the proxy now **forwards
+the upstream `Cache-Control`** and mirrors it into `Vercel-CDN-Cache-Control` /
+`CDN-Cache-Control`. `main.py` stays the single source of truth; absent header → not cached.
 
-**Setup:** deployed on **Vercel** (Edge Network CDN) with the domain fronted by **Cloudflare**.
+**Refresh-on-sync:** rely on `s-maxage=1day` — the edge self-revalidates within 24h of the
+~weekly sync (worst case ~1 stale day of 7). No purge / versioned token built (deferred; add a
+`?v=<sync-date>` bust only if the 24h window proves too stale).
 
-**Plan (scoped to the cluster GET endpoints only — leave building-detail/search `no-store`):**
-- Emit tiered cache headers on cluster responses: `Cache-Control` (browser),
-  `Vercel-CDN-Cache-Control` (Vercel Edge), `CDN-Cache-Control` (Cloudflare).
-- Cluster endpoints to cover: `map/unified/clusters`, `map/heatmap`, `sf/map/clusters`
-  (confirm exact proxied paths).
-- **Data refreshes only ~weekly**, so cache **aggressively**: long edge `s-maxage` (a day+)
-  plus `stale-while-revalidate`; short browser `max-age`. No need for short TTLs.
-- **Cache-bust on sync:** because data is weekly, a long TTL risks showing week-old (or older)
-  clusters. Add a versioned cache key / purge step tied to the weekly sync so fresh data shows
-  promptly. (Decide mechanism: query-param version bumped at sync, or a Cloudflare purge.)
-- **Cloudflare caveat:** Cloudflare does **not** cache `/api/proxy/*` by default (only static
-  extensions). Lighting up the Cloudflare tier needs a **Cache Rule** in the dashboard; browser
-  + Vercel Edge tiers work from the headers alone.
+**Manual step — Cloudflare Cache Rule (dashboard):** Cloudflare won't cache `/api/proxy/*` by
+default (only static extensions). Add a Cache Rule: match `URI Path starts with /api/proxy/` →
+*Eligible for cache* + *Respect origin* (honors the forwarded headers). Browser + Vercel Edge
+tiers already work from the headers alone.
+
+**Verify after deploy:** `curl -sI 'https://stoopnyc.org/api/proxy/map/unified/clusters?...'`
+should show `cache-control`; a repeat should show `x-vercel-cache: HIT` (and `cf-cache-status:
+HIT` once the Cloudflare rule is live).
 
 ## Before merging
 - Run backend tests: `cd api && ../.venv/bin/python -m pytest tests/ -v` (currently 95 pass).

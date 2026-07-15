@@ -22,3 +22,7 @@ data/.last_sync
 
 # ── Claude Code local settings ────────────────────────────────────────────────
 .claude/settings.local.json
+
+# ── Working / planning docs (local scratch, not shipped) ──────────────────────
+SF_EXPANSION_PLAN.md
+SF_MERGE_TODO.md

@@ -57,8 +57,11 @@ def _asyncpg_url(url: str) -> str:
 def _load_last_sync() -> date:
     if STATE_FILE.exists():
         return date.fromisoformat(STATE_FILE.read_text().strip())
-    log.info("No HPD complaints state file found — defaulting to 7 days ago for first run.")
-    return date.today() - timedelta(days=7)
+    # The cursor is gitignored, so CI never has the file — this default IS the
+    # steady-state window. 14 days (+ LOOKBACK_DAYS buffer) covers one missed
+    # weekly run without a gap; upserts are idempotent so the overlap is free.
+    log.info("No HPD complaints state file found — defaulting to 14 days ago.")
+    return date.today() - timedelta(days=14)
 
 
 def _save_last_sync(d: date) -> None:

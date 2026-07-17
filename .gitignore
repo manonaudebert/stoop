@@ -18,7 +18,10 @@ __pycache__/
 data/raw/
 data/clean/
 data/sync.log
-data/.last_sync
+# Sync cursors are local-only, per-run state — CI defaults to a fixed lookback
+# window when they're absent, so they must never be committed (a stale committed
+# date would freeze the fetch window). Covers .last_sync{,_hpd,_hpd_complaints,_sf}.
+data/.last_sync*
 
 # ── Claude Code local settings ────────────────────────────────────────────────
 .claude/settings.local.json

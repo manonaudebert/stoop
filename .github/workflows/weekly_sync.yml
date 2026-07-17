@@ -5,6 +5,10 @@ on:
     - cron: '0 6 * * 0'  # Every Sunday at 6am UTC
   workflow_dispatch:       # Allow manual trigger from GitHub UI
 
+permissions:
+  contents: read
+  issues: write        # allow the failure step to open an alert issue
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -28,3 +32,16 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SOCRATA_APP_TOKEN: ${{ secrets.SOCRATA_APP_TOKEN }}
         run: python sync_all.py
+
+      # Fires only when an earlier step failed. Opens a GitHub issue so a failed
+      # weekly run is visible and actionable rather than a silent red run in the
+      # Actions tab. Uses the built-in GITHUB_TOKEN — no external service needed.
+      - name: Alert on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "Weekly data sync failed — $(date -u +%Y-%m-%d)" \
+            --body "The scheduled data sync failed. Run log: $RUN_URL"

@@ -77,6 +77,110 @@ def _socrata_headers() -> dict:
     return {"X-App-Token": SOCRATA_APP_TOKEN} if SOCRATA_APP_TOKEN else {}
 
 
+# ── Pure transforms ───────────────────────────────────────────────────────────
+# Extracted to module scope so they can be unit-tested directly. Every one of
+# these runs on the weekly sync and fails *silently* if it drifts (wrong join
+# key = rows detach from parcels and vanish from the views, no error raised).
+
+def _centroid(shape) -> tuple[float | None, float | None]:
+    """(lat, lon) from a GeoJSON Point, or the arithmetic centroid of the first
+    Polygon / MultiPolygon ring. (None, None) for anything unrecognised."""
+    if not isinstance(shape, dict):
+        return None, None
+    coords = shape.get("coordinates")
+    typ = shape.get("type", "")
+    if typ == "Point" and coords and len(coords) >= 2:
+        return float(coords[1]), float(coords[0])  # lat, lon
+    if typ == "Polygon" and coords:
+        ring = coords[0]
+        if ring:
+            lons = [c[0] for c in ring]
+            lats = [c[1] for c in ring]
+            return sum(lats) / len(lats), sum(lons) / len(lons)
+    if typ == "MultiPolygon" and coords:
+        ring = coords[0][0] if coords[0] else []
+        if ring:
+            lons = [c[0] for c in ring]
+            lats = [c[1] for c in ring]
+            return sum(lats) / len(lats), sum(lons) / len(lons)
+    return None, None
+
+
+def _polygon_area_sqm(shape) -> float | None:
+    """Shoelace formula on the GeoJSON ring, converted to m² at SF latitude."""
+    if not isinstance(shape, dict):
+        return None
+    coords = shape.get("coordinates")
+    typ    = shape.get("type", "")
+    ring: list | None = None
+    if typ == "Polygon" and coords:
+        ring = coords[0]
+    elif typ == "MultiPolygon" and coords and coords[0]:
+        ring = coords[0][0]
+    if not ring or len(ring) < 3:
+        return None
+    n = len(ring)
+    area_deg2 = abs(sum(
+        ring[i][0] * ring[(i + 1) % n][1] - ring[(i + 1) % n][0] * ring[i][1]
+        for i in range(n)
+    )) / 2.0
+    avg_lat = sum(c[1] for c in ring) / n
+    cos_lat = math.cos(math.radians(avg_lat))
+    area_sqm = area_deg2 * (111_320 ** 2) * cos_lat
+    return float(area_sqm) if area_sqm > 0 else None
+
+
+def _mblr_to_mapblklot(mblr) -> str | None:
+    """Footprint MBLR → parcel key: drop the leading 'SF', strip a trailing
+    condo letter."""
+    if not isinstance(mblr, str):
+        return None
+    s = mblr.upper().replace("SF", "", 1)
+    return re.sub(r"[A-Z]$", "", s) or None
+
+
+def _nov_mapblklot(block, lot) -> str | None:
+    """DBI NOV block/lot → parcel key: zero-pad block to 4 and lot to 3 digits.
+    The join key every violation hangs on — treat drift here as serious."""
+    b = str(block or "").strip().zfill(4)
+    l = str(lot   or "").strip().zfill(3)
+    if b == "0000" or not l:
+        return None
+    return b + l
+
+
+def _normalize_311_subtype(value) -> str | None:
+    """Lowercase + strip the 'Building - ' prefix so subtypes line up with the
+    SF_311_SEVERITY map keys. Empty/NaN → None."""
+    if value is None or (isinstance(value, float) and value != value):
+        return None
+    s = re.sub(r"^building - ", "", str(value).lower())
+    return s or None
+
+
+def _clean_nov_date(value):
+    """Coerce a NOV date_filed to a date, flooring out the pre-1980 garbage the
+    source carries (min year in the feed is 0200). Returns None if unparseable
+    or too old."""
+    d = pd.to_datetime(value, errors="coerce")
+    if pd.isna(d):
+        return None
+    d = d.date()
+    return None if d < date(1980, 1, 1) else d
+
+
+def _point_lat(p):
+    if isinstance(p, dict):
+        return pd.to_numeric(p.get("latitude"), errors="coerce")
+    return None
+
+
+def _point_lon(p):
+    if isinstance(p, dict):
+        return pd.to_numeric(p.get("longitude"), errors="coerce")
+    return None
+
+
 # ── Generic paginated Socrata fetch ──────────────────────────────────────────
 
 def _fetch_all(api_url: str, where: str | None = None, select: str | None = None) -> list[dict]:
@@ -125,27 +229,6 @@ def fetch_parcels() -> pd.DataFrame:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
     # Extract centroid from shape geometry (GeoJSON Point or Polygon centroid)
-    def _centroid(shape):
-        if not isinstance(shape, dict):
-            return None, None
-        coords = shape.get("coordinates")
-        typ = shape.get("type", "")
-        if typ == "Point" and coords and len(coords) >= 2:
-            return float(coords[1]), float(coords[0])  # lat, lon
-        if typ == "Polygon" and coords:
-            ring = coords[0]
-            if ring:
-                lons = [c[0] for c in ring]
-                lats = [c[1] for c in ring]
-                return sum(lats) / len(lats), sum(lons) / len(lons)
-        if typ == "MultiPolygon" and coords:
-            ring = coords[0][0] if coords[0] else []
-            if ring:
-                lons = [c[0] for c in ring]
-                lats = [c[1] for c in ring]
-                return sum(lats) / len(lats), sum(lons) / len(lons)
-        return None, None
-
     centroids = df["shape"].apply(lambda s: _centroid(s) if isinstance(s, dict) else (None, None))
     df["centroid_latitude"]  = centroids.apply(lambda x: x[0])
     df["centroid_longitude"] = centroids.apply(lambda x: x[1])
@@ -167,37 +250,8 @@ def fetch_footprints() -> pd.DataFrame:
     df = pd.DataFrame(rows)
 
     # Derive mapblklot: replace leading "SF" and strip trailing condo letter
-    def _mblr_to_mapblklot(mblr: str) -> str | None:
-        if not isinstance(mblr, str):
-            return None
-        s = mblr.upper().replace("SF", "", 1)
-        return re.sub(r"[A-Z]$", "", s) or None
-
     df["mapblklot"] = df["mblr"].apply(_mblr_to_mapblklot)
     df["hgt_median_m"] = pd.to_numeric(df.get("hgt_median_m", pd.Series(dtype=float)), errors="coerce")
-
-    def _polygon_area_sqm(shape) -> float | None:
-        """Shoelace formula on the GeoJSON ring, converted to m² at SF latitude."""
-        if not isinstance(shape, dict):
-            return None
-        coords = shape.get("coordinates")
-        typ    = shape.get("type", "")
-        ring: list | None = None
-        if typ == "Polygon" and coords:
-            ring = coords[0]
-        elif typ == "MultiPolygon" and coords and coords[0]:
-            ring = coords[0][0]
-        if not ring or len(ring) < 3:
-            return None
-        n = len(ring)
-        area_deg2 = abs(sum(
-            ring[i][0] * ring[(i + 1) % n][1] - ring[(i + 1) % n][0] * ring[i][1]
-            for i in range(n)
-        )) / 2.0
-        avg_lat = sum(c[1] for c in ring) / n
-        cos_lat = math.cos(math.radians(avg_lat))
-        area_sqm = area_deg2 * (111_320 ** 2) * cos_lat
-        return float(area_sqm) if area_sqm > 0 else None
 
     df["footprint_area_sqm"] = df["shape"].apply(
         lambda s: _polygon_area_sqm(s) if isinstance(s, dict) else None
@@ -227,28 +281,12 @@ def fetch_311() -> pd.DataFrame:
     df = pd.DataFrame(rows)
 
     # Unpack 'point' location object → lat/lon
-    def _lat(p):
-        if isinstance(p, dict):
-            return pd.to_numeric(p.get("latitude"), errors="coerce")
-        return None
-
-    def _lon(p):
-        if isinstance(p, dict):
-            return pd.to_numeric(p.get("longitude"), errors="coerce")
-        return None
-
-    df["point_lat"] = df.get("point", pd.Series(dtype=object)).apply(_lat)
-    df["point_lon"] = df.get("point", pd.Series(dtype=object)).apply(_lon)
+    df["point_lat"] = df.get("point", pd.Series(dtype=object)).apply(_point_lat)
+    df["point_lon"] = df.get("point", pd.Series(dtype=object)).apply(_point_lon)
 
     # Normalise subtype casing for the severity map: lowercase + strip "Building - " prefix
     if "service_subtype" in df.columns:
-        df["service_subtype"] = (
-            df["service_subtype"]
-            .fillna("")
-            .str.lower()
-            .str.replace(r"^building - ", "", regex=True)
-            .replace("", None)
-        )
+        df["service_subtype"] = df["service_subtype"].apply(_normalize_311_subtype)
 
     df["requested_datetime"] = pd.to_datetime(df.get("requested_datetime"), errors="coerce", utc=True)
     df["mapblklot"] = None  # populated later via EAS join
@@ -279,35 +317,16 @@ def fetch_dbi_nov() -> pd.DataFrame:
     })
 
     # Derive mapblklot: zero-pad block to 4 digits and lot to 3 digits
-    def _mapblklot(row) -> str | None:
-        block = str(row.get("block", "") or "").strip().zfill(4)
-        lot   = str(row.get("lot", "")   or "").strip().zfill(3)
-        if block == "0000" or not lot:
-            return None
-        return block + lot
-
-    df["mapblklot"] = df.apply(_mapblklot, axis=1)
+    df["mapblklot"] = df.apply(
+        lambda r: _nov_mapblklot(r.get("block"), r.get("lot")), axis=1
+    )
 
     # Extract lat/lon from location field
-    def _lat(p):
-        if isinstance(p, dict):
-            return pd.to_numeric(p.get("latitude"), errors="coerce")
-        return None
-
-    def _lon(p):
-        if isinstance(p, dict):
-            return pd.to_numeric(p.get("longitude"), errors="coerce")
-        return None
-
-    df["location_lat"] = df.get("location", pd.Series(dtype=object)).apply(_lat)
-    df["location_lon"] = df.get("location", pd.Series(dtype=object)).apply(_lon)
+    df["location_lat"] = df.get("location", pd.Series(dtype=object)).apply(_point_lat)
+    df["location_lon"] = df.get("location", pd.Series(dtype=object)).apply(_point_lon)
 
     # Bad-date floor: exclude year < 1980 (source data has min year 0200)
-    df["date_filed"] = pd.to_datetime(df.get("date_filed"), errors="coerce").dt.date
-    df.loc[
-        df["date_filed"].notna() & (df["date_filed"] < date(1980, 1, 1)),
-        "date_filed",
-    ] = None
+    df["date_filed"] = df.get("date_filed", pd.Series(dtype=object)).apply(_clean_nov_date)
 
     # Normalise status to lowercase for consistent filtering
     if "status" in df.columns:

@@ -2,8 +2,10 @@
 Tests for the SF routes (/sf/*).
 
 Covers:
+  - Map clusters: bbox vs. citywide paths, risk compositing, null-coord skip
+  - Building search: EAS ILIKE hit + trgm fallback
   - Building detail: combined complaints + violations, 404 handling
-  - Leaderboard shape
+  - Leaderboard shape + neighborhood filter
   - Timeline endpoints
   - Breakdown endpoints
 """
@@ -72,6 +74,144 @@ SF_NOV_ROW = {
     "location_lat":              37.7900,
     "location_lon":              -122.3960,
 }
+
+# One row of the unified FULL OUTER JOIN projection used by /sf/map/clusters.
+SF_CLUSTER_ROW = {
+    "mapblklot":              SAMPLE_MAPBLKLOT,
+    "address":                "123 MARKET ST",
+    "neighborhood":           "Financial District/South Beach",
+    "latitude":               37.7900,
+    "longitude":              -122.3960,
+    "total_complaints":       45,
+    "recent_complaint_count": 12,
+    "heat_complaints":        5,
+    "complaints_density_pct": 72.0,
+    "complaints_risk_level":  "Moderate",
+    "latest_complaint_date":  date(2025, 11, 1),
+    "total_violations":       20,
+    "open_violations":        5,
+    "violations_density_pct": 65.0,
+    "violations_risk_level":  "Very high",
+}
+
+
+class TestSfMapClusters:
+    @pytest.mark.asyncio
+    async def test_bbox_path_returns_geojson(self, client):
+        # zoom >= CLUSTER_MAX_ZOOM (13) uses the single bbox query.
+        mock_db = make_mock_db(MockResult([MockRow(SF_CLUSTER_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(
+            "/sf/map/clusters",
+            params={"west": -122.5, "south": 37.7, "east": -122.3,
+                    "north": 37.8, "zoom": 15},
+        )
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["type"] == "FeatureCollection"
+        assert len(data["features"]) == 1
+        feat = data["features"][0]
+        assert feat["geometry"]["coordinates"] == [-122.3960, 37.7900]
+        props = feat["properties"]
+        assert props["mapblklot"] == SAMPLE_MAPBLKLOT
+        assert props["complaints_present"] == 1
+        assert props["violations_present"] == 1
+        # Composite risk picks the more severe of the two domains.
+        assert props["risk_level"] == "Very high"
+
+    @pytest.mark.asyncio
+    async def test_citywide_path_low_zoom(self, client):
+        # zoom < CLUSTER_MAX_ZOOM uses the deterministic per-neighborhood sample.
+        mock_db = make_mock_db(MockResult([MockRow(SF_CLUSTER_ROW)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(
+            "/sf/map/clusters",
+            params={"west": -122.5, "south": 37.7, "east": -122.3,
+                    "north": 37.8, "zoom": 10},
+        )
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["features"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_null_coordinates_are_skipped(self, client):
+        no_coords = {**SF_CLUSTER_ROW, "latitude": None, "longitude": None}
+        mock_db = make_mock_db(MockResult([MockRow(no_coords)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(
+            "/sf/map/clusters",
+            params={"west": -122.5, "south": 37.7, "east": -122.3,
+                    "north": 37.8, "zoom": 15},
+        )
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.json()["features"] == []
+
+
+class TestSfBuildingSearch:
+    @pytest.mark.asyncio
+    async def test_ilike_hit_returns_summaries(self, client):
+        # ILIKE match on the EAS corpus, joined to both summary views.
+        search_row = {
+            **SF_COMPLAINTS_SUMMARY_ROW,
+            "complaints_risk_level": SF_COMPLAINTS_SUMMARY_ROW["risk_level"],
+            **{k: SF_VIOLATIONS_SUMMARY_ROW[k]
+               for k in SF_VIOLATIONS_SUMMARY_ROW
+               if k not in SF_COMPLAINTS_SUMMARY_ROW},
+            "violations_risk_level": SF_VIOLATIONS_SUMMARY_ROW["risk_level"],
+        }
+        mock_db = make_mock_db(MockResult([MockRow(search_row)]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get("/sf/building/search", params={"q": "123 Market St"})
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["mapblklot"] == SAMPLE_MAPBLKLOT
+        assert data[0]["address"] == "123 MARKET ST"
+
+    @pytest.mark.asyncio
+    async def test_trgm_fallback_when_ilike_empty(self, client):
+        # First (ILIKE) query returns nothing → route runs the trgm fallback query.
+        search_row = {
+            **SF_COMPLAINTS_SUMMARY_ROW,
+            "complaints_risk_level": SF_COMPLAINTS_SUMMARY_ROW["risk_level"],
+            **{k: SF_VIOLATIONS_SUMMARY_ROW[k]
+               for k in SF_VIOLATIONS_SUMMARY_ROW
+               if k not in SF_COMPLAINTS_SUMMARY_ROW},
+            "violations_risk_level": SF_VIOLATIONS_SUMMARY_ROW["risk_level"],
+        }
+        mock_db = make_mock_db(
+            MockResult([]),                        # ILIKE → no hits
+            MockResult([MockRow(search_row)]),     # trgm fallback → one hit
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get("/sf/building/search", params={"q": "markt"})
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["mapblklot"] == SAMPLE_MAPBLKLOT
+
+    @pytest.mark.asyncio
+    async def test_no_matches_returns_empty_list(self, client):
+        mock_db = make_mock_db(
+            MockResult([]),   # ILIKE → nothing
+            MockResult([]),   # trgm fallback → nothing
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get("/sf/building/search", params={"q": "zzzzz"})
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 class TestSfBuildingDetail:
@@ -227,6 +367,30 @@ class TestSfLeaderboard:
         data = resp.json()
         assert isinstance(data, list)
         assert data[0]["mapblklot"] == SAMPLE_MAPBLKLOT
+
+    @pytest.mark.asyncio
+    async def test_neighborhood_filter(self, client):
+        mock_db = make_mock_db(
+            MockResult([
+                MockRow({
+                    **SF_COMPLAINTS_SUMMARY_ROW,
+                    "complaints_risk_level": SF_COMPLAINTS_SUMMARY_ROW["risk_level"],
+                    **{k: SF_VIOLATIONS_SUMMARY_ROW[k]
+                       for k in SF_VIOLATIONS_SUMMARY_ROW if k not in SF_COMPLAINTS_SUMMARY_ROW},
+                    "violations_risk_level": SF_VIOLATIONS_SUMMARY_ROW["risk_level"],
+                })
+            ]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(
+            "/sf/building/leaderboard",
+            params={"neighborhood": "Financial District/South Beach"},
+        )
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data[0]["neighborhood"] == "Financial District/South Beach"
 
 
 class TestSfTimelines:

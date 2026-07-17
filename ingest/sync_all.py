@@ -1,4 +1,4 @@
-"""Run all three incremental syncs in sequence, then do a single clean view refresh.
+"""Run all three incremental NY syncs in sequence, then the SF refresh.
 
 Order:
   Phase 1 — HTTP fetches (no DB connection held open):
@@ -14,7 +14,14 @@ Order:
          building_summary                (reads raw tables; embeds HPD data)
          nta_stats                       (depends on building_summary)
 
-  Phase 3 — Persist state files
+  Phase 3 — Persist NY state files
+
+  Phase 4 — SF refresh (sync_sf.run(), self-contained):
+    Incremental sync of the SF event datasets (311 + DBI NOV, last 14 days),
+    own DB connection, own view refresh. Reference tables are skipped weekly
+    (refreshed by `python sync_sf.py --full`). SF tables/views are independent
+    of the NY ones, so it runs last — after NY is fully persisted, a SF failure
+    can't undo it.
 
 Separating fetches from DB work avoids the connection being dropped during
 the long Socrata HTTP calls (which can take 30+ minutes for large datasets).
@@ -33,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import sync as dob_sync
 import sync_hpd as hpd_sync
 import sync_hpd_complaints as hpd_complaints_sync
+import sync_sf
 from config import DATABASE_URL
 
 _BASE    = Path(__file__).parent.parent
@@ -173,6 +181,12 @@ async def run() -> None:
     # ── Phase 3: persist state ────────────────────────────────────────────────
     log.info("--- Phase 3: saving state ---")
     _save_all_state()
+
+    # ── Phase 4: SF refresh (self-contained: own fetches, connection, views) ──
+    # Runs after NY is fully persisted so a SF failure surfaces as a red build
+    # without rolling back the NY work already committed above.
+    log.info("--- Phase 4: SF data refresh ---")
+    await sync_sf.run()
 
     log.info("=" * 60)
     log.info("=== sync_all: done ===")

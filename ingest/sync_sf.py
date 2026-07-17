@@ -1,21 +1,35 @@
-"""SF data sync: fetch all five DataSF datasets, upsert, then refresh views.
+"""SF data sync.
 
-Phases:
-  1. Fetch: parcels, footprints, 311 housing complaints, DBI NOV, EAS addresses
-  2. DB:    upsert raw tables; join 311 → EAS to populate mapblklot;
-            refresh sf_housing_complaints_summary and sf_violations_summary
-  3. State: write .last_sync_sf
+Two modes:
+
+  Incremental (default) — the weekly job (also invoked by sync_all.py Phase 4):
+    Only the two event datasets, over a trailing window (default 14 days):
+      • 311 housing  — filter on :updated_at (genuine per-row timestamps, so it
+                       catches new complaints AND status changes)
+      • DBI NOV      — filter on date_filed. DataSF republishes the ENTIRE NOV
+                       dataset on each publish (both :created_at and :updated_at
+                       reflect the publish, not the record), so date_filed is the
+                       only real incremental key. It catches newly-FILED
+                       violations; status changes to OLDER violations are only
+                       picked up by a --full run.
+    Reference tables (parcels, footprints, EAS addresses) are skipped — they're
+    large and near-static, so they're only refreshed by --full.
+
+  Full (--full) — complete rebuild: all five datasets incl. reference tables,
+    NOV truncate+reload. Use it to seed a new environment, refresh reference
+    data, and true up NOV open/closed status. Run periodically (e.g. monthly).
 
 Run manually:
-    cd ingest && python sync_sf.py
-
-Or add to sync_all.py / weekly_sync.sh after NYC data refreshes.
+    cd ingest && python sync_sf.py            # weekly: last 14 days, events only
+    cd ingest && python sync_sf.py --days 30  # backfill a wider window (events)
+    cd ingest && python sync_sf.py --full     # full rebuild, all five datasets
 """
+import argparse
 import asyncio
 import logging
 import math
 import re
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import asyncpg
@@ -57,15 +71,15 @@ log = logging.getLogger(__name__)
 PAGE_SIZE   = 50_000
 UPSERT_BATCH = 5_000
 
+# Weekly incremental window. Re-scanning the last 2 weeks every run is a safety
+# margin against late-arriving / backdated records; upserts are idempotent, so
+# the overlap is free. The cursor file is gitignored, so CI has no state between
+# runs — this fixed window IS the steady-state behavior there.
+INCREMENTAL_DAYS = 14
+
 
 def _asyncpg_url(url: str) -> str:
     return url.split("?")[0]
-
-
-def _load_last_sync() -> date:
-    if STATE_FILE.exists():
-        return date.fromisoformat(STATE_FILE.read_text().strip())
-    return date(2000, 1, 1)
 
 
 def _save_last_sync(d: date) -> None:
@@ -266,11 +280,18 @@ def fetch_footprints() -> pd.DataFrame:
     return df[SF_FOOTPRINTS_DB_COLUMNS].drop_duplicates(subset=["mblr"], keep="last")
 
 
-def fetch_311() -> pd.DataFrame:
-    """Fetch 311 residential building complaints — both service_name variants."""
+def fetch_311(since: date | None = None) -> pd.DataFrame:
+    """Fetch 311 residential building complaints — both service_name variants.
+
+    When `since` is given, filter on :updated_at. 311 keeps genuine per-row
+    freshness timestamps, so this catches both new complaints and status changes
+    to existing ones.
+    """
     log.info("Fetching SF 311 housing complaints (both service_name variants)…")
     names_sql = ", ".join(f"'{n}'" for n in SF_311_SERVICE_NAMES)
     where = f"service_name IN ({names_sql})"
+    if since is not None:
+        where += f" AND :updated_at >= '{since.isoformat()}'"
     rows = _fetch_all(
         SF_311_API,
         where=where,
@@ -300,11 +321,20 @@ def fetch_311() -> pd.DataFrame:
     return df[SF_311_DB_COLUMNS].drop_duplicates(subset=["service_request_id"], keep="last")
 
 
-def fetch_dbi_nov() -> pd.DataFrame:
-    """Full fetch of DBI Notices of Violation (no incremental key available)."""
+def fetch_dbi_nov(since: date | None = None) -> pd.DataFrame:
+    """Fetch DBI Notices of Violation.
+
+    When `since` is given, filter on date_filed — the only usable incremental
+    key. DataSF republishes the whole dataset on each publish, so :updated_at /
+    :created_at reflect the publish, not the record, and can't identify changed
+    rows. date_filed therefore catches newly-FILED violations only; status
+    changes to older violations are picked up on the next --full run.
+    """
     log.info("Fetching SF DBI Notices of Violation…")
+    where = f"date_filed >= '{since.isoformat()}'" if since is not None else None
     rows = _fetch_all(
         SF_DBI_NOV_API,
+        where=where,
         select=":id,block,lot,status,nov_category_description,item,nov_item_description,date_filed,neighborhoods_analysis_boundaries,location",
     )
     if not rows:
@@ -451,17 +481,33 @@ async def _refresh_sf_views(conn: asyncpg.Connection) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def run() -> None:
+async def run(since: date | None = None, full: bool = False) -> None:
+    """Sync SF data.
+
+    full=True        → complete rebuild (all five datasets, NOV truncate+reload).
+    full=False       → incremental: only the two event datasets, filtered to
+                       `since`. Defaults to the last INCREMENTAL_DAYS days.
+    """
+    if full:
+        since = None
+        mode  = "full rebuild"
+    else:
+        if since is None:
+            since = date.today() - timedelta(days=INCREMENTAL_DAYS)
+        mode = f"incremental since {since}"
+
     log.info("=" * 60)
-    log.info("=== sync_sf: starting SF data refresh ===")
+    log.info("=== sync_sf: starting SF data refresh (%s) ===", mode)
     log.info("=" * 60)
 
     log.info("--- Phase 1: fetching from DataSF ---")
-    df_parcels    = fetch_parcels()
-    df_footprints = fetch_footprints()
-    df_311        = fetch_311()
-    df_nov        = fetch_dbi_nov()
-    df_addresses  = fetch_addresses()
+    # Reference tables are full-only: large and near-static, so the weekly job
+    # skips them and lets --full refresh them.
+    df_parcels    = fetch_parcels()    if full else pd.DataFrame()
+    df_footprints = fetch_footprints() if full else pd.DataFrame()
+    df_addresses  = fetch_addresses()  if full else pd.DataFrame()
+    df_311        = fetch_311(since)
+    df_nov        = fetch_dbi_nov(since)
 
     log.info("--- Phase 2: upserting and refreshing views ---")
     conn = await asyncpg.connect(
@@ -488,8 +534,15 @@ async def run() -> None:
             await _join_311_to_eas(conn)
 
         if not df_nov.empty:
-            n = await _truncate_and_load(conn, "sf_dbi_nov", "row_id", SF_DBI_NOV_DB_COLUMNS, df_nov)
-            log.info("sf_dbi_nov: loaded %d", n)
+            if full:
+                # Full rebuild: truncate+reload mirrors upstream exactly (drops
+                # violations removed from the source).
+                n = await _truncate_and_load(conn, "sf_dbi_nov", "row_id", SF_DBI_NOV_DB_COLUMNS, df_nov)
+                log.info("sf_dbi_nov: reloaded %d", n)
+            else:
+                # Incremental: upsert the newly-filed window onto the existing table.
+                n = await _upsert(conn, "sf_dbi_nov", "row_id", SF_DBI_NOV_DB_COLUMNS, df_nov)
+                log.info("sf_dbi_nov: upserted %d", n)
 
         await _refresh_sf_views(conn)
     finally:
@@ -501,4 +554,22 @@ async def run() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    parser = argparse.ArgumentParser(description="SF data sync")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--full", action="store_true",
+        help="Full rebuild: all five datasets incl. reference tables, NOV reload.",
+    )
+    group.add_argument(
+        "--days", type=int, metavar="N",
+        help=f"Incremental backfill window in days (event tables only). "
+             f"Default: {INCREMENTAL_DAYS}.",
+    )
+    args = parser.parse_args()
+
+    if args.full:
+        asyncio.run(run(full=True))
+    elif args.days is not None:
+        asyncio.run(run(since=date.today() - timedelta(days=args.days)))
+    else:
+        asyncio.run(run())

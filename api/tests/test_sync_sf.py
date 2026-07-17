@@ -183,3 +183,46 @@ class TestPointExtractors:
     def test_non_dict_returns_none(self):
         assert sync_sf._point_lat(None) is None
         assert sync_sf._point_lon("not a dict") is None
+
+
+# ── Incremental filters: the $where clause each fetcher sends to Socrata ───────
+# The event fetchers use different incremental keys on purpose — 311 has genuine
+# per-row :updated_at, NOV is republished wholesale so only date_filed works.
+
+from datetime import date  # noqa: E402
+
+
+class TestIncrementalFilters:
+    def _capture_where(self, monkeypatch):
+        """Patch _fetch_all to record the `where` it's called with, return no rows."""
+        captured = {}
+
+        def fake_fetch_all(api_url, where=None, select=None):
+            captured["where"] = where
+            return []
+
+        monkeypatch.setattr(sync_sf, "_fetch_all", fake_fetch_all)
+        return captured
+
+    def test_nov_incremental_filters_on_date_filed(self, monkeypatch):
+        cap = self._capture_where(monkeypatch)
+        sync_sf.fetch_dbi_nov(since=date(2026, 7, 2))
+        assert cap["where"] == "date_filed >= '2026-07-02'"
+
+    def test_nov_full_has_no_filter(self, monkeypatch):
+        cap = self._capture_where(monkeypatch)
+        sync_sf.fetch_dbi_nov()
+        assert cap["where"] is None
+
+    def test_311_incremental_filters_on_updated_at(self, monkeypatch):
+        cap = self._capture_where(monkeypatch)
+        sync_sf.fetch_311(since=date(2026, 7, 2))
+        # Keeps the service_name filter AND adds the freshness filter.
+        assert "service_name IN (" in cap["where"]
+        assert ":updated_at >= '2026-07-02'" in cap["where"]
+
+    def test_311_full_omits_updated_at(self, monkeypatch):
+        cap = self._capture_where(monkeypatch)
+        sync_sf.fetch_311()
+        assert "service_name IN (" in cap["where"]
+        assert ":updated_at" not in cap["where"]

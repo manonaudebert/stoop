@@ -12,6 +12,7 @@ import type { SfBuildingSummary } from '@/lib/types'
 const SfMap = dynamic(() => import('./SfMap'), { ssr: false })
 
 type FlyTarget = { lng: number; lat: number; id: number }
+type NhoodItem = { name: string }
 
 const SF_SEARCH_URL = '/api/proxy/sf/building/search'
 
@@ -54,6 +55,11 @@ export default function SfMapWrapper() {
   const [explainerExpanded, setExplainerExpanded] = useState(false)
   const [navMenuOpen,       setNavMenuOpen]       = useState(false)
   const [showWelcome,       setShowWelcome]       = useState(false)
+  const [showNeighborhoods,     setShowNeighborhoods]     = useState(false)
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<Set<string>>(new Set())
+  const [neighborhoodList,      setNeighborhoodList]      = useState<NhoodItem[]>([])
+  const [neighborhoodSearch,    setNeighborhoodSearch]    = useState('')
+  const [neighborhoodListExpanded, setNeighborhoodListExpanded] = useState(true)
 
   useEffect(() => {
     if (!localStorage.getItem('sf_welcome_dismissed')) setShowWelcome(true)
@@ -77,6 +83,19 @@ export default function SfMapWrapper() {
   useEffect(() => {
     if (selected) setExplainerExpanded(false)
   }, [selected])
+
+  // Reset the neighborhood filter whenever the borders are hidden
+  useEffect(() => {
+    if (!showNeighborhoods) { setSelectedNeighborhoods(new Set()); setNeighborhoodSearch(''); setNeighborhoodListExpanded(true) }
+  }, [showNeighborhoods])
+
+  function toggleNeighborhood(name: string) {
+    setSelectedNeighborhoods(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      return next
+    })
+  }
 
   function switchLens(l: SfLens) {
     if (l === lens) return
@@ -134,7 +153,19 @@ export default function SfMapWrapper() {
 
   const config            = LENS_CONFIG[lens]
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])
+  const selectedNeighborhoodsArray = useMemo(() => [...selectedNeighborhoods], [selectedNeighborhoods])
   const selectedId        = selected?.mapblklot ?? null
+
+  const filteredNeighborhoodList = useMemo(() => {
+    const base = neighborhoodSearch
+      ? neighborhoodList.filter(n => n.name.toLowerCase().includes(neighborhoodSearch.toLowerCase()))
+      : neighborhoodList
+    if (selectedNeighborhoods.size === 0) return base
+    return [
+      ...base.filter(n =>  selectedNeighborhoods.has(n.name)),
+      ...base.filter(n => !selectedNeighborhoods.has(n.name)),
+    ]
+  }, [neighborhoodList, neighborhoodSearch, selectedNeighborhoods])
 
   const Checkbox = ({ active, color }: { active: boolean; color: string }) => (
     <div style={{
@@ -248,6 +279,83 @@ export default function SfMapWrapper() {
           </div>
         )
       })}
+
+      <div style={{ height: '0.5px', background: '#E5E5E5', margin: '10px 0' }} />
+
+      {/* Neighborhood border toggle */}
+      <div
+        onClick={() => setShowNeighborhoods(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+      >
+        <Checkbox active={showNeighborhoods} color="#525252" />
+        <span style={{ fontSize: 12, color: showNeighborhoods ? '#111111' : '#525252', transition: 'color 0.1s' }}>
+          Neighborhoods
+        </span>
+      </div>
+
+      {/* Neighborhood filter list */}
+      {showNeighborhoods && neighborhoodList.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: '0.5px solid #E5E5E5', paddingTop: 10 }}>
+          <div
+            onClick={() => setNeighborhoodListExpanded(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: neighborhoodListExpanded ? 7 : 0, cursor: 'pointer', userSelect: 'none' }}
+          >
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: 0 }}>
+              Filter{selectedNeighborhoods.size > 0 ? ` (${selectedNeighborhoods.size})` : ''}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {selectedNeighborhoods.size > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setSelectedNeighborhoods(new Set()) }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: ACCENT_COLOR, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  Clear
+                </button>
+              )}
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" style={{ transform: neighborhoodListExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+                <path d="M2 4.5l4 4 4-4" stroke="#6B6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </div>
+          {neighborhoodListExpanded && (
+            <>
+              <div className="search-field" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 6, padding: '5px 8px', marginBottom: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input
+                  value={neighborhoodSearch}
+                  onChange={e => setNeighborhoodSearch(e.target.value)}
+                  placeholder="Search…"
+                  style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: '#111111', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+                />
+              </div>
+              <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                {filteredNeighborhoodList.map(nhood => {
+                  const active = selectedNeighborhoods.has(nhood.name)
+                  return (
+                    <div
+                      key={nhood.name}
+                      onClick={() => toggleNeighborhood(nhood.name)}
+                      style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5, cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <div style={{ marginTop: 1, flexShrink: 0 }}>
+                        <Checkbox active={active} color="#525252" />
+                      </div>
+                      <span style={{ fontSize: 11, color: active ? '#111111' : '#525252', lineHeight: 1.3, transition: 'color 0.1s' }}>
+                        {nhood.name}
+                      </span>
+                    </div>
+                  )
+                })}
+                {filteredNeighborhoodList.length === 0 && (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>No results</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   )
 
@@ -274,6 +382,10 @@ export default function SfMapWrapper() {
         selectedId={selectedId}
         lens={lens}
         visibleTiers={visibleTiersArray}
+        showNeighborhoods={showNeighborhoods}
+        selectedNeighborhoods={selectedNeighborhoodsArray}
+        onNeighborhoodSelect={nhood => nhood && toggleNeighborhood(nhood.name)}
+        onNeighborhoodListLoad={setNeighborhoodList}
         isMobile={isMobile}
       />
 

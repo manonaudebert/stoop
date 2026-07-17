@@ -132,13 +132,9 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const navControlRef = useRef<mapboxgl.NavigationControl | null>(null)
   const onSelectRef = useRef(onBuildingSelect)
-  onSelectRef.current = onBuildingSelect
   const onNtaSelectRef = useRef(onNtaSelect)
-  onNtaSelectRef.current = onNtaSelect
   const onNtaListLoadRef = useRef(onNtaListLoad)
-  onNtaListLoadRef.current = onNtaListLoad
   const clustersUrlRef = useRef(clustersUrl)
-  clustersUrlRef.current = clustersUrl
   // Monotonic token so out-of-order cluster fetches can be discarded
   const loadSeqRef = useRef(0)
   const loadAbortRef = useRef<AbortController | null>(null)
@@ -146,14 +142,25 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
   const rawDataRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ntaDataRef = useRef<any>(null)
+  const ntaPopupRef = useRef<mapboxgl.Popup | null>(null)
   const visibleTiersRef = useRef(visibleTiers)
-  visibleTiersRef.current = visibleTiers
   const selectedNtasRef = useRef(selectedNtas)
-  selectedNtasRef.current = selectedNtas
   const showNtaBordersRef = useRef(showNtaBorders)
-  showNtaBordersRef.current = showNtaBorders
   const lensRef = useRef(lens)
-  lensRef.current = lens
+
+  // Keep the "latest value" refs in sync after each render. Declared before the
+  // effects that read them so it commits first, giving those effects (and the
+  // once-registered map event handlers) the current props/state.
+  useEffect(() => {
+    onSelectRef.current = onBuildingSelect
+    onNtaSelectRef.current = onNtaSelect
+    onNtaListLoadRef.current = onNtaListLoad
+    clustersUrlRef.current = clustersUrl
+    visibleTiersRef.current = visibleTiers
+    selectedNtasRef.current = selectedNtas
+    showNtaBordersRef.current = showNtaBorders
+    lensRef.current = lens
+  })
 
   useEffect(() => {
     if (!flyTarget || !mapRef.current) return
@@ -204,6 +211,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     for (const id of NTA_LAYERS) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility)
     }
+    if (!showNtaBorders) ntaPopupRef.current?.remove()
   }, [showNtaBorders])
 
   useEffect(() => {
@@ -487,8 +495,24 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     map.on('mouseleave', 'clusters',     () => { map.getCanvas().style.cursor = '' })
     map.on('mouseenter', 'unclustered',  () => { map.getCanvas().style.cursor = 'pointer' })
     map.on('mouseleave', 'unclustered',  () => { map.getCanvas().style.cursor = '' })
-    map.on('mouseenter', 'nta-fill',     () => { if (showNtaBordersRef.current) map.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', 'nta-fill',     () => { map.getCanvas().style.cursor = '' })
+
+    // Neighborhood name tooltip on hover — only while the borders are shown.
+    const ntaPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 8 })
+    ntaPopupRef.current = ntaPopup
+    map.on('mousemove', 'nta-fill', e => {
+      if (!showNtaBordersRef.current) { ntaPopup.remove(); return }
+      const name: string | undefined = e.features?.[0]?.properties?.NTAName
+      if (!name) { ntaPopup.remove(); return }
+      map.getCanvas().style.cursor = 'pointer'
+      ntaPopup
+        .setLngLat(e.lngLat)
+        .setHTML(`<span style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.04em;color:#FFFFFF;white-space:nowrap">${name}</span>`)
+        .addTo(map)
+    })
+    map.on('mouseleave', 'nta-fill', () => {
+      map.getCanvas().style.cursor = ''
+      ntaPopup.remove()
+    })
 
     let moveTimer: ReturnType<typeof setTimeout>
     map.on('moveend', () => {
@@ -504,7 +528,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
       }, 300)
     })
 
-    return () => { map.remove(); mapRef.current = null }
+    return () => { ntaPopupRef.current?.remove(); map.remove(); mapRef.current = null }
   }, [loadClusters])
 
   // Show the zoom/compass control on desktop only — on mobile it overlaps the

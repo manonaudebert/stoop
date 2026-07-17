@@ -36,7 +36,7 @@ const LENS_CONFIG: Record<SfLens, { label: string; subtitle: string; explainer: 
   },
   violations: {
     label:    'DBI Violations',
-    subtitle: 'Coloring buildings by active Notices of Violation issued by SF\'s Department of Building Inspection',
+    subtitle: 'Coloring buildings by active Notices of Violation issued by SF\'s Department of Building Inspection (DBI)',
     explainer:
       'DBI Notices of Violation (NOVs) are issued when an inspector finds conditions that violate the SF Housing or Building Code. ' +
       'Open violations (status: active) indicate unresolved issues. The risk level is based on violation density relative to building size, ' +

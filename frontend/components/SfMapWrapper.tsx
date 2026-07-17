@@ -311,6 +311,13 @@ export default function SfMapWrapper() {
             >
               Leaderboard
             </Link>
+            <Link
+              href="/sf/methodology"
+              className="hidden sm:inline"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              About
+            </Link>
           </div>
 
           <button
@@ -351,6 +358,13 @@ export default function SfMapWrapper() {
                 style={{ display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none' }}
               >
                 Leaderboard
+              </Link>
+              <Link
+                href="/sf/methodology"
+                onClick={() => setNavMenuOpen(false)}
+                style={{ display: 'flex', alignItems: 'center', minHeight: 44, padding: '0 20px', fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#A3A3A3', textDecoration: 'none' }}
+              >
+                About
               </Link>
             </div>
           )}

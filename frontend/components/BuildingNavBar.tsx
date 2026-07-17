@@ -7,9 +7,23 @@ import { Map, ChevronLeft, Menu, X } from 'lucide-react'
 import SearchBar from './SearchBar'
 import type { BuildingSummary } from '@/lib/types'
 
-type Props = { backHref: string; backLabel: string; searchUrl?: string; buildingBasePath?: string }
+type Props = {
+  backHref: string
+  backLabel: string
+  searchUrl?: string
+  buildingBasePath?: string
+  leaderboardHref?: string
+  aboutHref?: string
+}
 
-export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildingBasePath = '/building' }: Props) {
+export default function BuildingNavBar({
+  backHref,
+  backLabel,
+  searchUrl,
+  buildingBasePath = '/building',
+  leaderboardHref = '/dob/leaderboard',
+  aboutHref = '/methodology',
+}: Props) {
   const router  = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -72,7 +86,7 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
           <SearchBar onSelect={handleSelect} searchUrl={searchUrl} />
         </div>
         <Link
-          href="/dob/leaderboard"
+          href={leaderboardHref}
           className="hidden sm:inline"
           style={{
             fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
@@ -83,7 +97,7 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
           Leaderboard
         </Link>
         <Link
-          href="/methodology"
+          href={aboutHref}
           className="hidden sm:inline"
           style={{
             fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
@@ -123,8 +137,8 @@ export default function BuildingNavBar({ backHref, backLabel, searchUrl, buildin
           }}
         >
           {[
-            { href: '/dob/leaderboard', label: 'Leaderboard' },
-            { href: '/methodology',     label: 'About' },
+            { href: leaderboardHref, label: 'Leaderboard' },
+            { href: aboutHref,       label: 'About' },
           ].map(item => (
             <Link
               key={item.href}

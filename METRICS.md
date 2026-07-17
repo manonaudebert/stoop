@@ -4,6 +4,10 @@ This document describes every computed metric used on building detail pages and 
 neighborhood comparisons. **Update this file whenever methodology changes in a SQL
 migration.**
 
+The tenant-facing explanation of this methodology lives at `/methodology` (NYC) and
+`/sf/methodology` (SF); those pages toggle by city and share a generic "About" section.
+Keep their prose in sync with the definitions here.
+
 ---
 
 ## DOB building page (`building_summary` materialized view)
@@ -278,6 +282,19 @@ else Very high.
 `/complaints-breakdown` and `/violations-breakdown` mirror the NYC breakdown cards with the
 same 5-year / all-time (`years=0`) window toggle. Timelines are monthly `COUNT(*)` from the
 raw `sf_311_housing` / `sf_dbi_nov` tables.
+
+### Sync cadence (affects `open_violations` freshness)
+
+SF syncs on two schedules (see `.github/workflows/`):
+
+- **Weekly** (`weekly_sync.yml`, Sun 06:00 UTC → `sync_all.py`): incremental — 311 by
+  `:updated_at`, DBI NOV by `date_filed`.
+- **Monthly** (`monthly_sf_full.yml`, 15th 15:00 UTC → `sync_sf.py --full`): full NOV
+  re-pull. DataSF republishes NOV **wholesale**, so an incremental `date_filed` pass only
+  catches newly-*filed* violations — a status flip (e.g. `active` → `not active`) on an
+  *older* NOV is invisible to the weekly job. The monthly full refresh trues up
+  `open_violations` / `status`. So a resolved older violation can read as still-open for up
+  to ~a month. (See memory `reference_datasf_nov_wholesale_republish.md`.)
 
 ---
 

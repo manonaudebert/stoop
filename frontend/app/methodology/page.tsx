@@ -1,174 +1,49 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 import BuildingNavBar from '@/components/BuildingNavBar'
+import {
+  CARD, SECTION_HEADER, PROSE,
+  SectionTitle, DataSourceCard, SeverityList, RecencyCard, RiskLevelTable,
+  MethodologyAbout, MethodologyIntro,
+  type SeverityItem,
+} from '@/components/methodology/shared'
 
 export const metadata: Metadata = {
   title: "about — stoop",
   description: 'How Stoop compares NYC buildings using DOB complaints, HPD violations, and HPD tenant complaints — normalized by building size.',
 }
 
-// ── design tokens ─────────────────────────────────────────────────────────────
+// ── NYC priority / severity data ──────────────────────────────────────────────
 
-const CARD: React.CSSProperties = {
-  background: '#FFFFFF',
-  border: '0.5px solid #E5E5E5',
-  borderRadius: 12,
-  padding: 20,
-}
-
-const SECTION_HEADER: React.CSSProperties = {
-  fontFamily: 'var(--font-mono)',
-  fontSize: 10,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase' as const,
-  color: '#525252',
-  marginBottom: 12,
-  marginTop: 0,
-}
-
-const PROSE: React.CSSProperties = {
-  fontSize: 14,
-  color: '#525252',
-  lineHeight: 1.7,
-  margin: 0,
-}
-
-// ── priority / severity data ──────────────────────────────────────────────────
-
-const HPD_VIOLATION_CLASSES = [
-  { label: 'C', name: 'Immediately hazardous', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+const HPD_VIOLATION_CLASSES: SeverityItem[] = [
+  { key: 'C', badge: 'C', name: 'Immediately hazardous', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
     examples: 'Lead paint, mold, heat failure, pest infestation, structural hazard' },
-  { label: 'B', name: 'Hazardous', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+  { key: 'B', badge: 'B', name: 'Hazardous', weight: 8, color: '#FEF3C7', textColor: '#92400E',
     examples: 'Broken locks, defective plumbing, missing smoke detectors, damaged floors' },
-  { label: 'A', name: 'Non-hazardous', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+  { key: 'A', badge: 'A', name: 'Non-hazardous', weight: 3, color: '#D1FAE5', textColor: '#065F46',
     examples: 'Peeling paint (non-lead), minor repairs, cosmetic defects' },
-  { label: 'I', name: 'Informational', weight: 1, color: '#FFFFFF', textColor: '#111111',
+  { key: 'I', badge: 'I', name: 'Informational', weight: 1, color: '#FFFFFF', textColor: '#111111',
     border: '0.5px solid #E5E5E5', examples: 'Administrative notices, permit-related items' },
 ]
 
-const HPD_COMPLAINT_TYPES: { badge: string; label: string; weight: number; color: string; textColor: string; examples: string; border?: string }[] = [
-  { badge: 'IE', label: 'Immediate Emergency', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+const HPD_COMPLAINT_TYPES: SeverityItem[] = [
+  { key: 'IE', badge: 'IE', name: 'Immediate Emergency', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
     examples: 'No heat in winter, gas leak, sewage backup, structural collapse risk' },
-  { badge: 'E',  label: 'Emergency', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+  { key: 'E',  badge: 'E',  name: 'Emergency', weight: 8, color: '#FEF3C7', textColor: '#92400E',
     examples: 'Mold, pest infestation, water leak, broken elevator' },
-  { badge: 'NE', label: 'Non Emergency', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+  { key: 'NE', badge: 'NE', name: 'Non Emergency', weight: 3, color: '#D1FAE5', textColor: '#065F46',
     examples: 'Cosmetic damage, minor repairs, general maintenance' },
 ]
 
-const PRIORITY_TIERS = [
-  {
-    label: 'A',
-    name: 'Imminent danger',
-    weight: 15,
-    color: '#7F1D1D',
-    textColor: '#FFFFFF',
-    examples: 'Collapse risk, falling debris, blocked egress, gas leaks, elevator accidents',
-  },
-  {
-    label: 'B',
-    name: 'Active violation',
-    weight: 8,
-    color: '#FEF3C7',
-    textColor: '#92400E',
-    examples: 'Illegal work in progress, no permit, SRO conversion, sprinkler defects',
-  },
-  {
-    label: 'C',
-    name: 'Minor / administrative',
-    weight: 3,
-    color: '#D1FAE5',
-    textColor: '#065F46',
-    examples: 'Zoning non-compliance, certificate of occupancy issues, failure to maintain',
-  },
-  {
-    label: 'D',
-    name: 'Tracking / inspection',
-    weight: 1,
-    color: '#FFFFFF',
-    textColor: '#111111',
-    border: '0.5px solid #E5E5E5',
-    examples: 'Routine inspections, contractor sign absent, inter-agency referrals',
-  },
+const PRIORITY_TIERS: SeverityItem[] = [
+  { key: 'A', badge: 'A', name: 'Imminent danger', weight: 15, color: '#7F1D1D', textColor: '#FFFFFF',
+    examples: 'Collapse risk, falling debris, blocked egress, gas leaks, elevator accidents' },
+  { key: 'B', badge: 'B', name: 'Active violation', weight: 8, color: '#FEF3C7', textColor: '#92400E',
+    examples: 'Illegal work in progress, no permit, SRO conversion, sprinkler defects' },
+  { key: 'C', badge: 'C', name: 'Minor / administrative', weight: 3, color: '#D1FAE5', textColor: '#065F46',
+    examples: 'Zoning non-compliance, certificate of occupancy issues, failure to maintain' },
+  { key: 'D', badge: 'D', name: 'Tracking / inspection', weight: 1, color: '#FFFFFF', textColor: '#111111',
+    border: '0.5px solid #E5E5E5', examples: 'Routine inspections, contractor sign absent, inter-agency referrals' },
 ]
-
-const RECENCY_TIERS = [
-  { label: '≤ 2 years',   weight: '1.0×', desc: 'Full weight' },
-  { label: '2 – 5 years', weight: '0.5×', desc: 'Half weight' },
-  { label: '5 – 10 years',weight: '0.25×',desc: 'Quarter weight' },
-  { label: '> 10 years',  weight: '0',    desc: 'Excluded' },
-]
-
-const RISK_LEVELS = [
-  { label: 'Very low',  range: '< 15th percentile', dot: '#84A98C',
-    desc: 'Fewer weighted complaints per unit of scale than ~85% of residential peers in the neighborhood.' },
-  { label: 'Low',       range: '15th – 39th',        dot: '#84A98C',
-    desc: 'Below the neighborhood median.' },
-  { label: 'Moderate',  range: '40th – 69th',        dot: '#E4A11B',
-    desc: 'Near or above the neighborhood median.' },
-  { label: 'High',      range: '70th – 89th',        dot: '#C45C3A',
-    desc: 'More weighted complaints than most residential peers.' },
-  { label: 'Very high', range: '≥ 90th percentile',  dot: '#7F1D1D',
-    desc: 'Among the most complaint-heavy buildings in the neighborhood.' },
-]
-
-// ── sub-components ────────────────────────────────────────────────────────────
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 style={{
-      fontFamily: 'var(--font-serif)',
-      fontSize: 22,
-      fontWeight: 500,
-      color: '#111111',
-      letterSpacing: '-0.02em',
-      margin: '0 0 16px',
-    }}>
-      {children}
-    </h2>
-  )
-}
-
-function DataSourceCard({
-  id,
-  title,
-  agency,
-  description,
-  href,
-}: {
-  id: string
-  title: string
-  agency: string
-  description: string
-  href: string
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ ...CARD, display: 'block', textDecoration: 'none', transition: 'border-color 0.15s' }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-        <div>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
-            {agency}
-          </p>
-          <p style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 500, color: '#111111', margin: 0 }}>
-            {title}
-          </p>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" style={{ flexShrink: 0, marginTop: 2 }}>
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#6B6B6B', margin: '0 0 8px', letterSpacing: '0.04em' }}>
-        dataset: {id}
-      </p>
-      <p style={{ ...PROSE, fontSize: 13 }}>{description}</p>
-    </a>
-  )
-}
 
 // ── page ──────────────────────────────────────────────────────────────────────
 
@@ -178,41 +53,18 @@ export default function MethodologyPage() {
 
       <BuildingNavBar backHref="/" backLabel="Map" />
 
-      {/* ── Section 1: Mission ───────────────────────────────────────────── */}
-      <div style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '3rem 1.5rem' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <p style={SECTION_HEADER}>About</p>
-          <p style={{
-            fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 500,
-            color: '#111111', letterSpacing: '-0.01em', lineHeight: 1.4,
-            maxWidth: 620, margin: '0 0 20px',
-          }}>
-            Stoop makes the housing data NYC already collects useful to the tenants it affects most.
-          </p>
-          <p style={{ ...PROSE, maxWidth: 620 }}>
-            Stoop is a tool for NYC renters that turns public city records into plain-language building profiles. Search any NYC address with a complaint history to see its open violations, trends over time, and how it ranks against other buildings in the neighborhood. Toggle between two views: Housing Conditions covers tenant complaints about heat, hot water, mold, pests, and leaks from the NYC Department of Housing Preservation &amp; Development; Building Safety covers structural, electrical, and construction complaints from the NYC Department of Buildings.
-          </p>
-        </div>
-      </div>
+      {/* ── Section 1: Mission (generic, shared) ─────────────────────────── */}
+      <MethodologyAbout />
 
-      {/* ── Section 2: Methodology ───────────────────────────────────────── */}
-      <div style={{ background: '#FAFAFA', padding: '2rem 1.5rem' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <p style={SECTION_HEADER}>Methodology</p>
-          <h2 style={{
-            fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 500,
-            color: '#111111', letterSpacing: '-0.02em', margin: '0 0 16px', lineHeight: 1.1,
-          }}>
-            How it works
-          </h2>
-          <p style={{ ...PROSE, maxWidth: 600 }}>
-            Every metric and comparison on Stoop is derived from public records published
-            by the NYC Department of Buildings (DOB) and the NYC Department of Housing Preservation
-            &amp; Development (HPD). Here's how raw data becomes the numbers you see, and how 
-            buildings are compared fairly regardless of size, given publicly available data. 
-          </p>
-        </div>
-      </div>
+      {/* ── Section 2: Methodology (NYC) ─────────────────────────────────── */}
+      <MethodologyIntro city="NYC">
+        <p style={{ ...PROSE, maxWidth: 600 }}>
+          Every metric and comparison on Stoop&apos;s New York pages is derived from public records
+          published by the NYC Department of Buildings (DOB) and the NYC Department of Housing
+          Preservation &amp; Development (HPD). Here&apos;s how raw data becomes the numbers you see, and how
+          buildings are compared fairly regardless of size, given publicly available data.
+        </p>
+      </MethodologyIntro>
 
       <main style={{ maxWidth: 860, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
 
@@ -266,41 +118,7 @@ export default function MethodologyPage() {
             the DOB&apos;s own classification system (rev. 09/21). When a complaint&apos;s category is
             unknown or absent, it defaults to Priority C.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {PRIORITY_TIERS.map(t => (
-              <div key={t.label} style={{
-                ...CARD,
-                padding: '14px 18px',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 16,
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: t.color, border: t.border ?? 'none',
-                }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500, color: t.textColor }}>
-                    {t.label}
-                  </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
-                      {t.name}
-                    </span>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252',
-                      letterSpacing: '0.04em',
-                    }}>
-                      weight {t.weight}
-                    </span>
-                  </div>
-                  <p style={{ ...PROSE, fontSize: 13 }}>{t.examples}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <SeverityList items={PRIORITY_TIERS} />
         </section>
 
         {/* ── 3. HPD violation severity ──────────────────────────────────── */}
@@ -311,35 +129,7 @@ export default function MethodologyPage() {
             The weighted violation sum uses the same recency multipliers as the DOB weighted sum
             (see Building size normalization below), so recent serious violations weigh more than old minor ones.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {HPD_VIOLATION_CLASSES.map(c => (
-              <div key={c.label} style={{
-                ...CARD, padding: '14px 18px',
-                display: 'flex', alignItems: 'flex-start', gap: 16,
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: c.color, border: c.border ?? 'none',
-                }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 500, color: c.textColor }}>
-                    {c.label}
-                  </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
-                      {c.name}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em' }}>
-                      weight {c.weight}
-                    </span>
-                  </div>
-                  <p style={{ ...PROSE, fontSize: 13 }}>{c.examples}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <SeverityList items={HPD_VIOLATION_CLASSES} />
         </section>
 
         {/* ── 4. HPD complaint urgency ────────────────────────────────────── */}
@@ -351,35 +141,7 @@ export default function MethodologyPage() {
             understate the building&apos;s history. The weighted complaint sum captures the full
             record with higher weight for urgent and recent complaints.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {HPD_COMPLAINT_TYPES.map(t => (
-              <div key={t.label} style={{
-                ...CARD, padding: '14px 18px',
-                display: 'flex', alignItems: 'flex-start', gap: 16,
-              }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: t.color, border: t.border ?? 'none',
-                }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: t.textColor }}>
-                    {t.badge}
-                  </span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 3 }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, fontWeight: 500, color: '#111111' }}>
-                      {t.label}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em' }}>
-                      weight {t.weight}
-                    </span>
-                  </div>
-                  <p style={{ ...PROSE, fontSize: 13 }}>{t.examples}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <SeverityList items={HPD_COMPLAINT_TYPES} badgeFontSize={11} />
         </section>
 
         {/* ── 5. Building size normalization ─────────────────────────────── */}
@@ -388,8 +150,8 @@ export default function MethodologyPage() {
           <p style={{ ...PROSE, marginBottom: 20 }}>
             A 200-unit tower will naturally accumulate more complaints than a four-unit brownstone.
             Raw counts penalize larger buildings unfairly. To make comparisons meaningful, all
-            weighted sums are divided by an estimate of building scale before peer ranking. Since we 
-            don't have the exact unit count for each building, size is estimated by building footprint
+            weighted sums are divided by an estimate of building scale before peer ranking. Since we
+            don&apos;t have the exact unit count for each building, size is estimated by building footprint
             and height on building.
           </p>
 
@@ -425,32 +187,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
-            <div style={CARD}>
-              <p style={SECTION_HEADER}>Recency multiplier</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {RECENCY_TIERS.map(r => (
-                  <div key={r.label} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 10px', borderRadius: 6, background: '#FAFAFA', border: '0.5px solid #E5E5E5',
-                  }}>
-                    <div>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: '#111111' }}>
-                        {r.label}
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', marginLeft: 8 }}>
-                        {r.desc}
-                      </span>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 500, color: r.weight === '0' ? '#6B6B6B' : '#111111' }}>
-                      {r.weight}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p style={{ ...PROSE, fontSize: 12, marginTop: 10 }}>
-                Applied to all three datasets (DOB, HPD violations, HPD complaints). Complaints with no date recorded contribute nothing to the weighted sum.
-              </p>
-            </div>
+            <RecencyCard note="Applied to all three datasets (DOB, HPD violations, HPD complaints). Complaints with no date recorded contribute nothing to the weighted sum." />
             <div style={{ ...CARD, background: '#FAFAFA' }}>
               <p style={SECTION_HEADER}>Size-normalized percentile</p>
               <p style={{ ...PROSE, fontSize: 13 }}>
@@ -472,24 +209,7 @@ export default function MethodologyPage() {
             on building pages and the map. The label reflects how the building compares
             to residential peers within the same neighborhood, not citywide.
           </p>
-          <div style={{ ...CARD, padding: 0, overflow: 'hidden' }}>
-            {RISK_LEVELS.map((r, i) => (
-              <div key={r.label} style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                padding: '12px 18px',
-                borderBottom: i < RISK_LEVELS.length - 1 ? '0.5px solid #E5E5E5' : 'none',
-              }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: r.dot, flexShrink: 0 }} />
-                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, fontWeight: 500, color: '#111111', width: 76, flexShrink: 0 }}>
-                  {r.label}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', letterSpacing: '0.04em', width: 120, flexShrink: 0 }}>
-                  {r.range}
-                </span>
-                <p style={{ ...PROSE, fontSize: 13, margin: 0 }}>{r.desc}</p>
-              </div>
-            ))}
-          </div>
+          <RiskLevelTable />
           <p style={{ ...PROSE, fontSize: 13, marginTop: 12 }}>
             &ldquo;Insufficient data&rdquo; and &ldquo;Not comparable&rdquo; are handled separately — see below.
           </p>

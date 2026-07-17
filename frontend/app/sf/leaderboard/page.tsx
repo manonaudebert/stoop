@@ -172,7 +172,7 @@ export default async function SfLeaderboardPage({
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
-      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" />
+      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>

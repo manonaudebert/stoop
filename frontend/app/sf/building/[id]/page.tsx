@@ -219,7 +219,7 @@ export default async function SfBuildingPage({
   if (building.total_complaints === 0 && building.total_violations === 0) {
     return (
       <>
-        <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" />
+        <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
         <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
           <BuildingHero
             address={address}
@@ -312,7 +312,7 @@ export default async function SfBuildingPage({
 
   return (
     <>
-      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" />
+      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
         <BuildingHero

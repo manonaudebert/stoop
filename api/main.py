@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ from routes.building import router as building_router
 from routes.hpd import router as hpd_router
 from routes.hpd_complaints import router as hpd_complaints_router
 from routes.map import router as map_router
-from routes.sf import router as sf_router
+from routes.sf import router as sf_router, warm_citywide_cache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,10 +26,25 @@ logger = logging.getLogger("nycd")
 _INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 _ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Warm the SF citywide cluster cache on boot so the first map load (and every
+    # CDN revalidation after a restart clears the in-process cache) skips the
+    # heavy join+window-sort. Non-fatal: a warm failure must never block startup.
+    try:
+        await warm_citywide_cache()
+        logger.info("SF citywide cluster cache warmed")
+    except Exception as exc:
+        logger.warning("SF citywide cache warm failed (serving cold): %s", exc)
+    yield
+
+
 app = FastAPI(
     title="NYC DOB Complaints API",
     description="Building complaint history for NYC renters",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

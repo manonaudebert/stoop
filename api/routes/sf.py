@@ -22,7 +22,18 @@ router = APIRouter(prefix="/sf", tags=["sf"])
 
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
-PER_NEIGHBORHOOD_LIMIT = 2500
+# Citywide (clustered) sample cap, per SF analysis neighborhood. SF has 41
+# neighborhoods, so this multiplies out to the total point budget shipped to the
+# browser at low zoom (41 × limit). It was 2500 — the value NYC uses per BOROUGH
+# — but NYC only has 5 boroughs, so the same cap gave SF ~43k points / ~19.6 MB,
+# 3.5× NYC's ~12.5k / 5.6 MB. That mattered for more than parse time: 19.6 MB
+# EXCEEDED the CDN's max cacheable response size, so every SF map load was a
+# cache MISS — a full origin round-trip + 19.6 MB transfer — while NYC (under the
+# limit) served from the edge. 300 puts the citywide payload at ~10k points /
+# ~4.2 MB (measured), safely under NYC's proven-cacheable 5.6 MB, so SF caches
+# too. Only affects the zoomed-out clustered view; at zoom ≥ CLUSTER_MAX_ZOOM the
+# bbox query returns every parcel in view, uncapped.
+PER_NEIGHBORHOOD_LIMIT = 300
 LEADERBOARD_LIMIT = 100
 
 # Unified clusters: FULL OUTER JOIN complaints + violations per parcel.
@@ -119,6 +130,71 @@ def _active_risk(complaints_risk: str | None, violations_risk: str | None) -> st
 
 # ── map clusters ────────────────────────────────────────────────────────────
 
+CITYWIDE_CACHE_KEY = "sf_clusters:citywide"
+
+
+def _rows_to_features(all_rows) -> list[dict]:
+    """Turn unified-projection rows into GeoJSON point features, skipping any
+    row without usable coordinates."""
+    features = []
+    for r in all_rows:
+        cr = r.complaints_risk_level
+        vr = r.violations_risk_level
+        active_risk = _active_risk(cr, vr)
+        lat = _safe_float(r.latitude)
+        lon = _safe_float(r.longitude)
+        if lat is None or lon is None:
+            continue
+        features.append({
+            "type": "Feature",
+            # 5 decimals ≈ 1m — ample for a map dot, and ~12 fewer chars per
+            # ordinate than raw float repr, which trims megabytes over ~40k points.
+            "geometry": {"type": "Point", "coordinates": [round(lon, 5), round(lat, 5)]},
+            "properties": {
+                "mapblklot":             r.mapblklot,
+                "address":               r.address,
+                "neighborhood":          r.neighborhood,
+                # Complaints domain
+                "complaints_present":    1 if cr else 0,
+                "complaints_risk_level": cr,
+                "total_complaints":      r.total_complaints,
+                "recent_complaints":     r.recent_complaint_count,
+                "heat_complaints":       r.heat_complaints,
+                # Violations domain
+                "violations_present":    1 if vr else 0,
+                "violations_risk_level": vr,
+                "total_violations":      r.total_violations,
+                "open_violations":       r.open_violations,
+                # Composite risk (default dot coloring). risk_color is intentionally
+                # omitted — the map paints from risk_level via Mapbox expressions and
+                # never reads a precomputed color, so shipping it was dead weight.
+                "risk_level":            active_risk,
+            },
+        })
+    return features
+
+
+async def _load_citywide(db: AsyncSession) -> dict:
+    """Build the citywide (clustered) FeatureCollection: one deterministic
+    per-neighborhood sample for the whole city. Shared by the route and the
+    startup cache warmer so both produce byte-identical payloads."""
+    result = await db.execute(_UNIFIED_CITYWIDE_SQL, {"limit": PER_NEIGHBORHOOD_LIMIT})
+    return {"type": "FeatureCollection", "features": _rows_to_features(result.all())}
+
+
+async def warm_citywide_cache() -> None:
+    """Prime the citywide cluster cache so the first map load — and every CDN
+    revalidation after the in-process cache is lost on restart — is served
+    without paying for the heavy full-outer-join + per-neighborhood window sort.
+    Called at API startup; any failure is swallowed so it never blocks boot."""
+    if cache_get(CITYWIDE_CACHE_KEY):
+        return
+    from database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        geojson = await _load_citywide(db)
+    cache_set(CITYWIDE_CACHE_KEY, geojson, ttl_seconds=86400)
+
+
 @router.get("/map/clusters")
 @limiter.limit("120/minute")
 async def get_sf_clusters(
@@ -136,7 +212,7 @@ async def get_sf_clusters(
     if zoom >= CLUSTER_MAX_ZOOM:
         cache_key = f"sf_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
     else:
-        cache_key = "sf_clusters:citywide"
+        cache_key = CITYWIDE_CACHE_KEY
 
     cached = cache_get(cache_key)
     if cached:
@@ -145,48 +221,11 @@ async def get_sf_clusters(
     if zoom >= CLUSTER_MAX_ZOOM:
         bbox = {"south": south, "north": north, "west": west, "east": east}
         result = await db.execute(_UNIFIED_BBOX_SQL, bbox)
-        all_rows = result.all()
+        geojson = {"type": "FeatureCollection", "features": _rows_to_features(result.all())}
     else:
         # Deterministic per-neighborhood sample, whole city, in one query.
-        result = await db.execute(
-            _UNIFIED_CITYWIDE_SQL, {"limit": PER_NEIGHBORHOOD_LIMIT}
-        )
-        all_rows = result.all()
+        geojson = await _load_citywide(db)
 
-    features = []
-    for r in all_rows:
-        cr = r.complaints_risk_level
-        vr = r.violations_risk_level
-        active_risk = _active_risk(cr, vr)
-        lat = _safe_float(r.latitude)
-        lon = _safe_float(r.longitude)
-        if lat is None or lon is None:
-            continue
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": {
-                "mapblklot":             r.mapblklot,
-                "address":               r.address,
-                "neighborhood":          r.neighborhood,
-                # Complaints domain
-                "complaints_present":    1 if cr else 0,
-                "complaints_risk_level": cr,
-                "total_complaints":      r.total_complaints,
-                "recent_complaints":     r.recent_complaint_count,
-                "heat_complaints":       r.heat_complaints,
-                # Violations domain
-                "violations_present":    1 if vr else 0,
-                "violations_risk_level": vr,
-                "total_violations":      r.total_violations,
-                "open_violations":       r.open_violations,
-                # Composite (used for default coloring)
-                "risk_level":            active_risk,
-                "risk_color":            RISK_COLORS.get(active_risk, RISK_COLORS["Very low"]),
-            },
-        })
-
-    geojson = {"type": "FeatureCollection", "features": features}
     cache_set(cache_key, geojson, ttl_seconds=86400)
     return JSONResponse(content=geojson)
 

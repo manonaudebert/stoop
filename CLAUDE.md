@@ -47,9 +47,10 @@ Tests live in `api/tests/`. They use a mock DB (no real database needed). If a r
 Migrations are plain SQL files in `ingest/migration/`. Run them with `psql` using the `DATABASE_URL` from `.env`:
 
 ```bash
-! export $(grep DATABASE_URL .env | xargs)
-! psql "$DATABASE_URL" -f ingest/migration/migrate_<name>.sql
+! psql "$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2-)" -f ingest/migration/migrate_<name>.sql
 ```
+
+Read the value directly rather than `export $(grep DATABASE_URL .env | xargs)`: that pattern also matches commented-out `# DATABASE_URL=` lines (picking up a stale endpoint), and the unquoted URL's `&` (from `?sslmode=require&channel_binding=require`) gets mangled by the shell. The `^DATABASE_URL=` anchor skips comments and the quotes keep `&` literal.
 
 **Notes:**
 - There is no migration framework — git history is the record of which migrations have been applied. Running a migration twice will error on the `CREATE UNIQUE INDEX` (no `IF NOT EXISTS`), which is a safe signal that it was already applied.

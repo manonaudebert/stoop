@@ -10,7 +10,9 @@ from cache import cache_get, cache_set
 router = APIRouter(prefix="/map", tags=["map"])
 
 CLUSTER_MAX_ZOOM  = 13    # must match clusterMaxZoom in Map.tsx
-PER_BOROUGH_LIMIT = 2500  # cap per borough when zoomed out (clustering mode)
+PER_BOROUGH_LIMIT = 2000  # cap per borough when zoomed out (clustering mode);
+                          # 5 boroughs → ~10k-point citywide sample, trimming the
+                          # client-side parse + supercluster cost on page load.
 
 BOROUGHS = ["Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island"]
 
@@ -225,7 +227,9 @@ async def get_unified_clusters(
     for r in all_rows:
         features.append({
             "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [r.longitude, r.latitude]},
+            # 5 decimals ≈ 1m — plenty for a map dot, and trims ~12 chars per
+            # ordinate off the raw float repr across ~12.5k points.
+            "geometry": {"type": "Point", "coordinates": [round(r.longitude, 5), round(r.latitude, 5)]},
             "properties": {
                 "bin": r.bin,
                 "address": r.address,

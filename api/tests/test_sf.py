@@ -368,30 +368,6 @@ class TestSfLeaderboard:
         assert isinstance(data, list)
         assert data[0]["mapblklot"] == SAMPLE_MAPBLKLOT
 
-    @pytest.mark.asyncio
-    async def test_neighborhood_filter(self, client):
-        mock_db = make_mock_db(
-            MockResult([
-                MockRow({
-                    **SF_COMPLAINTS_SUMMARY_ROW,
-                    "complaints_risk_level": SF_COMPLAINTS_SUMMARY_ROW["risk_level"],
-                    **{k: SF_VIOLATIONS_SUMMARY_ROW[k]
-                       for k in SF_VIOLATIONS_SUMMARY_ROW if k not in SF_COMPLAINTS_SUMMARY_ROW},
-                    "violations_risk_level": SF_VIOLATIONS_SUMMARY_ROW["risk_level"],
-                })
-            ]),
-        )
-        app.dependency_overrides[get_db] = db_override(mock_db)
-        resp = await client.get(
-            "/sf/building/leaderboard",
-            params={"neighborhood": "Financial District/South Beach"},
-        )
-        app.dependency_overrides.clear()
-
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data[0]["neighborhood"] == "Financial District/South Beach"
-
 
 class TestSfTimelines:
     @pytest.mark.asyncio

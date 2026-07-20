@@ -359,18 +359,14 @@ def _row_to_summary(r) -> SfBuildingSummaryResponse:
 
 @router.get("/building/leaderboard", response_model=list[SfBuildingSummaryResponse])
 async def get_sf_leaderboard(
-    neighborhood: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Top SF parcels by recent 311 complaints (last 2 years), optionally filtered
-    by neighborhood. Mirrors the HPD complaints leaderboard pattern."""
-    cache_key = f"sf_leaderboard:{neighborhood or 'all'}"
+    """Top SF parcels by recent 311 complaints (last 2 years).
+    Mirrors the HPD complaints leaderboard pattern."""
+    cache_key = "sf_leaderboard:all"
     cached = cache_get(cache_key)
     if cached:
         return cached
-
-    nhood_clause = "AND neighborhood = :neighborhood" if neighborhood else ""
-    params: dict = {"neighborhood": neighborhood} if neighborhood else {}
 
     rows = await db.execute(
         text(f"""
@@ -391,11 +387,9 @@ async def get_sf_leaderboard(
             LEFT JOIN sf_violations_summary v ON v.mapblklot = c.mapblklot
             WHERE c.recent_complaint_count > 0
               AND c.total_complaints >= 5
-              {nhood_clause}
             ORDER BY c.recent_complaint_count DESC
             LIMIT {LEADERBOARD_LIMIT}
         """),
-        params,
     )
     result = [_row_to_summary(r) for r in rows.all()]
     cache_set(cache_key, result, ttl_seconds=86400)

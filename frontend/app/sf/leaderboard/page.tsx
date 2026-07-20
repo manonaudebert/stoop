@@ -5,38 +5,6 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 import TooltipIcon from '@/components/TooltipIcon'
 import CityToggle from '@/components/CityToggle'
 
-const SF_NEIGHBORHOODS = [
-  'Bayview Hunters Point',
-  'Bernal Heights',
-  'Castro/Upper Market',
-  'Chinatown',
-  'Excelsior',
-  'Financial District/South Beach',
-  'Glen Park',
-  'Haight Ashbury',
-  'Inner Richmond',
-  'Inner Sunset',
-  'Japantown',
-  'Lakeshore',
-  'Marina',
-  'Mission',
-  'Nob Hill',
-  'Noe Valley',
-  'North Beach',
-  'Oceanview/Merced/Ingleside',
-  'Outer Mission',
-  'Outer Richmond',
-  'Pacific Heights',
-  'Portola',
-  'Potrero Hill',
-  'Russian Hill',
-  'South of Market',
-  'Tenderloin',
-  'Twin Peaks',
-  'Visitacion Valley',
-  'Western Addition',
-]
-
 const TREND: Record<string, string> = {
   worsening: '↑',
   stable:    '→',
@@ -155,26 +123,15 @@ function BuildingRow({
   )
 }
 
-export default async function SfLeaderboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ neighborhood?: string }>
-}) {
-  const { neighborhood } = await searchParams
-  const buildings = await getSfLeaderboard(neighborhood)
+export default async function SfLeaderboardPage() {
+  const buildings = await getSfLeaderboard()
   const maxRecent = buildings[0]?.recent_complaint_count ?? 1
-
-  function noodUrl(n?: string) {
-    const sp = new URLSearchParams()
-    if (n) sp.set('neighborhood', n)
-    return `/sf/leaderboard${sp.size ? `?${sp}` : ''}`
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
       <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
-      <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem 1.5rem 0' }}>
+      <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ marginBottom: 12 }}>
             <CityToggle current="SF" nycHref="/hpd/leaderboard" sfHref="/sf/leaderboard" />
@@ -189,43 +146,19 @@ export default async function SfLeaderboardPage({
                 Most active SF buildings
               </h1>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252', whiteSpace: 'nowrap' }}>
-                Top {buildings.length}{neighborhood ? ` · ${neighborhood}` : ' · all neighborhoods'}
+                Top {buildings.length} · all neighborhoods
               </span>
             </div>
           </div>
 
           <p style={{
             fontFamily: 'var(--font-sans)', fontSize: 13, color: '#525252',
-            lineHeight: 1.6, margin: '0 0 20px', maxWidth: 640,
+            lineHeight: 1.6, margin: 0, maxWidth: 640,
           }}>
             Ranked by San Francisco 311 residential building complaints filed in the last 2 years.
             The trend arrow shows whether the annual complaint rate is rising or falling vs. the prior 3 years.
             Open violations come from DBI Notices of Violation (status: active).
           </p>
-
-          <div className="lb-tabs" style={{ display: 'flex', gap: 0, borderBottom: '0.5px solid #E5E5E5', marginBottom: -1, overflowX: 'auto' }}>
-            {[undefined, ...SF_NEIGHBORHOODS].map(n => {
-              const active = (n ?? undefined) === (neighborhood ?? undefined)
-              return (
-                <Link
-                  key={n ?? 'all'}
-                  href={noodUrl(n)}
-                  style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.04em',
-                    textTransform: 'uppercase', textDecoration: 'none',
-                    padding: '10px 14px',
-                    color: active ? '#7F1D1D' : '#737373',
-                    borderBottom: active ? '2px solid #7F1D1D' : '2px solid transparent',
-                    whiteSpace: 'nowrap',
-                    transition: 'color 0.1s',
-                    flexShrink: 0,
-                  }}
-                >
-                  {n ?? 'All'}
-                </Link>
-              )
-            })}
-          </div>
         </div>
       </div>
 

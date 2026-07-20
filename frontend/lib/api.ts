@@ -160,9 +160,8 @@ export async function searchSfBuildings(q: string, signal?: AbortSignal): Promis
   return get(`/sf/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
 }
 
-export async function getSfLeaderboard(neighborhood?: string): Promise<SfBuildingSummary[]> {
-  const params = neighborhood ? `?neighborhood=${encodeURIComponent(neighborhood)}` : ''
-  return get(`/sf/building/leaderboard${params}`)
+export async function getSfLeaderboard(): Promise<SfBuildingSummary[]> {
+  return get('/sf/building/leaderboard')
 }
 
 export async function getSfBuilding(

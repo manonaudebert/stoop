@@ -10,8 +10,8 @@ export type SfMapBuilding = {
   complaints_present: number
   complaints_risk_level: string | null
   total_complaints: number
-  recent_complaints: number
-  heat_complaints: number
+  complaints_5yr: number
+  severe_complaints_5yr: number
   // violations domain
   violations_present: number
   violations_risk_level: string | null
@@ -158,9 +158,9 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
         />
         {hasComplaints ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            <StatCell label="Total"    value={building.total_complaints} />
-            <StatCell label="Last 2yr" value={building.recent_complaints} />
-            <StatCell label="Heat"     value={building.heat_complaints} />
+            <StatCell label="Total"      value={building.total_complaints} />
+            <StatCell label="Last 5yr"   value={building.complaints_5yr} />
+            <StatCell label="Severe 5yr" value={building.severe_complaints_5yr} />
           </div>
         ) : (
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: '#6B6B6B', margin: 0 }}>

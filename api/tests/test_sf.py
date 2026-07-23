@@ -86,8 +86,8 @@ SF_CLUSTER_ROW = {
     "latitude":               37.7900,
     "longitude":              -122.3960,
     "total_complaints":       45,
-    "recent_complaint_count": 12,
-    "heat_complaints":        5,
+    "complaints_5yr":         20,
+    "severe_complaints_5yr":  4,
     "complaints_density_pct": 72.0,
     "complaints_risk_level":  "Moderate",
     "latest_complaint_date":  date(2025, 11, 1),
@@ -120,6 +120,8 @@ class TestSfMapClusters:
         props = feat["properties"]
         assert props["mapblklot"] == SAMPLE_MAPBLKLOT
         assert props["complaints_present"] == 1
+        assert props["complaints_5yr"] == 20
+        assert props["severe_complaints_5yr"] == 4
         assert props["violations_present"] == 1
         # Composite risk picks the more severe of the two domains.
         assert props["risk_level"] == "Very high"

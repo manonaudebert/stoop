@@ -41,7 +41,9 @@ LEADERBOARD_LIMIT = 100
 # zoomed-in (bbox) and zoomed-out (citywide) queries, so they're factored here.
 _C_SELECT = """
     SELECT mapblklot, address, neighborhood, latitude, longitude,
-           total_complaints, recent_complaint_count, heat_complaints,
+           total_complaints,
+           recent_complaint_count + prior_complaint_count AS complaints_5yr,
+           severe_complaints_5yr,
            complaints_density_pct, risk_level AS complaints_risk_level,
            latest_complaint_date
     FROM sf_housing_complaints_summary
@@ -59,8 +61,8 @@ _UNIFIED_PROJECTION = """
     COALESCE(c.latitude,  v.latitude)        AS latitude,
     COALESCE(c.longitude, v.longitude)       AS longitude,
     COALESCE(c.total_complaints, 0)          AS total_complaints,
-    COALESCE(c.recent_complaint_count, 0)    AS recent_complaint_count,
-    COALESCE(c.heat_complaints, 0)           AS heat_complaints,
+    COALESCE(c.complaints_5yr, 0)            AS complaints_5yr,
+    COALESCE(c.severe_complaints_5yr, 0)     AS severe_complaints_5yr,
     c.complaints_density_pct,
     c.complaints_risk_level,
     c.latest_complaint_date,
@@ -158,8 +160,8 @@ def _rows_to_features(all_rows) -> list[dict]:
                 "complaints_present":    1 if cr else 0,
                 "complaints_risk_level": cr,
                 "total_complaints":      r.total_complaints,
-                "recent_complaints":     r.recent_complaint_count,
-                "heat_complaints":       r.heat_complaints,
+                "complaints_5yr":        r.complaints_5yr,
+                "severe_complaints_5yr": r.severe_complaints_5yr,
                 # Violations domain
                 "violations_present":    1 if vr else 0,
                 "violations_risk_level": vr,

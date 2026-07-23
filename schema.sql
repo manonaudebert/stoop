@@ -715,88 +715,121 @@ eas_repr AS (
     WHERE parcel_number IS NOT NULL
     ORDER BY parcel_number, eas_fullid
 ),
-base AS (
+-- One row per complaint, tagged with a severity tier. Single source of truth
+-- for the A/B/C map; feeds both weighted_complaint_sum and the 5yr tier counts.
+tagged AS (
     SELECT
         c.mapblklot,
-        MAX(e.address)                                    AS address,
-        MAX(p.centroid_latitude)                          AS latitude,
-        MAX(p.centroid_longitude)                         AS longitude,
-        MAX(p.analysis_neighborhood)                      AS neighborhood,
-        MAX(f.footprint_area_sqm)                         AS footprint_area_sqm,
-        MAX(f.hgt_median_m)                               AS hgt_median_m,
-        COUNT(*)                                          AS total_complaints,
-        COUNT(*) FILTER (
-            WHERE c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'
-        )                                                 AS recent_complaint_count,
-        COUNT(*) FILTER (
-            WHERE c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
-              AND c.requested_datetime <  CURRENT_TIMESTAMP - INTERVAL '2 years'
-        )                                                 AS prior_complaint_count,
-        COUNT(*) FILTER (
-            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
-                  IN ('heat_lack_of_heat', 'hot_water_lack_of_hot_water')
-        )                                                 AS heat_complaints,
-        COUNT(*) FILTER (
-            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
-                  = 'paint_lead_violating_safe_practices'
-        )                                                 AS lead_complaints,
-        COUNT(*) FILTER (
-            WHERE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
-                  IN ('infestation_rodent_insect', 'infestation_bed_bugs')
-        )                                                 AS pest_complaints,
-        MAX(c.requested_datetime::date)                   AS latest_complaint_date,
-        COALESCE(SUM(
-            CASE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
-                WHEN 'heat_lack_of_heat'                                   THEN 15.0
-                WHEN 'hot_water_lack_of_hot_water'                         THEN 15.0
-                WHEN 'paint_lead_violating_safe_practices'                 THEN 15.0
-                WHEN 'blocked_exit_common_areas'                           THEN 15.0
-                WHEN 'fire_hazard'                                         THEN 15.0
-                WHEN 'elevators_no_working_elevator_7_or_more_stories'     THEN 15.0
-                WHEN 'electrical_hazardous_condition'                      THEN 15.0
-                WHEN 'fire_alarm_system'                                   THEN 15.0
-                WHEN 'smoke_detectors_missing_broken_unit_interior'        THEN 15.0
-                WHEN 'fire_extinguishers_missing_expired'                  THEN 15.0
-                WHEN 'fire_sprinkler_system'                               THEN 15.0
-                WHEN 'smoke_detectors_missing_broken_common_areas'         THEN 15.0
-                WHEN 'infestation_rodent_insect'                           THEN  8.0
-                WHEN 'mold_and_mildew'                                     THEN  8.0
-                WHEN 'plumbing_broken_leaking'                             THEN  8.0
-                WHEN 'infestation_bed_bugs'                                THEN  8.0
-                WHEN 'elevators_everthing_else'                            THEN  8.0
-                WHEN 'doors_windows_broken_defective'                      THEN  8.0
-                WHEN 'bathroom'                                            THEN  8.0
-                WHEN 'ventilation_inadequate_or_none'                      THEN  8.0
-                WHEN 'security_inadequately_secured_perimeter'             THEN  8.0
-                WHEN 'deck_stairs_handrails'                               THEN  8.0
-                WHEN 'light_wells_dirty_flooded'                           THEN  8.0
-                WHEN 'general_maintenance_not_in_list_above'               THEN  3.0
-                WHEN 'inadequately_maintained_building_exterior'           THEN  3.0
-                WHEN 'paint_peeling'                                       THEN  3.0
-                WHEN 'garbage_receptacles'                                 THEN  3.0
-                WHEN 'clutter_hoarder_unit_interior_storage'               THEN  3.0
-                WHEN 'electrical_non_hazard'                               THEN  3.0
-                WHEN 'second_hand_smoke'                                   THEN  3.0
-                WHEN 'noise_caused_by_building_systems'                    THEN  3.0
-                WHEN 'kitchen_community'                                   THEN  3.0
-                WHEN 'mail_service_delivery_problem'                       THEN  3.0
-                WHEN 'illegal_construction_no_permit_exceeds_permit_scope' THEN  0.0
-                WHEN 'illegal_guest_room_conversions'                      THEN  0.0
-                WHEN 'visitor_policy_violations'                           THEN  0.0
-                ELSE 3.0
-            END *
-            CASE
-                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'  THEN 1.00
-                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'  THEN 0.50
-                WHEN c.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '10 years' THEN 0.25
-            END
-        ), 0.0)                                           AS weighted_complaint_sum
+        c.requested_datetime,
+        c.service_subtype,
+        e.address,
+        p.centroid_latitude    AS latitude,
+        p.centroid_longitude   AS longitude,
+        p.analysis_neighborhood AS neighborhood,
+        f.footprint_area_sqm,
+        f.hgt_median_m,
+        CASE LOWER(REGEXP_REPLACE(c.service_subtype, '^Building - ', '', 'i'))
+            WHEN 'heat_lack_of_heat'                                   THEN 'A'
+            WHEN 'hot_water_lack_of_hot_water'                         THEN 'A'
+            WHEN 'paint_lead_violating_safe_practices'                 THEN 'A'
+            WHEN 'blocked_exit_common_areas'                           THEN 'A'
+            WHEN 'fire_hazard'                                         THEN 'A'
+            WHEN 'elevators_no_working_elevator_7_or_more_stories'     THEN 'A'
+            WHEN 'electrical_hazardous_condition'                      THEN 'A'
+            WHEN 'fire_alarm_system'                                   THEN 'A'
+            WHEN 'smoke_detectors_missing_broken_unit_interior'        THEN 'A'
+            WHEN 'fire_extinguishers_missing_expired'                  THEN 'A'
+            WHEN 'fire_sprinkler_system'                               THEN 'A'
+            WHEN 'smoke_detectors_missing_broken_common_areas'         THEN 'A'
+            WHEN 'infestation_rodent_insect'                           THEN 'B'
+            WHEN 'mold_and_mildew'                                     THEN 'B'
+            WHEN 'plumbing_broken_leaking'                             THEN 'B'
+            WHEN 'infestation_bed_bugs'                                THEN 'B'
+            WHEN 'elevators_everthing_else'                            THEN 'B'
+            WHEN 'doors_windows_broken_defective'                      THEN 'B'
+            WHEN 'bathroom'                                            THEN 'B'
+            WHEN 'ventilation_inadequate_or_none'                      THEN 'B'
+            WHEN 'security_inadequately_secured_perimeter'             THEN 'B'
+            WHEN 'deck_stairs_handrails'                               THEN 'B'
+            WHEN 'light_wells_dirty_flooded'                           THEN 'B'
+            WHEN 'general_maintenance_not_in_list_above'               THEN 'C'
+            WHEN 'inadequately_maintained_building_exterior'           THEN 'C'
+            WHEN 'paint_peeling'                                       THEN 'C'
+            WHEN 'garbage_receptacles'                                 THEN 'C'
+            WHEN 'clutter_hoarder_unit_interior_storage'               THEN 'C'
+            WHEN 'electrical_non_hazard'                               THEN 'C'
+            WHEN 'second_hand_smoke'                                   THEN 'C'
+            WHEN 'noise_caused_by_building_systems'                    THEN 'C'
+            WHEN 'kitchen_community'                                   THEN 'C'
+            WHEN 'mail_service_delivery_problem'                       THEN 'C'
+            WHEN 'illegal_construction_no_permit_exceeds_permit_scope' THEN 'X'
+            WHEN 'illegal_guest_room_conversions'                      THEN 'X'
+            WHEN 'visitor_policy_violations'                           THEN 'X'
+            ELSE 'C'
+        END AS tier
     FROM sf_311_housing c
     JOIN sf_parcels p ON c.mapblklot = p.mapblklot
     LEFT JOIN footprint_agg f ON f.mapblklot = c.mapblklot
     LEFT JOIN eas_repr e ON e.mapblklot = c.mapblklot
     WHERE c.mapblklot IS NOT NULL
-    GROUP BY c.mapblklot
+),
+base AS (
+    SELECT
+        t.mapblklot,
+        MAX(t.address)                                    AS address,
+        MAX(t.latitude)                                   AS latitude,
+        MAX(t.longitude)                                  AS longitude,
+        MAX(t.neighborhood)                               AS neighborhood,
+        MAX(t.footprint_area_sqm)                         AS footprint_area_sqm,
+        MAX(t.hgt_median_m)                               AS hgt_median_m,
+        COUNT(*)                                          AS total_complaints,
+        COUNT(*) FILTER (
+            WHERE t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'
+        )                                                 AS recent_complaint_count,
+        COUNT(*) FILTER (
+            WHERE t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
+              AND t.requested_datetime <  CURRENT_TIMESTAMP - INTERVAL '2 years'
+        )                                                 AS prior_complaint_count,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(t.service_subtype, '^Building - ', '', 'i'))
+                  IN ('heat_lack_of_heat', 'hot_water_lack_of_hot_water')
+        )                                                 AS heat_complaints,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(t.service_subtype, '^Building - ', '', 'i'))
+                  = 'paint_lead_violating_safe_practices'
+        )                                                 AS lead_complaints,
+        COUNT(*) FILTER (
+            WHERE LOWER(REGEXP_REPLACE(t.service_subtype, '^Building - ', '', 'i'))
+                  IN ('infestation_rodent_insect', 'infestation_bed_bugs')
+        )                                                 AS pest_complaints,
+        COUNT(*) FILTER (
+            WHERE t.tier = 'A'
+              AND t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
+        )                                                 AS severe_complaints_5yr,
+        COUNT(*) FILTER (
+            WHERE t.tier = 'B'
+              AND t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
+        )                                                 AS serious_complaints_5yr,
+        COUNT(*) FILTER (
+            WHERE t.tier = 'C'
+              AND t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'
+        )                                                 AS minor_complaints_5yr,
+        MAX(t.requested_datetime::date)                   AS latest_complaint_date,
+        COALESCE(SUM(
+            CASE t.tier
+                WHEN 'A' THEN 15.0
+                WHEN 'B' THEN  8.0
+                WHEN 'C' THEN  3.0
+                ELSE          0.0
+            END *
+            CASE
+                WHEN t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '2 years'  THEN 1.00
+                WHEN t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '5 years'  THEN 0.50
+                WHEN t.requested_datetime >= CURRENT_TIMESTAMP - INTERVAL '10 years' THEN 0.25
+            END
+        ), 0.0)                                           AS weighted_complaint_sum
+    FROM tagged t
+    GROUP BY t.mapblklot
 ),
 with_scale AS (
     SELECT *,
@@ -849,6 +882,9 @@ SELECT
     wt.heat_complaints,
     wt.lead_complaints,
     wt.pest_complaints,
+    wt.severe_complaints_5yr,
+    wt.serious_complaints_5yr,
+    wt.minor_complaints_5yr,
     wt.latest_complaint_date,
     wt.weighted_complaint_sum,
     wt.estimated_scale,

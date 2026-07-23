@@ -250,6 +250,9 @@ export interface SfBuildingSummary {
   heat_complaints: number
   lead_complaints: number
   pest_complaints: number
+  severe_complaints_5yr: number
+  serious_complaints_5yr: number
+  minor_complaints_5yr: number
   latest_complaint_date: string | null
   complaints_density_pct: number | null
   complaints_risk_level: string | null

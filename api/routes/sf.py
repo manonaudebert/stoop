@@ -342,6 +342,9 @@ def _row_to_summary(r) -> SfBuildingSummaryResponse:
         heat_complaints=getattr(r, "heat_complaints", 0) or 0,
         lead_complaints=getattr(r, "lead_complaints", 0) or 0,
         pest_complaints=getattr(r, "pest_complaints", 0) or 0,
+        severe_complaints_5yr=getattr(r, "severe_complaints_5yr", 0) or 0,
+        serious_complaints_5yr=getattr(r, "serious_complaints_5yr", 0) or 0,
+        minor_complaints_5yr=getattr(r, "minor_complaints_5yr", 0) or 0,
         latest_complaint_date=getattr(r, "latest_complaint_date", None),
         complaints_density_pct=_safe_float(getattr(r, "complaints_density_pct", None)),
         complaints_risk_level=getattr(r, "complaints_risk_level", None),
@@ -459,6 +462,9 @@ async def get_sf_building(
             self.heat_complaints        = c.heat_complaints if c else 0
             self.lead_complaints        = c.lead_complaints if c else 0
             self.pest_complaints        = c.pest_complaints if c else 0
+            self.severe_complaints_5yr  = getattr(c, "severe_complaints_5yr", 0) if c else 0
+            self.serious_complaints_5yr = getattr(c, "serious_complaints_5yr", 0) if c else 0
+            self.minor_complaints_5yr   = getattr(c, "minor_complaints_5yr", 0) if c else 0
             self.latest_complaint_date  = c.latest_complaint_date if c else None
             self.complaints_density_pct = c.complaints_density_pct if c else None
             self.complaints_risk_level  = c.risk_level if c else None

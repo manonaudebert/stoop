@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { fmtDate } from '@/lib/fmt'
 import { pctHeadline, pctSub } from '@/lib/rankCopy'
+import { CITY_CONFIG } from '@/lib/cities'
 import {
   getSfBuilding,
   getSfComplaintsTimeline,
@@ -167,8 +168,8 @@ export default async function SfBuildingPage({
 
   const neighborhoodHeadline = pctHeadline(violPct, complPct)
   const neighborhoodSub      = pctSub(violPct, complPct, nhood, {
-    missingMessage: 'Building size data is missing — size-normalized ranking unavailable.',
-    trailingNote: 'Size-normalized against residential buildings in the neighborhood.',
+    missingMessage: CITY_CONFIG.SF.rankMissingMessage,
+    trailingNote: CITY_CONFIG.SF.rankTrailingNote,
   })
 
   // Activity over the last 2 years vs. the prior history, from the timelines.
@@ -192,6 +193,11 @@ export default async function SfBuildingPage({
   const activitySub = recentTotal + historicTotal > 0
     ? `Last 2 yrs: ${recentViol} violation${recentViol !== 1 ? 's' : ''} · ${recentCompl} complaint${recentCompl !== 1 ? 's' : ''}`
     : 'No timeline data available.'
+
+  // Complaint severity tiers, last 5 years (see the "Complaint severity" card)
+  const severeCount  = building.severe_complaints_5yr
+  const seriousCount = building.serious_complaints_5yr
+  const minorCount   = building.minor_complaints_5yr
 
   const openViolations = building.open_violations
   const severityHeadline = openViolations === 0 && building.total_violations > 0
@@ -366,17 +372,19 @@ export default async function SfBuildingPage({
             311 Housing Complaints
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TrendStatCard noun="complaints" total={building.total_complaints} timeline={complaintTimeline} />
+            <TrendStatCard noun="complaints" total={building.total_complaints} timeline={complaintTimeline} minEvents={CITY_CONFIG.SF.trendMinEvents} />
             <StatListCard
-              title="Reported issues"
-              value={building.recent_complaint_count}
+              title="Complaint severity"
+              aside="Last 5 years"
+              value={severeCount + seriousCount + minorCount}
+              emptyMessage="No complaints reported in the last 5 years."
               rows={[
-                { label: 'Heat', value: building.heat_complaints, alert: building.heat_complaints > 0,
-                  tooltip: '311 complaints specifically about heating issues.' },
-                { label: 'Lead', value: building.lead_complaints, alert: building.lead_complaints > 0,
-                  tooltip: '311 complaints related to lead paint or lead hazards.' },
-                { label: 'Pests', value: building.pest_complaints, alert: building.pest_complaints > 0,
-                  tooltip: '311 complaints about rodents, roaches, or other pest infestations.' },
+                { label: 'Severe', value: severeCount, alert: severeCount > 0,
+                  tooltip: 'Immediately hazardous problems — no heat or hot water, lead paint, fire hazards, blocked exits, or missing smoke/fire-safety equipment.' },
+                { label: 'Serious', value: seriousCount, alert: seriousCount > 0,
+                  tooltip: 'Serious habitability problems — rodents or other pests, mold, plumbing leaks, broken doors or windows, or inadequate ventilation.' },
+                { label: 'Minor', value: minorCount,
+                  tooltip: 'Lower-impact, quality-of-life issues — general maintenance, peeling paint, garbage, or clutter.' },
               ]}
             />
           </div>
@@ -388,7 +396,7 @@ export default async function SfBuildingPage({
             Dept. of Building Inspection Violations
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TrendStatCard noun="violations" total={building.total_violations} timeline={violationTimeline} />
+            <TrendStatCard noun="violations" total={building.total_violations} timeline={violationTimeline} minEvents={CITY_CONFIG.SF.trendMinEvents} />
             <StatListCard
               title="Open violations"
               value={openViolations}

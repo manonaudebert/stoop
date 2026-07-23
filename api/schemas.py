@@ -271,6 +271,10 @@ class SfBuildingSummaryResponse(BaseModel):
     heat_complaints: int = 0
     lead_complaints: int = 0
     pest_complaints: int = 0
+    # Severity tiers, last 5 years (habitability conditions only)
+    severe_complaints_5yr: int = 0
+    serious_complaints_5yr: int = 0
+    minor_complaints_5yr: int = 0
     latest_complaint_date: date | None = None
     complaints_density_pct: float | None = None
     complaints_risk_level: str | None = None

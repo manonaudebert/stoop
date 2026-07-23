@@ -232,7 +232,8 @@ building. Two panes mirror two of the three NYC panes.
 Views: `sf_housing_complaints_summary` (311 reports; analog of
 `hpd_complaints_building_summary`) and `sf_violations_summary` (DBI Notices of Violation;
 analog of `hpd_building_summary`). Both are parcel-grained materialized views defined in
-`ingest/migration/migrate_add_sf.sql` (and mirrored in `schema.sql`).
+`ingest/migration/migrate_add_sf.sql` (complaints view later revised by
+`migrate_sf_severity_5yr.sql`; and mirrored in `schema.sql`).
 
 ### Severity weights (analog of HPD class)
 
@@ -274,6 +275,16 @@ else Very high.
 - **311 complaints pane** = what tenants *reported* (volume, category, recency, trend).
   No `open_complaints` KPI — 311 auto-closes (~0.9% open); the open signal lives on the
   violations pane instead. No `rent_impairing` — no SF equivalent field.
+- **Complaint severity card** (replaces the old fixed Heat/Lead/Pest "Reported issues"
+  card). Shows the count of Tier A (`severe_complaints_5yr`), Tier B (`serious_complaints_5yr`),
+  and Tier C (`minor_complaints_5yr`) complaints **in the last 5 years**, labeled "Last 5 years"
+  top-right. Fixed named categories (heat/lead/pest) were mostly three zeros on SF's sparse
+  data (median 1 complaint/building); pooling all subtypes into severity tiers lights up an
+  alarming row for ~67% of buildings that have any 5yr complaint. Weight-0 regulatory tier
+  (`X`) is excluded from all three counts. Buildings with no complaints in the window show an
+  empty-state line ("No complaints reported in the last 5 years") rather than 0/0/0 — a clean
+  recent history is itself informative. The tier tag is computed once in the view's `tagged`
+  CTE and shared with `weighted_complaint_sum` (single source of truth for the A/B/C map).
 - **DBI violations pane** = what's *unresolved*. `open_violations` = rows with
   `status = active`; `open_lead_violations` / `open_fire_violations` filter that by category.
 

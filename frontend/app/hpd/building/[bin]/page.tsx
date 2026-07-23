@@ -2,6 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import { fmtDate } from '@/lib/fmt'
 import { pctHeadline, pctSub } from '@/lib/rankCopy'
+import { CITY_CONFIG } from '@/lib/cities'
 import RankViz from '@/components/RankViz'
 import {
   getBuilding,
@@ -544,8 +545,8 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
 
   const neighborhoodHeadline = pctHeadline(violPct, complPct)
   const neighborhoodSub = pctSub(violPct, complPct, ntaName, {
-    missingMessage: 'Building footprint or height data is missing — size-normalized ranking unavailable.',
-    trailingNote: 'Size-normalized against residential buildings in the neighborhood for issues in the last 10 years.',
+    missingMessage: CITY_CONFIG.NYC.rankMissingMessage,
+    trailingNote: CITY_CONFIG.NYC.rankTrailingNote,
   })
 
   const metaLine   = [borough, zipCode && `ZIP ${zipCode}`, `BIN ${bin}`, ntaName].filter(Boolean).join(' · ')
@@ -700,7 +701,7 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
             Housing Preservation & Development Violations
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <TrendStatCard noun="violations" total={totalViolations} timeline={violationTimeline} />
+            <TrendStatCard noun="violations" total={totalViolations} timeline={violationTimeline} minEvents={CITY_CONFIG.NYC.trendMinEvents} />
             <StatListCard
               title="Open violations"
               value={openViolations}
@@ -722,7 +723,7 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
             Housing Preservation & Development Complaints
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <TrendStatCard noun="complaints" total={totalComplaints} timeline={complaintTimeline} />
+            <TrendStatCard noun="complaints" total={totalComplaints} timeline={complaintTimeline} minEvents={CITY_CONFIG.NYC.trendMinEvents} />
             <ComplaintResolutionCard data={complaintResolution} />
             <ComplaintTypePeriodCard data={complaintTypePeriod} />
           </div>

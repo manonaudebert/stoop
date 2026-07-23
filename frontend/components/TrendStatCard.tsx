@@ -7,9 +7,13 @@ type Props = {
   noun: string
   total: number
   timeline: TimelinePoint[]
+  // Minimum events in the comparison window (recent + prior 2yr) before a trend
+  // direction is shown. Supplied per city (see lib/cities.ts) because SF data
+  // is sparser than NYC's.
+  minEvents: number
 }
 
-export default function TrendStatCard({ noun, total, timeline }: Props) {
+export default function TrendStatCard({ noun, total, timeline, minEvents }: Props) {
   const now = new Date()
   const firstYear = timeline.length > 0 ? parseInt(timeline[0].month.slice(0, 4)) : now.getFullYear()
   const yearsSpanned = now.getFullYear() - firstYear + 1
@@ -24,7 +28,10 @@ export default function TrendStatCard({ noun, total, timeline }: Props) {
 
   let trendLabel: string
   let trendColor: string
-  if (avgPerYear < 2) {
+  // Gate on how many events fall in the comparison window (last 4 years), not
+  // lifetime average — a long, sparse history with a recent cluster is exactly
+  // the case a tenant wants surfaced, and lifetime average would suppress it.
+  if (recent + prior < minEvents) {
     trendLabel = '— Not enough history to determine trend'
     trendColor = '#6B6B6B'
   } else if (prior === 0) {

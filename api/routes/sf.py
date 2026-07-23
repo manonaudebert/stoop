@@ -488,7 +488,7 @@ async def get_sf_building(
         rows = await db.execute(
             text("""
                 SELECT service_request_id, service_name, service_subtype,
-                       address, requested_datetime::text, status_description
+                       address, requested_datetime::date::text AS requested_datetime, status_description
                 FROM sf_311_housing
                 WHERE mapblklot = :id
                 ORDER BY requested_datetime DESC NULLS LAST

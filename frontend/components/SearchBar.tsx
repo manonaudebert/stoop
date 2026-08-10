@@ -112,14 +112,14 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
     <div className="relative w-full">
       <div
         className="search-field flex items-center px-3"
-        style={{ background: '#FFFFFF', borderRadius: 12, height: 36, border: '0.5px solid #6B6B6B' }}
+        style={{ background: '#FFFFFF', borderRadius: 12, height: 36, border: '0.5px solid #6B6B6B', overflow: 'hidden' }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginRight: 8 }}>
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
         <input
           className="flex-1 outline-none bg-transparent"
-          style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#111111', letterSpacing: '-0.01em' }}
+          style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: '#111111', letterSpacing: '-0.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
           placeholder="Search by address"
           value={query}
           role="combobox"

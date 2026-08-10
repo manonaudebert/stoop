@@ -515,5 +515,5 @@ export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, v
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return <div ref={containerRef} className="w-full h-full" />
+  return <div ref={containerRef} className="w-full h-full" role="region" aria-label="Map and controls" />
 }

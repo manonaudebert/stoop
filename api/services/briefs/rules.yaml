@@ -1,0 +1,259 @@
+# Building Brief — rules table
+#
+# Config, not code. Each rule maps a computed signal to tenant-facing guidance
+# quoted or closely paraphrased from NYC HPD's "ABCs of Housing 2024 (Tenants'
+# Guide)", with the page recorded.
+#
+# THE MODEL NEVER WRITES THIS TEXT. It selects rule `id`s from the eligible set;
+# the `condition` / `why_it_matters` / `action` strings are copied into the brief
+# verbatim by code. That is a structural guarantee, not a prompt instruction.
+#
+# Authoring rules:
+#   - No HPD jargon. "Class C", "rent-impairing", "NOV" mean nothing to a renter.
+#     Where a legal term is unavoidable, define it in place.
+#   - No absolute-severity language ("high", "severe") — severity belongs to the
+#     percentile, which is neighborhood-relative and stated elsewhere.
+#   - No causal claims.
+#   - If a claim cannot be located in the source PDF, it does not go in.
+#
+# `when` is a structured predicate, never an eval'd string:
+#   {signal: <name>, op: <">"|">="|"<"|"<="|"=="> , value: <number>}
+#   {all: [<predicate>, ...]}
+#
+# `priority` ranks hazard types against each other and is editorial — the source
+# document never does this. Rules MAY share a priority, which asserts that the
+# source gives no basis for ranking them. Peers are then ordered by `rank_by`,
+# the signal whose magnitude decides which is the bigger problem *at this
+# building*. Without it, a rule that happens to sort first would suppress a
+# strictly larger problem beside it.
+#
+# Signals are supplied by the SQL selection layer. Any signal named here must
+# exist there or the rule is skipped and logged — never silently dropped.
+#
+# `magnitude` is a format template rendered by code against the same signals,
+# never by the model. It exists because the `when` thresholds throw away
+# everything except the yes/no: without it, "Tenants here have reported mold"
+# reads identically at two complaints and at two hundred. Each rule states its
+# OWN window, because they genuinely differ — open-right-now for violations,
+# a five-year window for complaints — and one shared phrase would be false for
+# some of them.
+
+version: 1
+source_document: "NYC HPD, ABCs of Housing 2024 (Tenants' Guide)"
+
+rules:
+  - id: open_class_c
+    priority: 1
+    when: {signal: open_class_c_violations, op: ">", value: 0}
+    magnitude: "{open_class_c_violations} currently open"
+    condition: >-
+      Conditions that HPD classifies as immediately hazardous are currently open
+      on this building's record.
+    why_it_matters: >-
+      These carry the shortest deadline HPD gives — most must be corrected within
+      24 hours of the owner being notified. If the owner does not fix them, HPD
+      can send its own contractor through the Emergency Repair Program and bill
+      the owner for the work.
+    action: >-
+      The violations listed further down this page show which conditions are
+      open and when each was cited. If a hazardous condition in your own
+      apartment is still unaddressed, call 311 to report it.
+    source: "p.11-12"
+
+  # Threshold is > 0 while mold and pests use > 1, deliberately. The peer rules
+  # need a floor because one complaint cannot distinguish an incident from a
+  # building condition — one unit, once, possibly resolved. Heat has no such
+  # ambiguity: the legal minimum is a bright line (68°F between 6am and 10pm,
+  # 62°F overnight, October 1 to May 31), failure is seasonal and immediate, and
+  # a single complaint filed in winter is already evidence that the line was
+  # crossed. A renter signing a lease in September is owed that signal.
+  - id: heat_hot_water
+    priority: 2
+    when: {signal: heat_hot_water_complaints, op: ">", value: 0}
+    magnitude: "{heat_hot_water_complaints} complaints in the last five years"
+    condition: >-
+      Tenants here have reported problems with heat or hot water.
+    why_it_matters: >-
+      Heat is required from October 1 through May 31. When it is below 55°F
+      outside, apartments must be at least 68°F between 6am and 10pm. Between
+      10pm and 6am they must be at least 62°F regardless of the outside
+      temperature. Hot water must be at least 120°F, 24 hours a day, all year.
+    action: >-
+      If your apartment is colder than that, call 311 or use the 311 mobile app
+      to file a complaint, and keep your service request number so you can track
+      what happens with it. Never use a gas oven or range to heat your home — it
+      can produce dangerous levels of carbon monoxide.
+    source: "p.9"
+
+  # This rule used to require construction_year < 1960 AND open lead violations.
+  # The year was a proxy for risk and it was gating the direct evidence: HPD does
+  # not issue a lead-based paint violation unless lead was actually found, so an
+  # open violation stands on its own whatever the building's age.
+  #
+  # Measured before removing it: of 15,484 buildings with open lead violations,
+  # the conjunction suppressed 714 (4.6%) carrying 2,594 open violations. 426
+  # were genuinely post-1960. The other 288 were absent from the `buildings`
+  # table, so construction_year resolved to None and the rule silently declined
+  # to fire — a join gap deciding whether a tenant hears about lead. Zero were
+  # blocked by malformed year text, so that risk was theoretical.
+  #
+  # The pre-1960 fact stays in why_it_matters, where it is background about lead
+  # paint generally rather than a claim about this building.
+  - id: lead_paint
+    priority: 3
+    when: {signal: lead_paint_violations, op: ">", value: 0}
+    magnitude: "{lead_paint_violations} currently open"
+    condition: >-
+      This building has lead-based paint violations on record.
+    why_it_matters: >-
+      Buildings built before 1960 may still contain lead-based paint. Lead causes
+      behavioral and learning problems in young children, who can swallow dust
+      and paint chips from windowsills and floors.
+    action: >-
+      If a child under six lives with you, or regularly spends 10 or more hours a
+      week in your apartment, tell the owner in writing — that is what obliges
+      them to inspect annually. Report peeling paint to the owner, and call 311
+      if it is not fixed or if repair work is creating dust that is not being
+      contained.
+    source: "p.8"
+
+  # Smoke and CO detectors are one rule, not two, because the source treats them
+  # as one section (p.6) and the guidance is identical for both. The signal is
+  # open violations in either detector category.
+  #
+  # The source scopes the requirement to "a building with three or more units
+  # and one- and two-family homes which are not owner occupied". That scope is
+  # omitted here for the same reason the mold >10-unit clause is: no unit count
+  # exists anywhere in the schema, and an open detector violation already proves
+  # the requirement applied to this building — HPD does not cite a building for
+  # a detector it was not required to have.
+  #
+  # Priority 4: below lead paint, above the complaint-driven rules. An open
+  # violation is an inspector's finding, a complaint is a tenant's report, and
+  # this rule also names something a renter can verify in thirty seconds on a
+  # viewing.
+  - id: smoke_co_detectors
+    priority: 4
+    magnitude: "{smoke_co_detector_violations} currently open"
+    when: {signal: smoke_co_detector_violations, op: ">", value: 0}
+    condition: >-
+      This building has open violations for smoke or carbon monoxide detectors.
+    why_it_matters: >-
+      Working smoke and carbon monoxide detectors are required in New York City
+      apartments. Responsibility for them is shared, which is unusual: the owner
+      must provide them, but tenants are responsible for maintaining both
+      devices. If a tenant removed a detector or failed to replace its battery,
+      returning it to working order is the tenant's job, and a tenant may be
+      required to pay for a replacement if the device was damaged.
+    action: >-
+      On a viewing, look at the ceiling of each room and check that detectors are
+      present and have not been painted over. Once you move in, test every
+      detector at least once a month, replace the batteries at least twice a
+      year, and use only the battery type printed on the device. If an alarm
+      chirps to signal a low battery, replace it immediately.
+    source: "p.6"
+
+  # The source also describes special requirements for buildings with more than
+  # 10 units and more than 10 square feet of mold (p.9). That clause is omitted
+  # deliberately: no unit count exists anywhere in the schema, so the condition
+  # cannot be evaluated. Asserting an obligation on an unverifiable condition is
+  # worse than staying silent about it.
+  # Mold and pests share priority 4. HPD documents both as health hazards and
+  # ranks neither above the other, so ordering them by editorial fiat put a
+  # single mold complaint ahead of dozens of pest complaints on 4.1% of
+  # buildings sampled. They are peers, ordered by complaint count.
+  #
+  # Both peers use a threshold of >1, and must keep using the same one. A single
+  # complaint over five years is one unit, once — the rules describe building
+  # conditions, and two complaints is the smallest evidence that the problem
+  # recurred or reached more than one apartment. Splitting the thresholds would
+  # reintroduce the ranking these two rules share a priority to disclaim: on 103
+  # of 8,000 buildings sampled, mold and pests each stand at exactly one
+  # complaint, and an asymmetric floor would show one and hide the other on
+  # identical evidence.
+  - id: mold
+    priority: 5
+    rank_by: mold_complaints
+    when: {signal: mold_complaints, op: ">", value: 1}
+    magnitude: "{mold_complaints} complaints in the last five years"
+    condition: >-
+      Tenants here have reported mold.
+    why_it_matters: >-
+      Mold can cause allergic reactions and irritation, and can trigger asthma in
+      some people. It needs water or moisture to grow, so it generally indicates
+      a leak or persistent damp.
+    action: >-
+      Report mold to the property owner, and call 311 if it is not addressed.
+      Owners are expected to inspect units annually for mold and to respond to
+      complaints. After a repair, using exhaust fans, opening windows, and
+      cleaning surfaces helps keep it from returning.
+    source: "p.9"
+
+  # Bedbugs have no distinguishable signal. The `FILING: BEDBUGS` violation
+  # category is the annual bedbug *report filing* requirement — an administrative
+  # violation that says nothing about whether bedbugs are present. Complaint
+  # minor-categories offer only PESTS and VERMIN. Bedbug guidance therefore rides
+  # along with the general pest rule rather than firing on a false signal.
+  - id: pests
+    priority: 5
+    rank_by: pest_complaints
+    when: {signal: pest_complaints, op: ">", value: 1}
+    magnitude: "{pest_complaints} complaints in the last five years"
+    condition: >-
+      Tenants here have reported pests.
+    why_it_matters: >-
+      Roaches, mice, and rats can be hazards for people with respiratory
+      conditions such as asthma. Bedbugs spread between apartments through small
+      cracks in walls and floors, so catching an infestation early matters.
+    action: >-
+      Report pests to the property owner and call 311 if they are not dealt with.
+      For bedbugs specifically, an HPD inspector will visit — a violation is
+      issued only if the inspector can visually confirm live bedbugs.
+    source: "p.10"
+
+# ---------------------------------------------------------------------------
+# Deliberately uncovered
+#
+# A rule requires BOTH a computable signal AND citable source text. Everything
+# below has one or neither, and is listed so the gap is a recorded decision
+# rather than something a future reader has to rediscover.
+#
+#   ELECTRICAL (complaints, high volume)
+#     Signal: yes. Source text: none. The ABCs guide has no electrical section,
+#     so there is no citable action to give a tenant. Volume is not a reason to
+#     write advice we cannot attribute. Revisit only if an authoritative source
+#     is added.
+#
+#   WATER & PLUMBING (complaints, high volume)
+#     Same shape as electrical: a clean signal, nothing citable behind it.
+#
+#   GAS LEAKS
+#     The inverse. The source is strong (p.5: recognise by smell, sight, and
+#     hearing; leave the building, call 911 from a safe distance, then the gas
+#     provider) but no complaint or violation category isolates gas leaks. It is
+#     also emergency-response guidance, which is the wrong register for a brief
+#     read before signing a lease — a reader in that situation is not reading
+#     this page.
+#
+#   SELF-CLOSING DOORS
+#     Unlike the entries above, this one has BOTH. The signal is clean: order
+#     numbers 530, 536, 693, and 213 isolate self-closing doors within the
+#     broader EGRESS category, roughly 74,700 open violations across 30,000
+#     buildings. The source is strong (p.5: they stop fire and smoke spreading
+#     between apartments; owner repairs within 14 days; tenants must provide
+#     access; HPD reinspects within 20 days and may fix it through the Emergency
+#     Repair Program; tenants must not prop, tape, or wedge them open). Left out
+#     by decision, not for lack of material — it is the first candidate if this
+#     table grows.
+#
+#   WINDOW GUARDS
+#     A WINDOW GUARDS category exists and p.10 covers the obligation, but the
+#     signal was never investigated. Same status as self-closing doors: deferred,
+#     not ruled out.
+#
+#   BEDBUGS — see the note above the pests rule. No distinguishable signal;
+#   FILING: BEDBUGS is the annual report-filing requirement, not an infestation.
+#
+#   MOLD, >10-unit clause — see the note above the mold rule. No unit count
+#   exists in the schema, so the condition cannot be evaluated.
+# ---------------------------------------------------------------------------

@@ -1,0 +1,285 @@
+{
+  "_comment": [
+    "Canonical renter-facing complaint taxonomy. Consumed by BOTH the Next.js",
+    "frontend (frontend/lib/constants.ts) and the Python brief generator",
+    "(api/services/briefs/taxonomy.py).",
+    "",
+    "It lives under api/ because api/Dockerfile builds with context `api/` and",
+    "`COPY . .` \u2014 anything outside api/ does not exist in the API container at",
+    "runtime. The frontend can reach across at build time; the API cannot.",
+    "",
+    "KEY ORDER IS LOAD-BEARING. Three minor categories appear in two groups",
+    "(MAINTENANCE, LINE OF TRAVEL, SKYLIGHT). Both consumers build their",
+    "lookup by last-write-wins, so reordering `groups` silently reassigns them",
+    "and shifts the counts shown on building pages.",
+    "",
+    "Keys map HPD hpd_complaints.minor_category values.",
+    "",
+    "`minor_categories` are HPD COMPLAINT categories (hpd_complaints.minor_category).",
+    "`violation_categories` are HPD VIOLATION categories (hpd_order_numbers.category)",
+    "\u2014 a separate vocabulary for the same underlying concerns, added for the",
+    "Building Brief so open class C violations can be named in renter-facing",
+    "words. Scoped to categories that actually occur on open class C violations;",
+    "anything unmapped resolves to None and is omitted rather than guessed.",
+    "LEAD-BASED PAINT is deliberately unmapped: no group covers it, it already",
+    "reads as plain English, and it has its own rule. The frontend reads only",
+    "`minor_categories`.",
+    "",
+    "`violation_category_tooltips` is category -> one plain-English sentence,",
+    "covering every HPD violation category. It powers the 'Top violation",
+    "categories' chart tooltips on the HPD building page, and gives the Building",
+    "Brief a concrete description of a hazardous condition rather than only the",
+    "group label. Keyed by category, not nested under groups, because it covers",
+    "categories that belong to no renter-facing group."
+  ],
+  "version": 1,
+  "groups": {
+    "heating_hot_water": {
+      "label": "Heat / hot water",
+      "description": "Complaints related to building heat, hot water, boilers, and heating systems.",
+      "minor_categories": [
+        "APARTMENT ONLY",
+        "ENTIRE BUILDING",
+        "HEAT RELATED",
+        "HEAT-PLANT",
+        "RADIATOR",
+        "SPACE HEATER",
+        "BOILER"
+      ],
+      "violation_categories": [
+        "HEAT AND HOT WATER",
+        "HEAT SENSOR PROGRAM"
+      ]
+    },
+    "water_damage_plumbing": {
+      "label": "Water & plumbing",
+      "description": "Leaks, plumbing problems, water damage, sewage issues, and roof-related complaints.",
+      "minor_categories": [
+        "WATER-LEAKS",
+        "DAMP SPOT",
+        "HEAVY FLOW",
+        "SLOW LEAK",
+        "SEWER",
+        "SEWAGE",
+        "WATER SUPPLY",
+        "STEAM PIPE/RISER",
+        "BASIN/SINK",
+        "BATHTUB/SHOWER",
+        "TOILET",
+        "SHOWER-STALL",
+        "ROOF",
+        "ROOFING",
+        "RAIN LEADER",
+        "GUTTER/LEADER",
+        "SKYLIGHT"
+      ],
+      "violation_categories": [
+        "WATER SUPPLY",
+        "SEWERS AND DRAINAGE",
+        "SANITARY FACILITIES"
+      ]
+    },
+    "mold_pests_sanitation": {
+      "label": "Mold & pests",
+      "description": "Mold, pests, odors, garbage, and other unsanitary living conditions.",
+      "minor_categories": [
+        "MOLD",
+        "PESTS",
+        "VERMIN",
+        "RUBBISH",
+        "GARBAGE/RECYCLING STORAGE",
+        "ODOR",
+        "SMOKE-FUMES",
+        "UNSANITARY CONDITION"
+      ],
+      "violation_categories": [
+        "EXTERMINATION & RODENT ERADICATION",
+        "CLEANING",
+        "COLLECTION OF WASTE",
+        "JANITORIAL SERVICES"
+      ]
+    },
+    "electrical_power": {
+      "label": "Electrical",
+      "description": "Electrical wiring, lighting, outlets, and power outage related issues.",
+      "minor_categories": [
+        "POWER OUTAGE",
+        "WIRING",
+        "OUTLET/SWITCH",
+        "OUTLET COVER",
+        "LIGHTING",
+        "NO LIGHTING",
+        "ELECTRIC-SUPPLY"
+      ],
+      "violation_categories": [
+        "ARTIFICIAL LIGHTING",
+        "LIGHTS AND VENTILATION ROOMS AND PUBLIC HALLS"
+      ]
+    },
+    "safety_fire": {
+      "label": "Safety & fire",
+      "description": "Fire safety, carbon monoxide, smoke detectors, and other hazardous safety concerns.",
+      "minor_categories": [
+        "CARBON MONOXIDE",
+        "CARBON MONOXIDE DETECTOR",
+        "SMOKE DETECTOR",
+        "FIRE ESCAPE",
+        "SPRINKLER",
+        "WINDOW GUARD BROKEN/MISSING",
+        "WINDOW GUARDS",
+        "COOKING GAS",
+        "LINE OF TRAVEL",
+        "COLLAPSING BUILDING"
+      ],
+      "violation_categories": [
+        "EGRESS",
+        "FIRE EGRESS AND PROTECTION",
+        "FIREGUARD",
+        "PROTECTIVE DEVICES AND FIRE PROTECTION",
+        "SPRINKLER SYSTEM",
+        "SMOKE DETECTING DEVICES",
+        "CARBON MONOXIDE DETECTING DEVICES",
+        "NATURAL GAS DETECTING DEVICES",
+        "WINDOW GUARDS"
+      ]
+    },
+    "elevator_accessibility": {
+      "label": "Elevator",
+      "description": "Elevator reliability, stair access, and building accessibility related issues.",
+      "minor_categories": [
+        "ELEVATOR",
+        "MAINTENANCE",
+        "STAIRS",
+        "LINE OF TRAVEL"
+      ]
+    },
+    "building_maintenance_operations": {
+      "label": "Bldg maintenance",
+      "description": "General building upkeep, doors, windows, locks, intercoms, and maintenance operations.",
+      "minor_categories": [
+        "JANITOR/SUPER",
+        "MAILBOX",
+        "LOCKS",
+        "DOOR",
+        "DOORS",
+        "DOOR FRAME",
+        "WINDOWS",
+        "WINDOW FRAME",
+        "WINDOW PANE",
+        "FLOOR",
+        "CERAMIC-TILE",
+        "CABINET",
+        "MAINTENANCE",
+        "CLEANING",
+        "BELL-BUZZER/INTERCOM",
+        "BELL/BUZZER/INTERCOM"
+      ],
+      "violation_categories": [
+        "MAINTENANCE",
+        "PAINTING",
+        "KITCHEN AND KITCHENETTES",
+        "SHAFTS AND COURTS",
+        "MISCELLANEOUS SERVICES AND FACILITIES"
+      ]
+    },
+    "appliances": {
+      "label": "Appliances",
+      "description": "Problems involving in-unit appliances like refrigerators, stoves, microwaves, and AC units.",
+      "minor_categories": [
+        "AIR-CONDITIONER",
+        "DISHWASHER",
+        "ELECTRIC/GAS RANGE",
+        "MICROWAVE",
+        "REFRIGERATOR"
+      ],
+      "violation_categories": [
+        "GAS APPLIANCES"
+      ]
+    },
+    "outdoor_structural": {
+      "label": "Outdoor / structural",
+      "description": "Exterior building conditions including roofs, balconies, pavement, and structural concerns.",
+      "minor_categories": [
+        "PAVEMENT",
+        "PORCH/BALCONY",
+        "FENCING",
+        "ROOF DOOR/HATCH",
+        "VACANT APARTMENT",
+        "FIRE-ESCAPE",
+        "SKYLIGHT"
+      ],
+      "violation_categories": [
+        "PAVING AND GRADING"
+      ]
+    },
+    "low_priority_admin": {
+      "label": "Admin",
+      "description": "Administrative, signage, certification, and lower-impact maintenance issues.",
+      "minor_categories": [
+        "SIGNAGE",
+        "SIGNAGE MISSING",
+        "SPRINKER CERT",
+        "BOILER ROOM KEY",
+        "STORAGE",
+        "ILLEGAL"
+      ],
+      "violation_categories": [
+        "NOTIFICATION: INTERRUPTION OF SERVICE",
+        "UNLAWFUL USE",
+        "ORDER TO REPAIR/VACATE ORDER",
+        "RETIRED",
+        "HOTEL AND CERTAIN OTHER CLASS A & CLASS B DWELLINGS"
+      ]
+    }
+  },
+  "violation_category_tooltips": {
+    "ALTERATIONS": "Unapproved or unsafe construction, renovations, or structural modifications within the building.",
+    "ALTERNATIVE ENFORCEMENT PROGRAM": "Buildings enrolled in HPD's enhanced enforcement program due to repeated serious violations or poor maintenance.",
+    "ANNUAL PROPERTY REGISTRATION": "Requirements for landlords to register ownership and contact information with HPD each year.",
+    "ARTIFICIAL LIGHTING": "Insufficient or missing required lighting in apartments, hallways, or common areas.",
+    "CARBON MONOXIDE DETECTING DEVICES": "Missing, broken, or improperly installed carbon monoxide detectors.",
+    "CLEANING": "Dirty or poorly maintained common areas, garbage accumulation, and inadequate building cleaning services.",
+    "COLLECTION OF WASTE": "Improper garbage storage, waste disposal, or failure to remove trash and recycling.",
+    "COMMISSIONER'S ORDER": "Violations issued directly under authority of the HPD Commissioner requiring corrective action.",
+    "CONVERSIONS": "Illegal or unsafe apartment conversions, occupancy changes, or room configurations.",
+    "EGRESS": "Blocked, unsafe, or inaccessible exits, hallways, stairs, or fire escape routes.",
+    "EXTERMINATION & RODENT ERADICATION": "Rodent, cockroach, bedbug, or other pest infestation and extermination related issues.",
+    "FILING: BEDBUGS": "Bedbug reporting, filing, and disclosure compliance requirements for landlords.",
+    "FIRE EGRESS AND PROTECTION": "Fire safety, exits, alarms, fire escapes, and other fire protection related violations.",
+    "FIREGUARD": "Issues involving required fireguard staffing, supervision, or certifications.",
+    "GAS APPLIANCES": "Unsafe, defective, or improperly maintained gas-powered appliances and gas systems.",
+    "HEAT AND HOT WATER": "Lack of heat, hot water, or heating system related issues affecting tenants.",
+    "HEAT SENSOR PROGRAM": "Issues involving required heat sensors or heat monitoring devices in residential buildings.",
+    "HOTEL AND CERTAIN OTHER CLASS A & CLASS B DWELLINGS": "Violations specific to hotels and certain regulated residential building types.",
+    "ILLEGAL OCCUPANCY OF BASEMENT AND CELLARS": "Unsafe or unlawful residential occupancy in basement or cellar spaces.",
+    "JANITORIAL SERVICES": "Failure to provide janitorial, superintendent, cleaning, or required maintenance services.",
+    "KITCHEN AND KITCHENETTES": "Kitchen safety, fixtures, appliances, ventilation, or sanitation related issues.",
+    "LEAD-BASED PAINT": "Lead paint hazards, unsafe paint conditions, and required lead remediation violations.",
+    "LIGHTS AND VENTILATION ROOMS AND PUBLIC HALLS": "Insufficient lighting or ventilation in apartments, rooms, hallways, or shared building spaces.",
+    "MAINTENANCE": "General building repair, upkeep, and maintenance related housing code violations.",
+    "MINIMUM ROOM SIZES AND OCCUPANCY REGULATIONS": "Overcrowding or rooms that do not meet legal occupancy or size requirements.",
+    "MISCELLANEOUS": "General housing code violations that do not fall under another specific category.",
+    "MISCELLANEOUS SERVICES AND FACILITIES": "Problems involving required building services, shared facilities, or tenant amenities.",
+    "NATURAL GAS DETECTING DEVICES": "Missing, broken, or improperly installed natural gas detection devices.",
+    "NOTIFICATION: INTERRUPTION OF SERVICE": "Failure to notify tenants about planned interruptions to heat, water, elevators, or other services.",
+    "OCCUPANY OF BASEMENT AND CELLARS": "Improper or unlawful residential use of basement or cellar areas.",
+    "ORDER TO REPAIR/VACATE ORDER": "Serious violations requiring emergency repairs or conditions severe enough to potentially vacate the building.",
+    "PAINTING": "Peeling paint, damaged plaster, repainting, or deteriorated wall and ceiling surfaces.",
+    "PAVING AND GRADING": "Unsafe pavement, walkways, drainage, grading, or exterior surface conditions.",
+    "POSTING/SIGNAGE": "Missing required notices, safety postings, certificates, or building signage.",
+    "PROTECTIVE DEVICES AND FIRE PROTECTION": "Missing, damaged, or defective fire protection and required safety equipment.",
+    "RECORD-KEEPING: CARBON MONOXIDE DETECTING DEVICES": "Failure to maintain required compliance records for carbon monoxide detectors.",
+    "RESIDENTIAL BUILDINGS UNDER VACATE ORDER": "Residential buildings currently subject to official vacate orders due to unsafe conditions.",
+    "RETIRED": "Legacy or inactive violation categories no longer actively used by HPD.",
+    "SANITARY FACILITIES": "Problems involving bathrooms, toilets, sinks, showers, or sanitary plumbing fixtures.",
+    "SEWERS AND DRAINAGE": "Drainage problems, sewage backups, sewer conditions, or wastewater related issues.",
+    "SHAFTS AND COURTS": "Unsafe or poorly maintained air shafts, courts, ventilation shafts, or enclosed spaces.",
+    "SMOKE DETECTING DEVICES": "Missing, broken, or improperly installed smoke detectors.",
+    "SPRINKLER SYSTEM": "Fire sprinkler installation, maintenance, testing, or operational issues.",
+    "UNDERLYING CONDITIONS PROGRAM ORDER": "Orders issued for buildings with persistent, recurring, or widespread housing condition problems.",
+    "UNLAWFUL USE": "Illegal, unsafe, or unauthorized use of residential property or apartments.",
+    "VACANT MULTIPLE DWELLINGS": "Violations involving vacant apartment buildings or unoccupied residential properties.",
+    "WATER SUPPLY": "Interruptions, leaks, contamination, or deficiencies in building water supply systems.",
+    "WINDOW GUARDS": "Missing, damaged, or improperly installed window guards required for child safety."
+  }
+}

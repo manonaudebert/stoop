@@ -11,7 +11,7 @@ import {
   getHpdComplaintMinorBreakdown,
   getHpdComplaintTypePeriodBreakdown, getHpdComplaintResolutionBreakdown,
 } from '@/lib/api'
-import { MINOR_TO_GROUP, FILTER_GROUP_DESCRIPTIONS, VIOLATION_CATEGORY_TOOLTIPS, type RenterFacingGroup } from '@/lib/constants'
+import { MINOR_TO_GROUP, FILTER_GROUP_DESCRIPTIONS, FILTER_GROUP_ORDER, VIOLATION_CATEGORY_TOOLTIPS, type RenterFacingGroup } from '@/lib/constants'
 import TooltipIcon from '@/components/TooltipIcon'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
@@ -41,25 +41,25 @@ function stripLegalPrefix(s: string | null | undefined): string | null {
   return idx !== -1 ? s.slice(idx + 3).trim() : s
 }
 
-const CLASS_META: Record<string, { label: string; color: string; bg: string }> = {
-  A: { label: 'Emergency',     color: '#7F1D1D', bg: '#FEF2F2' },
-  B: { label: 'Hazardous',     color: '#92400E', bg: '#FFF7ED' },
-  C: { label: 'Non-hazardous', color: '#525252', bg: '#F5F5F5' },
-  I: { label: 'Informational', color: '#525252', bg: '#FAFAFA' },
-}
-
-const TIER_COLORS: Record<string, { color: string; bg: string }> = {
-  'Emergency':     { color: '#7F1D1D', bg: '#FEF2F2' },
-  'Hazardous':     { color: '#92400E', bg: '#FFF7ED' },
-  'Non-hazardous': { color: '#525252', bg: '#F5F5F5' },
-  'Active':        { color: '#92400E', bg: '#FFF7ED' },
-  'Resolved':      { color: '#166534', bg: '#F0FDF4' },
+// HPD violation classes, per HPD's ABCs of Housing (2024) p.12:
+//   A: non-hazardous · B: hazardous · C: immediately hazardous
+//
+// The colors here were previously inverted — A rendered in the alarm palette
+// and C in the neutral one — which painted the most severe violations as the
+// least. Everything else on this page (the Class C stat card, the severity
+// tooltip, the methodology page, and the SQL severity weights of 15/8/3) has
+// always used the correct ordering; this constant was the lone outlier.
+const CLASS_META: Record<string, { color: string; bg: string }> = {
+  A: { color: '#525252', bg: '#F5F5F5' },   // non-hazardous
+  B: { color: '#92400E', bg: '#FFF7ED' },   // hazardous
+  C: { color: '#7F1D1D', bg: '#FEF2F2' },   // immediately hazardous
+  I: { color: '#525252', bg: '#FAFAFA' },   // informational
 }
 
 // ── row components ────────────────────────────────────────────────────────────
 
 function ViolationRow({ v }: { v: HpdViolation }) {
-  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.C
+  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.I
   const isOpen = v.violation_status === 'Open'
   return (
     <tr style={{ borderBottom: '0.5px solid #E5E5E5' }}>
@@ -138,7 +138,7 @@ function ComplaintRow({ c }: { c: HpdComplaint }) {
 }
 
 function ViolationCard({ v }: { v: HpdViolation }) {
-  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.C
+  const cls = CLASS_META[v.violation_class ?? ''] ?? CLASS_META.I
   const isOpen = v.violation_status === 'Open'
   return (
     <div style={{ padding: '14px 16px', borderBottom: '0.5px solid #E5E5E5' }}>
@@ -437,18 +437,9 @@ export default async function HpdOverviewPage({
   const emergencyComplaints = complaints?.open_emergency_complaints ?? 0
   const heatComplaints      = complaints?.heat_complaints ?? 0
 
-  const COMPLAINT_BREAKDOWN_GROUPS = [
-    { key: 'heating_hot_water',               label: 'Heat / hot water' },
-    { key: 'water_damage_plumbing',           label: 'Water & plumbing' },
-    { key: 'mold_pests_sanitation',           label: 'Mold & pests' },
-    { key: 'electrical_power',                label: 'Electrical' },
-    { key: 'safety_fire',                     label: 'Safety & fire' },
-    { key: 'elevator_accessibility',          label: 'Elevator' },
-    { key: 'building_maintenance_operations', label: 'Bldg maintenance' },
-    { key: 'appliances',                      label: 'Appliances' },
-    { key: 'outdoor_structural',              label: 'Outdoor / structural' },
-    { key: 'low_priority_admin',              label: 'Admin' },
-  ]
+  // Order and labels come from the shared taxonomy so this page, the complaints
+  // page, and the generated Building Brief always name groups identically.
+  const COMPLAINT_BREAKDOWN_GROUPS = FILTER_GROUP_ORDER
 
   const groupCounts = minorBreakdown.reduce<Record<string, number>>((acc, item) => {
     const group = MINOR_TO_GROUP[item.minor_category]

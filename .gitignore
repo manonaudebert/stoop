@@ -29,3 +29,6 @@ data/.last_sync*
 # ── Working / planning docs (local scratch, not shipped) ──────────────────────
 SF_EXPANSION_PLAN.md
 SF_MERGE_TODO.md
+
+# Per-call cost/telemetry log from local brief runs
+data/brief_calls.jsonl

@@ -261,6 +261,9 @@ export interface SfBuildingSummary {
   open_violations: number
   open_lead_violations: number
   open_fire_violations: number
+  open_severe_violations: number
+  open_serious_violations: number
+  open_minor_violations: number
   latest_violation_date: string | null
   violations_density_pct: number | null
   violations_risk_level: string | null

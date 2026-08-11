@@ -547,5 +547,5 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     }
   }, [isMobile])
 
-  return <div ref={containerRef} className="w-full h-full" />
+  return <div ref={containerRef} className="w-full h-full" role="region" aria-label="Map and controls" />
 }

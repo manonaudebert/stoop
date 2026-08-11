@@ -936,50 +936,79 @@ eas_repr AS (
     WHERE parcel_number IS NOT NULL
     ORDER BY parcel_number, eas_fullid
 ),
-base AS (
+-- One row per NOV, tagged with a severity tier. Single source of truth for the
+-- A/B/C map; feeds both weighted_violation_sum and the open tier counts.
+tagged AS (
     SELECT
         v.mapblklot,
-        MAX(e.address)                                              AS address,
-        MAX(p.centroid_latitude)                                    AS latitude,
-        MAX(p.centroid_longitude)                                   AS longitude,
-        COALESCE(MAX(p.analysis_neighborhood), MAX(v.neighborhood)) AS neighborhood,
-        MAX(f.footprint_area_sqm)                                   AS footprint_area_sqm,
-        MAX(f.hgt_median_m)                                         AS hgt_median_m,
-        COUNT(*)                                                    AS total_violations,
-        COUNT(*) FILTER (WHERE LOWER(v.status) = 'active')          AS open_violations,
-        COUNT(*) FILTER (
-            WHERE LOWER(v.nov_category_description) = 'lead section'
-              AND LOWER(v.status) = 'active'
-        )                                                           AS open_lead_violations,
-        COUNT(*) FILTER (
-            WHERE LOWER(v.nov_category_description) = 'fire section'
-              AND LOWER(v.status) = 'active'
-        )                                                           AS open_fire_violations,
-        MAX(v.date_filed)                                           AS latest_violation_date,
-        COALESCE(SUM(
-            CASE LOWER(v.nov_category_description)
-                WHEN 'fire section'                    THEN 15.0
-                WHEN 'smoke detection section'         THEN 15.0
-                WHEN 'lead section'                    THEN 15.0
-                WHEN 'building section'                THEN  8.0
-                WHEN 'plumbing and electrical section' THEN  8.0
-                WHEN 'interior surfaces section'       THEN  8.0
-                WHEN 'sanitation section'              THEN  8.0
-                WHEN 'security requirements section'   THEN  8.0
-                ELSE 3.0
-            END *
-            CASE
-                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
-                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
-                WHEN v.date_filed >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
-            END
-        ), 0.0)                                                     AS weighted_violation_sum
+        e.address,
+        p.centroid_latitude     AS latitude,
+        p.centroid_longitude    AS longitude,
+        p.analysis_neighborhood AS neighborhood_analysis,
+        v.neighborhood          AS neighborhood_raw,
+        f.footprint_area_sqm,
+        f.hgt_median_m,
+        v.status,
+        v.date_filed,
+        v.nov_category_description,
+        CASE LOWER(v.nov_category_description)
+            WHEN 'fire section'                    THEN 'A'
+            WHEN 'smoke detection section'         THEN 'A'
+            WHEN 'lead section'                    THEN 'A'
+            WHEN 'building section'                THEN 'B'
+            WHEN 'plumbing and electrical section' THEN 'B'
+            WHEN 'interior surfaces section'       THEN 'B'
+            WHEN 'sanitation section'              THEN 'B'
+            WHEN 'security requirements section'   THEN 'B'
+            ELSE 'C'
+        END AS tier
     FROM sf_dbi_nov v
     JOIN sf_parcels p ON v.mapblklot = p.mapblklot
     LEFT JOIN footprint_agg f ON f.mapblklot = v.mapblklot
     LEFT JOIN eas_repr e ON e.mapblklot = v.mapblklot
     WHERE v.mapblklot IS NOT NULL
-    GROUP BY v.mapblklot
+),
+base AS (
+    SELECT
+        t.mapblklot,
+        MAX(t.address)                                              AS address,
+        MAX(t.latitude)                                             AS latitude,
+        MAX(t.longitude)                                            AS longitude,
+        COALESCE(MAX(t.neighborhood_analysis), MAX(t.neighborhood_raw)) AS neighborhood,
+        MAX(t.footprint_area_sqm)                                   AS footprint_area_sqm,
+        MAX(t.hgt_median_m)                                         AS hgt_median_m,
+        COUNT(*)                                                    AS total_violations,
+        COUNT(*) FILTER (WHERE LOWER(t.status) = 'active')          AS open_violations,
+        COUNT(*) FILTER (
+            WHERE LOWER(t.nov_category_description) = 'lead section'
+              AND LOWER(t.status) = 'active'
+        )                                                           AS open_lead_violations,
+        COUNT(*) FILTER (
+            WHERE LOWER(t.nov_category_description) = 'fire section'
+              AND LOWER(t.status) = 'active'
+        )                                                           AS open_fire_violations,
+        -- Open violations by severity tier (all tiers A/B/C, so these three sum
+        -- to open_violations). Powers the "Open violations" card breakdown.
+        COUNT(*) FILTER (WHERE t.tier = 'A' AND LOWER(t.status) = 'active') AS open_severe_violations,
+        COUNT(*) FILTER (WHERE t.tier = 'B' AND LOWER(t.status) = 'active') AS open_serious_violations,
+        COUNT(*) FILTER (WHERE t.tier = 'C' AND LOWER(t.status) = 'active') AS open_minor_violations,
+        MAX(t.date_filed)                                           AS latest_violation_date,
+        COALESCE(SUM(
+            -- SF DBI severity weight, derived from the tier tag (single source
+            -- of truth above), times the recency-decay factor.
+            CASE t.tier
+                WHEN 'A' THEN 15.0
+                WHEN 'B' THEN  8.0
+                ELSE           3.0
+            END *
+            CASE
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
+            END
+        ), 0.0)                                                     AS weighted_violation_sum
+    FROM tagged t
+    GROUP BY t.mapblklot
 ),
 with_scale AS (
     SELECT *,
@@ -1018,6 +1047,9 @@ SELECT
     wd.open_violations,
     wd.open_lead_violations,
     wd.open_fire_violations,
+    wd.open_severe_violations,
+    wd.open_serious_violations,
+    wd.open_minor_violations,
     wd.latest_violation_date,
     wd.weighted_violation_sum,
     wd.estimated_scale,

@@ -287,6 +287,15 @@ else Very high.
   CTE and shared with `weighted_complaint_sum` (single source of truth for the A/B/C map).
 - **DBI violations pane** = what's *unresolved*. `open_violations` = rows with
   `status = active`; `open_lead_violations` / `open_fire_violations` filter that by category.
+- **Open violations card** breakdown shows the `open_violations` headline split into severity
+  tiers: Tier A (`open_severe_violations`), Tier B (`open_serious_violations`), and Tier C
+  (`open_minor_violations`) — each `status = active` filtered by tier. Every NOV is tier A/B/C
+  (no weight-0 tier as in complaints), so the three counts sum exactly to `open_violations`.
+  These replaced the fixed Fire/Lead rows, which were mostly zeros on SF's sparse data. The
+  tier tag is computed once in the view's `tagged` CTE and shared with `weighted_violation_sum`
+  (single source of truth for the A/B/C map): fire / smoke detection / lead section = A,
+  building / plumbing & electrical / interior surfaces / sanitation / security = B, else = C.
+  Revised by `migrate_sf_violation_tiers.sql`.
 
 ### Top categories / timelines (live queries)
 

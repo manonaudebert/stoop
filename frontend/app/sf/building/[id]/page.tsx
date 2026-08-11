@@ -200,6 +200,11 @@ export default async function SfBuildingPage({
   const minorCount   = building.minor_complaints_5yr
 
   const openViolations = building.open_violations
+  // Open violations by severity tier (sum to openViolations). Replace the fixed
+  // fire/lead breakdown, which was mostly zeros on SF's sparse data.
+  const openSevere  = building.open_severe_violations
+  const openSerious = building.open_serious_violations
+  const openMinor   = building.open_minor_violations
   const severityHeadline = openViolations === 0 && building.total_violations > 0
     ? 'All DBI violations have been resolved'
     : openViolations === 0
@@ -348,12 +353,13 @@ export default async function SfBuildingPage({
             aside="open violations"
             headline={severityHeadline}
             sub={severitySub}
-            tooltip="DBI Notices of Violation that remain in an active status, including any flagged as fire-safety or lead hazards."
+            tooltip="DBI Notices of Violation that remain in an active status, grouped by how hazardous the underlying condition is."
           >
             <div>
               {[
-                { label: 'Open fire-safety violations', value: building.open_fire_violations },
-                { label: 'Open lead violations', value: building.open_lead_violations },
+                { label: 'Severe', value: openSevere },
+                { label: 'Serious', value: openSerious },
+                { label: 'Minor', value: openMinor },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '0.5px solid #F5F5F5' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252' }}>{label}</span>
@@ -400,11 +406,14 @@ export default async function SfBuildingPage({
             <StatListCard
               title="Open violations"
               value={openViolations}
+              emptyMessage="No open DBI violations on record."
               rows={[
-                { label: 'Fire safety', value: building.open_fire_violations, alert: building.open_fire_violations > 0,
-                  tooltip: 'Active DBI Notices of Violation in the fire-safety category.' },
-                { label: 'Lead', value: building.open_lead_violations, alert: building.open_lead_violations > 0,
-                  tooltip: 'Active DBI Notices of Violation related to lead hazards.' },
+                { label: 'Severe', value: openSevere, alert: openSevere > 0,
+                  tooltip: 'Immediately hazardous open violations — fire hazards, missing smoke or fire-safety equipment, or lead paint.' },
+                { label: 'Serious', value: openSerious, alert: openSerious > 0,
+                  tooltip: 'Serious habitability problems left unresolved — structural, plumbing or electrical defects, damaged interior surfaces, sanitation, or building security.' },
+                { label: 'Minor', value: openMinor,
+                  tooltip: 'Lower-impact open violations — general code and maintenance items.' },
               ]}
             />
           </div>

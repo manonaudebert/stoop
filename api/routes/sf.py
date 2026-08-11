@@ -258,6 +258,9 @@ _SEARCH_TAIL = """
         COALESCE(v.open_violations, 0)        AS open_violations,
         COALESCE(v.open_lead_violations, 0)   AS open_lead_violations,
         COALESCE(v.open_fire_violations, 0)   AS open_fire_violations,
+        COALESCE(v.open_severe_violations, 0)  AS open_severe_violations,
+        COALESCE(v.open_serious_violations, 0) AS open_serious_violations,
+        COALESCE(v.open_minor_violations, 0)   AS open_minor_violations,
         v.latest_violation_date,
         v.violations_density_pct,
         v.risk_level                          AS violations_risk_level
@@ -354,6 +357,9 @@ def _row_to_summary(r) -> SfBuildingSummaryResponse:
         open_violations=getattr(r, "open_violations", 0) or 0,
         open_lead_violations=getattr(r, "open_lead_violations", 0) or 0,
         open_fire_violations=getattr(r, "open_fire_violations", 0) or 0,
+        open_severe_violations=getattr(r, "open_severe_violations", 0) or 0,
+        open_serious_violations=getattr(r, "open_serious_violations", 0) or 0,
+        open_minor_violations=getattr(r, "open_minor_violations", 0) or 0,
         latest_violation_date=getattr(r, "latest_violation_date", None),
         violations_density_pct=_safe_float(getattr(r, "violations_density_pct", None)),
         violations_risk_level=getattr(r, "violations_risk_level", None),
@@ -385,6 +391,9 @@ async def get_sf_leaderboard(
                 COALESCE(v.open_violations, 0)      AS open_violations,
                 COALESCE(v.open_lead_violations, 0) AS open_lead_violations,
                 COALESCE(v.open_fire_violations, 0) AS open_fire_violations,
+                COALESCE(v.open_severe_violations, 0)  AS open_severe_violations,
+                COALESCE(v.open_serious_violations, 0) AS open_serious_violations,
+                COALESCE(v.open_minor_violations, 0)   AS open_minor_violations,
                 v.latest_violation_date,
                 v.violations_density_pct,
                 v.risk_level AS violations_risk_level
@@ -474,6 +483,9 @@ async def get_sf_building(
             self.open_violations        = v.open_violations if v else 0
             self.open_lead_violations   = v.open_lead_violations if v else 0
             self.open_fire_violations   = v.open_fire_violations if v else 0
+            self.open_severe_violations  = getattr(v, "open_severe_violations", 0) if v else 0
+            self.open_serious_violations = getattr(v, "open_serious_violations", 0) if v else 0
+            self.open_minor_violations   = getattr(v, "open_minor_violations", 0) if v else 0
             self.latest_violation_date  = v.latest_violation_date if v else None
             self.violations_density_pct = v.violations_density_pct if v else None
             self.violations_risk_level  = v.risk_level if v else None

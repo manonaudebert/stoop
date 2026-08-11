@@ -283,6 +283,10 @@ class SfBuildingSummaryResponse(BaseModel):
     open_violations: int = 0
     open_lead_violations: int = 0
     open_fire_violations: int = 0
+    # Open violations by severity tier (sum to open_violations)
+    open_severe_violations: int = 0
+    open_serious_violations: int = 0
+    open_minor_violations: int = 0
     latest_violation_date: date | None = None
     violations_density_pct: float | None = None
     violations_risk_level: str | None = None

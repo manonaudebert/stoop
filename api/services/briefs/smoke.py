@@ -45,15 +45,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from services.briefs.confidence import confidence_note_from_signals  # noqa: E402
 from services.briefs.rules import load_rules, select_rules  # noqa: E402
+from services.briefs.taxonomy import minor_categories  # noqa: E402
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[3] / ".env")
 
 # Complaint minor-categories behind the mold and pest rules. Named explicitly
 # rather than taken from the mold_pests_sanitation taxonomy group, which also
 # contains RUBBISH, ODOR, and UNSANITARY CONDITION — real complaints, but not
-# what the HPD guidance for mold or pests is about.
+# what the HPD guidance for mold or pests is about. That narrowing is safe
+# because the rule text makes a narrower claim than the card does: "Tenants here
+# have reported mold" against a card labelled "Mold & pests". Different label,
+# different number, no contradiction.
 MOLD_CATEGORIES = ["MOLD"]
 PEST_CATEGORIES = ["PESTS", "VERMIN"]
+
+# Heat is the opposite case and must NOT be narrowed. The rule says "problems
+# with heat or hot water" and the building page shows a "Heat / hot water" card
+# — same label, so they have to be the same number. Read from the shared
+# taxonomy so they cannot drift.
+#
+# This replaced `major_category = 'HEAT/HOT WATER'`, which looked more faithful
+# to HPD but disagreed with the card: RADIATOR (36,162 complaints over five
+# years) and BOILER sit in other majors while being squarely inside the
+# renter-facing heat group. Measured over 4,000 random buildings, the two
+# definitions produced a different count on 263 of them — 21% of the buildings
+# where the rule fires — and every one of those would have printed a number next
+# to a card showing a different one.
+HEAT_CATEGORIES = minor_categories("heating_hot_water")
 
 # Violation categories behind the detector rule. One signal, because the source
 # gives one section of guidance for both devices.
@@ -117,9 +135,9 @@ LEFT JOIN LATERAL (
         count(*) FILTER (WHERE minor_category = ANY($2)) AS mold_complaints,
         count(*) FILTER (WHERE minor_category = ANY($3)) AS pest_complaints,
         -- Windowed here rather than read off the summary view, which counts
-        -- heat complaints for all time. See COMPLAINT_WINDOW_YEARS.
-        count(*) FILTER (WHERE major_category = 'HEAT/HOT WATER')
-                                                        AS heat_hot_water_complaints
+        -- heat complaints for all time. See COMPLAINT_WINDOW_YEARS. Grouped by
+        -- the shared taxonomy, not major_category — see HEAT_CATEGORIES.
+        count(*) FILTER (WHERE minor_category = ANY($6)) AS heat_hot_water_complaints
     FROM hpd_complaints
     WHERE bin = s.bin AND received_date >= NOW() - INTERVAL '5 years'
 ) cc ON TRUE
@@ -206,13 +224,14 @@ async def fetch_buildings(limit: int, bins: list[str] | None) -> list[dict]:
                 await conn.fetchrow(
                     BY_BIN_QUERY, b, MOLD_CATEGORIES, PEST_CATEGORIES,
                     DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED,
+                    HEAT_CATEGORIES,
                 )
                 for b in bins
             ]
             return [dict(r) for r in rows if r is not None]
         rows = await conn.fetch(
             STRATIFIED_QUERY, limit, MOLD_CATEGORIES, PEST_CATEGORIES,
-            DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED,
+            DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED, HEAT_CATEGORIES,
         )
         return [dict(r) for r in rows]
     finally:

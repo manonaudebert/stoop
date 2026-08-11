@@ -107,7 +107,8 @@ ship with zero AI spend, no corpus, and no dependency on the validator.
 ### Phase 0 — rules only, no model
 
 Building page renders the watch items. ~52% of buildings get content; the rest
-show an empty state (never a hidden section).
+show an empty state (never a hidden section). **No backend work required** — all
+seven signals are derivable from fetches the page already makes.
 
 Signal parity check against `frontend/app/hpd/building/[bin]/page.tsx`, which
 already makes 11 parallel fetches:
@@ -120,46 +121,47 @@ already makes 11 parallel fetches:
 | `open_class_c_categories` (hazard areas) | same, class C rows by `open_count` desc | ✅ |
 | `mold_complaints` | `getHpdComplaintMinorBreakdown(bin, 5)` → `MOLD` | ✅ |
 | `pest_complaints` | same → `PESTS`, `VERMIN` | ✅ |
-| `heat_hot_water_complaints` | **not derivable** — see below | ❌ |
+| `heat_hot_water_complaints` | same → the `heating_hot_water` group | ✅ |
 
 Note `getHpdBreakdown` is all-time but carries `open_count`, which is what the
 rules want: open is point-in-time, and a violation issued a decade ago can still
 be open. `getHpdBreakdownRecent` (5yr) is the wrong input for these signals.
 
-### The heat gap
+### The heat definition — resolved
 
-The backend signal is `major_category = 'HEAT/HOT WATER'` over five years. The
-page only has minor categories. These do **not** line up with the frontend's
-`heating_hot_water` taxonomy group:
+The backend originally used `major_category = 'HEAT/HOT WATER'`. The page's
+"Top complaint groups" card uses the shared taxonomy's `heating_hot_water` group,
+and those are not the same set:
 
-| Minor category | 5yr count | In `HEAT/HOT WATER` major? |
+| Minor category | 5yr count | In the `HEAT/HOT WATER` major? |
 |---|---|---|
 | ENTIRE BUILDING | 909,994 | all of them |
 | APARTMENT ONLY | 477,480 | all of them |
 | RADIATOR | 36,162 | **none** |
 | BOILER | 726 | **none** |
-| HEAT RELATED, HEAT-PLANT, SPACE HEATER | 0 | — |
 
-A frontend computing heat from the `heating_hot_water` taxonomy group would
-**overcount by ~37,000 complaints** and disagree with the backend — exactly the
-brief-contradicts-the-card-above-it failure the shared taxonomy exists to
-prevent.
+The card wins, and the backend changed to match. Two reasons. The card is what
+the reader sees, and it is labelled "Heat / hot water" — the same words the rule
+uses — so a different number is a visible contradiction on one page. And
+RADIATOR and BOILER are obviously heat to a renter, whatever major HPD files
+them under.
 
-Three ways out, none yet chosen:
+Measured over 4,000 random buildings: 20 newly fire, none stop firing (the group
+is a superset), and **263 buildings — 21% of those where the rule fires — had a
+different count** under the old definition. Every one of those would have printed
+a number beside a card showing a different one.
 
-1. **Add `major_category` to the minor-breakdown endpoint.** Not purely
-   additive: `RADIATOR` spans two majors, so adding it to the `GROUP BY` splits
-   existing rows and changes the chart above. Needs a `by=major` param or a
-   separate endpoint.
-2. **Define the heat signal as `{ENTIRE BUILDING, APARTMENT ONLY}` in the shared
-   taxonomy JSON** and have both sides read it. Exact today, but fragile: those
-   are scope qualifiers, not heat names, and if HPD ever files "ENTIRE BUILDING"
-   under another major the signal breaks silently.
-3. **Materialize the signals server-side** and serve them from one endpoint —
-   which phase 1 needs anyway.
+`smoke.py` now reads `HEAT_CATEGORIES` from `taxonomy.minor_categories(
+"heating_hot_water")` rather than hardcoding it, so the two cannot drift, and a
+test pins them equal.
 
-Option 3 subsumes the problem and is probably right, at the cost of doing phase
-1's plumbing during phase 0.
+**Mold and pests are the opposite case and stay deliberately narrower** than
+their `mold_pests_sanitation` group, which also contains RUBBISH, ODOR, and
+UNSANITARY CONDITION. That is safe precisely because the labels differ: the card
+says "Mold & pests", the rule says "Tenants here have reported mold". A narrower
+claim may carry a narrower number. The test suite pins both relationships — equal
+for heat, strict subset for mold and pests — so the reasoning survives the next
+person who notices the inconsistency.
 
 ### Phase 1 — generated sentences
 
@@ -195,7 +197,7 @@ needs the signals materialized regardless.
 
 | Decision | Status |
 |---|---|
-| Heat-gap fix (options 1–3 above) | **open** — gates phase 0 |
+| Heat signal definition | **resolved** — matches the page card, see above |
 | Display cap of 4 with 6 rules | **open** — mold/pests now truncate more often; needs a re-measured base rate |
 | Which validator checks land first | **open** — nothing publishes until at least one exists |
 | Zero-flag empty state copy | **open** — 47.6% of buildings, the most common state and the least designed |

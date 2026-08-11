@@ -731,3 +731,33 @@ def test_publishable_requires_every_verdict_to_pass():
     bad = validate.Verdict("y", False, "")
     assert validate.is_publishable([ok])
     assert not validate.is_publishable([ok, bad])
+
+
+def test_heat_signal_matches_the_page_card_definition():
+    """The brief and the "Heat / hot water" card must show the same number.
+
+    Same label on the same page, so a different definition is a visible
+    contradiction. This previously used `major_category = 'HEAT/HOT WATER'`,
+    which excludes RADIATOR and BOILER — 21% of heat-firing buildings got a
+    count that disagreed with the card beside it.
+    """
+    from services.briefs.smoke import HEAT_CATEGORIES
+
+    assert set(HEAT_CATEGORIES) == set(taxonomy.minor_categories("heating_hot_water"))
+    # The two that made the old definition wrong.
+    assert "RADIATOR" in HEAT_CATEGORIES
+    assert "BOILER" in HEAT_CATEGORIES
+
+
+def test_mold_and_pest_signals_are_deliberately_narrower_than_their_group():
+    """The opposite case, and it is safe because the labels differ.
+
+    The card says "Mold & pests" and includes RUBBISH, ODOR, and UNSANITARY
+    CONDITION. The rules say "Tenants here have reported mold" — a narrower
+    claim, so a narrower number is not a contradiction.
+    """
+    from services.briefs.smoke import MOLD_CATEGORIES, PEST_CATEGORIES
+
+    group = set(taxonomy.minor_categories("mold_pests_sanitation"))
+    assert set(MOLD_CATEGORIES) | set(PEST_CATEGORIES) < group
+    assert "RUBBISH" not in MOLD_CATEGORIES + PEST_CATEGORIES

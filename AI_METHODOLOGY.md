@@ -5,6 +5,9 @@ scores are computed. This one covers the single AI-generated feature — the
 **Building Brief** — and, more importantly, everything about it that is *not*
 AI-generated.
 
+For what it costs to run, how it reaches the frontend, and which decisions are
+still open, see [`BRIEF_ROLLOUT.md`](BRIEF_ROLLOUT.md).
+
 Status: **in development. No brief is shown to users today.** The deterministic
 layer and the two generated sentences run end to end against real buildings;
 the validator, storage, and page component are not built.

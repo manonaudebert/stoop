@@ -30,35 +30,99 @@
 # Signals are supplied by the SQL selection layer. Any signal named here must
 # exist there or the rule is skipped and logged — never silently dropped.
 #
+# `suppressed_by_class_c_group` names the renter-facing taxonomy group a rule
+# describes. When that group already appears among the building's OPEN class C
+# violation categories, the rule is dropped: an inspector confirmed the
+# condition, so a tenant complaint about the same thing is weaker evidence for
+# the same claim, and showing both states one problem twice. Only the
+# complaint-keyed rules carry it — a class C violation cannot supersede itself.
+#
+# Note both mold and pests suppress off the SAME group. That is correct rather
+# than sloppy: the violation taxonomy does not separate them (the categories are
+# EXTERMINATION & RODENT ERADICATION and CLEANING), so the class C item covers
+# whichever of the two the building actually has, and neither complaint rule can
+# add anything the inspection did not already establish.
+#
+# `brief_line` is the compact form the page leads with: ONE line, at most about
+# fifteen words, condition plus the single most concrete thing the reader can
+# do. The full authored block (condition / why_it_matters / action / citation)
+# sits behind a disclosure beneath it, verbatim and unchanged.
+#
+# It is subject to every authoring rule above, and to one more that bites
+# harder at this length: it inherits its rule's citation, so it may only
+# compress what the cited text already says. It may not add practical advice
+# the source does not contain, however sensible — "ask how last winter went",
+# "check under the sinks", "ask the current tenants" are all good instincts and
+# none of them are in the ABCs of Housing. Compress, do not extend. If the
+# source gives nothing concrete enough to compress, omit the field: rendering
+# falls back to `condition` alone.
+#
 # `magnitude` is a format template rendered by code against the same signals,
-# never by the model. It exists because the `when` thresholds throw away
-# everything except the yes/no: without it, "Tenants here have reported mold"
-# reads identically at two complaints and at two hundred. Each rule states its
-# OWN window, because they genuinely differ — open-right-now for violations,
-# a five-year window for complaints — and one shared phrase would be false for
-# some of them.
+# never by the model. Each rule states its OWN window, because they genuinely
+# differ — open-right-now for violations, a five-year window for complaints —
+# and one shared phrase would be false for some of them.
+#
+# STATUS: informational, NOT rendered. Its original rationale was that the
+# `when` thresholds throw away everything except the yes/no, so without it
+# "Tenants here have reported mold" reads identically at two complaints and at
+# two hundred. That was written when the brief was the only surface. It no
+# longer holds: the counts sit in cards on the same page, inches away, and
+# suppression now encodes severity structurally — a condition an inspector
+# confirmed replaces the complaint rule entirely rather than out-numbering it.
+# A magnitude chip was tried in the two-layer rendering and cut. The field stays
+# because it costs nothing and layer 2 or a tooltip may want it, but nothing
+# reads it today.
 
 version: 1
 source_document: "NYC HPD, ABCs of Housing 2024 (Tenants' Guide)"
 
 rules:
   - id: open_class_c
+    brief_line: >-
+      Hazardous violations are open — check the list below before a viewing.
     priority: 1
     when: {signal: open_class_c_violations, op: ">", value: 0}
     magnitude: "{open_class_c_violations} currently open"
     condition: >-
       Conditions that HPD classifies as immediately hazardous are currently open
       on this building's record.
+    # The correction deadline is NOT uniformly 24 hours, and this text used to
+    # say it was ("most must be corrected within 24 hours"). It is wrong in the
+    # direction that matters: the carve-outs are among the most common class C
+    # categories there are — lead paint, mold, and pests each have their own
+    # rule in this file — so the buildings where the claim is false are exactly
+    # the ones most likely to see it. Heat and hot water is the sharpest case:
+    # it has no grace period at all, and the old text gave the owner 24 hours.
+    #
+    # The windows below are the point past which civil penalties can be sought
+    # in Housing Court, measured from the date of service, not a promise that
+    # the condition gets fixed by then.
     why_it_matters: >-
-      These carry the shortest deadline HPD gives — most must be corrected within
-      24 hours of the owner being notified. If the owner does not fix them, HPD
-      can send its own contractor through the Emergency Repair Program and bill
-      the owner for the work.
+      How long the owner has depends on the condition. Heat and hot water carry
+      no grace period at all; self-closing doors carry 14 days; lead paint,
+      window guards, mold, and mice, cockroaches or rats carry 21 days; every
+      other immediately hazardous condition carries 24 hours. Those windows run
+      from the date the owner is served and mark the point past which civil
+      penalties can apply if sought in Housing Court. If the owner does not fix
+      the condition, HPD can send its own contractor through the Emergency
+      Repair Program and bill the owner for the work.
     action: >-
       The violations listed further down this page show which conditions are
       open and when each was cited. If a hazardous condition in your own
       apartment is still unaddressed, call 311 to report it.
+    # Two sources, because this item makes claims from two documents. The ABCs
+    # guide defines the violation classes; it does NOT carry the correction
+    # timeline. That table is on HPD's penalties-and-fees page, verified against
+    # the live page 2026-08-11 (every figure in why_it_matters matches it,
+    # including the "before civil penalties apply if sought in Housing Court"
+    # framing, which is the column header). Citing only the PDF would put a real
+    # claim behind a reference that does not support it.
     source: "p.11-12"
+    covers: "violation classes"
+    additional_sources:
+      - label: "NYC HPD, Penalties and Fees"
+        url: "https://www.nyc.gov/site/hpd/services-and-information/penalties-and-fees.page"
+        covers: "correction deadlines"
 
   # Threshold is > 0 while mold and pests use > 1, deliberately. The peer rules
   # need a floor because one complaint cannot distinguish an incident from a
@@ -68,7 +132,10 @@ rules:
   # a single complaint filed in winter is already evidence that the line was
   # crossed. A renter signing a lease in September is owed that signal.
   - id: heat_hot_water
+    brief_line: >-
+      Heat or hot water problems reported — know the legal minimums before you sign.
     priority: 2
+    suppressed_by_class_c_group: heating_hot_water
     when: {signal: heat_hot_water_complaints, op: ">", value: 0}
     magnitude: "{heat_hot_water_complaints} complaints in the last five years"
     condition: >-
@@ -100,6 +167,8 @@ rules:
   # The pre-1960 fact stays in why_it_matters, where it is background about lead
   # paint generally rather than a claim about this building.
   - id: lead_paint
+    brief_line: >-
+      Lead-paint violations on record — matters most if a child under six will live here.
     priority: 3
     when: {signal: lead_paint_violations, op: ">", value: 0}
     magnitude: "{lead_paint_violations} currently open"
@@ -133,6 +202,8 @@ rules:
   # this rule also names something a renter can verify in thirty seconds on a
   # viewing.
   - id: smoke_co_detectors
+    brief_line: >-
+      Detector violations on record — check the ceilings on a viewing.
     priority: 4
     magnitude: "{smoke_co_detector_violations} currently open"
     when: {signal: smoke_co_detector_violations, op: ">", value: 0}
@@ -172,8 +243,11 @@ rules:
   # complaint, and an asymmetric floor would show one and hide the other on
   # identical evidence.
   - id: mold
+    brief_line: >-
+      Mold reported — look for leaks or persistent damp.
     priority: 5
     rank_by: mold_complaints
+    suppressed_by_class_c_group: mold_pests_sanitation
     when: {signal: mold_complaints, op: ">", value: 1}
     magnitude: "{mold_complaints} complaints in the last five years"
     condition: >-
@@ -195,8 +269,11 @@ rules:
   # minor-categories offer only PESTS and VERMIN. Bedbug guidance therefore rides
   # along with the general pest rule rather than firing on a false signal.
   - id: pests
+    brief_line: >-
+      Pests reported — tell the owner early; bedbugs spread between apartments.
     priority: 5
     rank_by: pest_complaints
+    suppressed_by_class_c_group: mold_pests_sanitation
     when: {signal: pest_complaints, op: ">", value: 1}
     magnitude: "{pest_complaints} complaints in the last five years"
     condition: >-

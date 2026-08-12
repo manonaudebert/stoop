@@ -8,9 +8,12 @@ AI-generated.
 For what it costs to run, how it reaches the frontend, and which decisions are
 still open, see [`BRIEF_ROLLOUT.md`](BRIEF_ROLLOUT.md).
 
-Status: **in development. No brief is shown to users today.** The deterministic
-layer and the two generated sentences run end to end against real buildings;
-the validator, storage, and page component are not built.
+Status: **phase 0 is live — every HPD building page shows a brief, and none of
+it is generated.** What renders today is entirely authored and cited: six rules,
+their compact `brief_line`, and the full block behind a disclosure. The model,
+the validator and the corpus are phase 1 and are not built. That ordering is the
+architecture working as intended — the deterministic layer is the majority of
+the product and shipped without waiting on any of them.
 
 ---
 
@@ -53,8 +56,10 @@ issue, so every sentence has exactly one record to be checked against.
 | Every count, percentile, class breakdown, trend | Postgres | No |
 | Risk levels and neighborhood rankings | SQL (`PERCENT_RANK()` within NTA) | No |
 | Complaint category groupings | Shared renter-facing taxonomy | No |
-| "What you can do about it" advice | Rules table, authored from NYC HPD's *ABCs of Housing 2024* with page citations | **No** |
-| Which of up to 4 pieces of advice apply | Rule predicates over computed signals, ranked by priority then magnitude | No |
+| "What you can do about it" advice | Rules table, authored from NYC HPD's *ABCs of Housing 2024* with page citations — plus, where a claim is not in that document, the HPD page that carries it | **No** |
+| Which of up to 5 pieces of advice apply | Rule predicates over computed signals, ranked by priority then magnitude | No |
+| Which advice is redundant and dropped | Class C hazard group overlaps the rule's group — verified supersedes reported | No |
+| The compact line the page leads with | Rules table (`brief_line`), compressed from the same cited text | **No** |
 | Confidence note | Computed from record count and recency | No |
 | One sentence of what to look at, per flagged issue (max 2) | Model | **Yes** |
 
@@ -244,3 +249,23 @@ diagnosable rather than merely countable.
 Tenant-facing guidance is quoted from **NYC HPD, *ABCs of Housing 2024,
 Tenants' Guide***, with page citations recorded per rule. Claims that could not
 be located in the source are not included.
+
+A rule may cite **more than one document**, and one does. The class C item takes
+its violation classes from the ABCs guide (p.11-12) and its correction deadlines
+from HPD's [penalties and fees
+page](https://www.nyc.gov/site/hpd/services-and-information/penalties-and-fees.page),
+because that timeline is not in the PDF. Each source names which claims it
+backs. This exists because the alternative — citing the PDF for all of it — puts
+a real claim behind a reference that does not support it, which is worse than an
+uncited claim: it looks checkable and fails when checked.
+
+The same discipline binds the compact `brief_line` that the page leads with. It
+inherits its rule's citation, so it may compress the cited text and may not
+extend it. Practical advice that is not in a source does not ship, however
+sensible it sounds.
+
+**No test can verify that authored text is true.** The suite pins that it
+reaches the page verbatim, which is a different property. A wrong claim caught
+in review — the class C correction deadline was stated as a flat 24 hours for
+months — is caught by a reader following a citation, which only works if the
+citation is right.

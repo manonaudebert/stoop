@@ -288,3 +288,51 @@ export interface SfViolationBreakdownItem {
   count: number
   open_count: number
 }
+
+// ── Building Brief ────────────────────────────────────────────────────────────
+
+// Every text field on a watch item is AUTHORED, not generated: condition,
+// why_it_matters and action are copied verbatim from the backend's rules.yaml,
+// and citation names the page of HPD's "ABCs of Housing" they came from. This
+// is why the component renders them without an AI-assisted label — nothing here
+// has been near a model.
+export interface BriefCitation {
+  label: string
+  // Set for sources on the web rather than in the ABCs PDF; rendered as a link.
+  url: string | null
+  // Which claims this source backs. Only populated when an item cites more than
+  // one document, where the reader needs to know which to check for what.
+  covers: string | null
+}
+
+export interface BriefWatchItem {
+  rule_id: string
+  // Layer 1: the authored compact line. Null when the rule authors none, in
+  // which case rendering falls back to `condition` — never a client-side
+  // truncation, which would be exactly the paraphrase this feature avoids.
+  brief_line: string | null
+  condition: string
+  why_it_matters: string
+  action: string
+  citations: BriefCitation[]
+  magnitude: string | null
+  // Only populated for the class C rule. [] and null differ: [] means flagged
+  // but nothing describable, null means this rule is not about hazard areas.
+  hazard_areas: string[] | null
+  // The same areas as bare group labels, for layer 1. hazard_areas pairs each
+  // label with its authored tooltip sentence — right depth for the expanded
+  // block, far too much for a one-line summary.
+  hazard_area_labels: string[] | null
+}
+
+export interface BuildingBrief {
+  bin: string
+  watch_items: BriefWatchItem[]
+  confidence_note: string | null
+  no_flags: boolean
+  // False only when the building has no HPD record at all. Splits no_flags into
+  // two states that need different sentences: "nothing crossed the thresholds
+  // we flag" implies checking happened, which is untrue of a building with
+  // nothing to check. Do not infer this by matching confidence_note's wording.
+  has_records: boolean
+}

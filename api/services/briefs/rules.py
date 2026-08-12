@@ -10,6 +10,7 @@ which is why "verbatim" is a property of the code rather than a hope about the
 prompt.
 """
 
+import logging
 import operator
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,7 +19,11 @@ from typing import Any
 
 import yaml
 
+from services.briefs.taxonomy import group_of_violation_category
+
 RULES_PATH = Path(__file__).resolve().parent / "rules.yaml"
+
+log = logging.getLogger(__name__)
 
 _OPS = {
     ">": operator.gt,
@@ -41,6 +46,26 @@ class MissingSignalError(KeyError):
 
 
 @dataclass(frozen=True)
+class Citation:
+    """One source behind a rule's text.
+
+    A rule usually cites one page of the ABCs of Housing. Some make claims that
+    are simply not in that document — the class C correction timeline lives on
+    HPD's penalties-and-fees page — and pointing at the PDF for those would put
+    a real claim behind a reference that does not support it. That is worse than
+    no citation: it looks checkable and fails when checked.
+    """
+    label: str
+    url: str | None = None
+    # Which part of the item this source backs, when a rule cites more than one.
+    # Omitted for single-source rules, where it would only restate the item.
+    covers: str | None = None
+
+    def render(self) -> str:
+        return f"{self.label} — {self.covers}" if self.covers else self.label
+
+
+@dataclass(frozen=True)
 class Rule:
     id: str
     priority: int
@@ -49,11 +74,32 @@ class Rule:
     why_it_matters: str
     action: str
     source: str
+    # The compact one-line form the page leads with. Falls back to `condition`
+    # when absent. Compresses the cited text; never extends it — see rules.yaml.
+    brief_line: str | None = None
+    # What the PRIMARY source backs, named only when the rule cites more than
+    # one — otherwise every item would carry a redundant clause.
+    covers: str | None = None
+    additional_sources: tuple["Citation", ...] = ()
     rank_by: str | None = None
     magnitude: str | None = None
+    # The renter-facing taxonomy group this rule describes. When that group is
+    # already present among the building's OPEN class C violation categories,
+    # this rule is suppressed: an inspector confirmed the condition, so a
+    # tenant's complaint about the same thing is the weaker evidence for the
+    # same claim. Only complaint-keyed rules set this.
+    suppressed_by_class_c_group: str | None = None
 
     def cite(self, document: str) -> str:
+        """The primary citation as one string. `citations()` is what renders."""
         return f"{document}, {self.source}"
+
+    def citations(self, document: str) -> list[Citation]:
+        """Every source behind this rule, primary first."""
+        return [
+            Citation(label=self.cite(document), covers=self.covers),
+            *self.additional_sources,
+        ]
 
     def magnitude_text(self, signals: dict[str, Any]) -> str | None:
         """The count behind the condition, rendered from the template.
@@ -105,8 +151,17 @@ def load_rules() -> tuple[list[Rule], str]:
             why_it_matters=" ".join(r["why_it_matters"].split()),
             action=" ".join(r["action"].split()),
             source=r["source"],
+            brief_line=(
+                " ".join(r["brief_line"].split()) if r.get("brief_line") else None
+            ),
+            covers=r.get("covers"),
+            additional_sources=tuple(
+                Citation(label=a["label"], url=a.get("url"), covers=a.get("covers"))
+                for a in r.get("additional_sources", ())
+            ),
             rank_by=r.get("rank_by"),
             magnitude=r.get("magnitude"),
+            suppressed_by_class_c_group=r.get("suppressed_by_class_c_group"),
         )
         for r in spec["rules"]
     ]
@@ -158,8 +213,47 @@ def evaluate(predicate: dict[str, Any], signals: dict[str, Any]) -> bool:
     return _OPS[predicate["op"]](value, predicate["value"])
 
 
+CLASS_C_CATEGORIES_SIGNAL = "open_class_c_categories"
+
+
+def class_c_groups(signals: dict[str, Any]) -> set[str]:
+    """Taxonomy groups behind this building's OPEN class C violations.
+
+    None (rule never fired) and [] (fired, nothing describable) both mean "no
+    groups", which is correct: neither can supersede anything.
+    """
+    return {
+        group
+        for category in (signals.get(CLASS_C_CATEGORIES_SIGNAL) or ())
+        if (group := group_of_violation_category(category)) is not None
+    }
+
+
+def suppressed_rules(signals: dict[str, Any]) -> list[tuple[Rule, str]]:
+    """(rule, group) for every otherwise-eligible rule a class C item supersedes.
+
+    Exposed separately from `eligible_rules` so the suppression is inspectable —
+    from smoke.py, and from tests — rather than being a silent subtraction.
+    """
+    rules, _ = load_rules()
+    groups = class_c_groups(signals)
+    return [
+        (r, r.suppressed_by_class_c_group)
+        for r in rules
+        if r.suppressed_by_class_c_group in groups and evaluate(r.when, signals)
+    ]
+
+
 def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
     """Every rule whose condition holds, in the order it would be shown.
+
+    A rule is dropped when the condition it describes ALREADY appears among the
+    building's open class C violations — see `suppressed_rules`. Observed on BIN
+    2003187, where "Mold & pests" was one of the class C hazard areas and the
+    mold and pests complaint rules each fired standalone as well: one condition
+    stated three times, with the weakest evidence (a tenant report) getting its
+    own item while the strongest (an inspector's finding) was reduced to a
+    sub-bullet. Verified supersedes reported.
 
     Priority first. Within a priority, the larger `rank_by` magnitude first —
     so a building's worse problem outranks its milder one rather than whichever
@@ -167,21 +261,49 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
     equal counts still resolve the same way on every run.
     """
     rules, _ = load_rules()
-    hits = [r for r in rules if evaluate(r.when, signals)]
+
+    # Fail loudly rather than silently skipping suppression. Suppression only
+    # ever REMOVES an item, so a quiet failure here surfaces as the duplicate
+    # this exists to prevent — visible on the page, invisible in the logs.
+    if any(r.suppressed_by_class_c_group for r in rules):
+        if CLASS_C_CATEGORIES_SIGNAL not in signals:
+            raise MissingSignalError(
+                f"rules declare class C suppression but the selection layer did "
+                f"not supply {CLASS_C_CATEGORIES_SIGNAL!r}"
+            )
+
+    groups = class_c_groups(signals)
+    hits = []
+    for r in rules:
+        if not evaluate(r.when, signals):
+            continue
+        if r.suppressed_by_class_c_group in groups:
+            log.info(
+                "brief: suppressing rule %r — %r is already an open class C "
+                "hazard area on this building",
+                r.id, r.suppressed_by_class_c_group,
+            )
+            continue
+        hits.append(r)
     return sorted(hits, key=lambda r: (r.priority, -r.rank_value(signals), r.id))
 
 
-def select_rules(signals: dict[str, Any], max_items: int = 4) -> list[Rule]:
+def select_rules(signals: dict[str, Any], max_items: int = 5) -> list[Rule]:
     """The rules that go in the brief.
 
     Deterministic: strictly the highest-ranked eligible rules. Two buildings
     with identical signals get identical advice, and the selection is
     reproducible without an API call.
 
-    `max_items` is 4 because 3 truncated an eligible rule on 10.2% of a
-    random 8,000-building sample and 4 does so on 3.0% — and at 4, the only
-    rule that can ever be truncated is the lower-ranked of the two priority-4
-    peers, on buildings where all five rules fire.
+    `max_items` is 5, measured over a random 8,000-building sample with all six
+    rules in place: a cap of 3 truncates an eligible rule on 10.6% of buildings,
+    4 on 5.5%, 5 on 1.8%. It was 4 when there were five rules (3.0% then);
+    adding `smoke_co_detectors` above the complaint rules nearly doubled the
+    loss, and mold and pests absorbed all of it.
+
+    The cap is kept rather than dropped even though six rules is a hard upper
+    bound: it is the guard that stops the next authored rule from silently
+    lengthening every brief. Raise it deliberately, with a re-measurement.
 
     The priority ordering in rules.yaml is an editorial judgment, not something
     HPD publishes — it ranks hazard types against each other, which the source

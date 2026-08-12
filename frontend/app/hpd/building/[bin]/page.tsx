@@ -8,7 +8,7 @@ import {
   getBuilding,
   getHpdBuilding, getHpdTimeline, getHpdBreakdown, getHpdBreakdownRecent, getHpdOpenViolationAges,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
-  getHpdComplaintMinorBreakdown,
+  getHpdComplaintMinorBreakdown, getHpdBuildingBrief,
   getHpdComplaintTypePeriodBreakdown, getHpdComplaintResolutionBreakdown,
 } from '@/lib/api'
 import { MINOR_TO_GROUP, FILTER_GROUP_DESCRIPTIONS, FILTER_GROUP_ORDER, VIOLATION_CATEGORY_TOOLTIPS, type RenterFacingGroup } from '@/lib/constants'
@@ -17,6 +17,7 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
 import BuildingCrossLinks from '@/components/BuildingCrossLinks'
 import InsightCard from '@/components/InsightCard'
+import BuildingBrief from '@/components/BuildingBrief'
 import Pagination from '@/components/Pagination'
 import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
@@ -361,7 +362,7 @@ export default async function HpdOverviewPage({
   const ccat = sp.ccat
   const cst = sp.cst
 
-  const [violations, violationTimeline, violationBreakdown, violationBreakdownRecent, openViolationAges, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution, minorBreakdown] = await Promise.all([
+  const [violations, violationTimeline, violationBreakdown, violationBreakdownRecent, openViolationAges, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution, minorBreakdown, brief] = await Promise.all([
     getHpdBuilding(bin, 1).catch(() => null),
     getHpdTimeline(bin).catch(() => [] as TimelinePoint[]),
     getHpdBreakdown(bin).catch(() => []),
@@ -373,6 +374,11 @@ export default async function HpdOverviewPage({
     getHpdComplaintTypePeriodBreakdown(bin).catch(() => [] as ComplaintTypePeriodItem[]),
     getHpdComplaintResolutionBreakdown(bin).catch(() => [] as ComplaintResolutionItem[]),
     getHpdComplaintMinorBreakdown(bin, cw === 'all' ? 0 : 5).catch(() => []),
+    // The brief is computed server-side from hpd_brief_signals and is NOT
+    // affected by the cw window toggle — its complaint signals are pinned to
+    // five years by the rules layer. Failing soft: a brief that cannot load
+    // renders nothing rather than taking the page down with it.
+    getHpdBuildingBrief(bin).catch(() => null),
   ])
 
   // No HPD records for this building — mirror the DOB empty state: keep the nav
@@ -665,6 +671,11 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
             <HazardViz openC={breakdownOpenC} openB={breakdownOpenB} />
           </InsightCard>
         </div>
+
+        {/* Placement is load-bearing: the open_class_c action text says the
+            violations are "listed further down this page", so the brief has to
+            sit above the charts and record tables. */}
+        {brief && <BuildingBrief brief={brief} />}
 
         {/* Expandable charts — toggled from Activity card */}
         {showCharts && (

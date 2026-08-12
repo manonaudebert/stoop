@@ -150,6 +150,10 @@ def _signals(**overrides):
         "pest_complaints": 0,
         "lead_paint_violations": 0,
         "smoke_co_detector_violations": 0,
+        # None = the class C rule never fired, so nothing can be superseded.
+        # Tests exercising suppression pass a list of raw HPD violation
+        # categories here, not taxonomy group names.
+        "open_class_c_categories": None,
     }
     base.update(overrides)
     return base
@@ -178,10 +182,11 @@ def test_single_condition_fires_its_rule():
 
 
 def test_selection_is_priority_ordered_and_capped():
-    """All six rules fire; the cap of 4 keeps the four highest-priority ones.
+    """All six rules fire; the cap of 5 keeps the five highest-priority ones.
 
-    Both priority-5 peers are truncated here, which is the cost of inserting the
-    detector rule above them.
+    Only the lower-ranked of the two priority-5 peers is truncated. Pests (7
+    complaints) outranks mold (2) by magnitude, so mold is the one dropped —
+    the peers are ordered by `rank_by`, not by authoring order.
     """
     selected = rules.select_rules(
         _signals(
@@ -195,6 +200,7 @@ def test_selection_is_priority_ordered_and_capped():
     )
     assert [r.id for r in selected] == [
         "open_class_c", "heat_hot_water", "lead_paint", "smoke_co_detectors",
+        "pests",
     ]
 
 
@@ -761,3 +767,105 @@ def test_mold_and_pest_signals_are_deliberately_narrower_than_their_group():
     group = set(taxonomy.minor_categories("mold_pests_sanitation"))
     assert set(MOLD_CATEGORIES) | set(PEST_CATEGORIES) < group
     assert "RUBBISH" not in MOLD_CATEGORIES + PEST_CATEGORIES
+
+
+# ── class C overlap suppression ──────────────────────────────────────────────
+#
+# Verified supersedes reported: when an inspector has already cited a condition
+# as immediately hazardous, a tenant complaint about the same condition is the
+# weaker evidence for the same claim, and showing both states one problem twice.
+
+def test_complaint_rule_fires_standalone_when_its_group_is_not_a_class_c_area():
+    """Heat complaints with class C areas that are NOT heat — heat still fires."""
+    selected = rules.select_rules(_signals(
+        open_class_c_violations=37,
+        heat_hot_water_complaints=4597,
+        open_class_c_categories=["MAINTENANCE", "CLEANING"],
+    ))
+    assert "heat_hot_water" in [r.id for r in selected]
+
+
+def test_complaint_rule_is_suppressed_when_its_group_is_a_class_c_area():
+    """The same building, but with heat among the class C hazard areas."""
+    selected = rules.select_rules(_signals(
+        open_class_c_violations=37,
+        heat_hot_water_complaints=4597,
+        open_class_c_categories=["HEAT AND HOT WATER"],
+    ))
+    ids = [r.id for r in selected]
+    assert "open_class_c" in ids
+    assert "heat_hot_water" not in ids
+
+
+def test_mold_and_pests_both_suppress_off_the_same_group():
+    """BIN 2003187, the building this rule was written for.
+
+    Class C areas are EXTERMINATION & RODENT ERADICATION, MAINTENANCE and
+    CLEANING. The first and third both map to mold_pests_sanitation, so both
+    complaint rules go — while heat, whose group is absent, stays.
+    """
+    signals = _signals(
+        open_class_c_violations=37,
+        smoke_co_detector_violations=2,
+        mold_complaints=38,
+        pest_complaints=143,
+        heat_hot_water_complaints=4597,
+        open_class_c_categories=[
+            "EXTERMINATION & RODENT ERADICATION", "MAINTENANCE", "CLEANING",
+        ],
+    )
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert ids == ["open_class_c", "heat_hot_water", "smoke_co_detectors"]
+    assert "mold" not in ids and "pests" not in ids
+
+
+def test_suppressed_rules_reports_what_it_removed():
+    """Suppression must be inspectable, not a silent subtraction."""
+    signals = _signals(
+        open_class_c_violations=37,
+        mold_complaints=38,
+        pest_complaints=143,
+        open_class_c_categories=["EXTERMINATION & RODENT ERADICATION"],
+    )
+    got = {r.id: group for r, group in rules.suppressed_rules(signals)}
+    assert got == {"mold": "mold_pests_sanitation", "pests": "mold_pests_sanitation"}
+
+
+def test_suppression_needs_the_signal_and_says_so():
+    """Suppression only ever REMOVES an item, so failing quiet shows the
+    duplicate it exists to prevent. It must raise instead."""
+    signals = _signals(mold_complaints=9)
+    del signals["open_class_c_categories"]
+    with pytest.raises(rules.MissingSignalError):
+        rules.select_rules(signals)
+
+
+def test_a_rule_below_its_threshold_is_not_reported_as_suppressed():
+    """Suppression is about overlap, not about eligibility."""
+    signals = _signals(
+        open_class_c_violations=4,
+        mold_complaints=0,
+        open_class_c_categories=["EXTERMINATION & RODENT ERADICATION"],
+    )
+    assert rules.suppressed_rules(signals) == []
+
+
+def test_only_complaint_keyed_rules_declare_suppression():
+    """A class C violation cannot supersede itself, and an inspector's finding
+    is never the weaker evidence for its own claim."""
+    by_id = {r.id: r for r in rules.load_rules()[0]}
+    assert by_id["open_class_c"].suppressed_by_class_c_group is None
+    assert by_id["lead_paint"].suppressed_by_class_c_group is None
+    assert by_id["smoke_co_detectors"].suppressed_by_class_c_group is None
+    assert by_id["mold"].suppressed_by_class_c_group == "mold_pests_sanitation"
+    assert by_id["pests"].suppressed_by_class_c_group == "mold_pests_sanitation"
+    assert by_id["heat_hot_water"].suppressed_by_class_c_group == "heating_hot_water"
+
+
+def test_declared_suppression_groups_exist_in_the_taxonomy():
+    """A typo'd group name would silently never suppress anything."""
+    from services.briefs.taxonomy import groups as taxonomy_groups
+    known = set(taxonomy_groups())
+    for rule in rules.load_rules()[0]:
+        if rule.suppressed_by_class_c_group:
+            assert rule.suppressed_by_class_c_group in known, rule.id

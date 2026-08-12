@@ -1,4 +1,4 @@
-import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem } from './types'
+import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem, BuildingBrief } from './types'
 
 export class ApiError extends Error {
   constructor(public status: number, path: string) {
@@ -192,4 +192,8 @@ export async function getSfComplaintsBreakdown(mapblklot: string, years?: number
 export async function getSfViolationsBreakdown(mapblklot: string, years?: number): Promise<SfViolationBreakdownItem[]> {
   const qs = years !== undefined ? `?years=${years}` : ''
   return get(`/sf/building/${mapblklot}/violations-breakdown${qs}`)
+}
+
+export async function getHpdBuildingBrief(bin: string): Promise<BuildingBrief> {
+  return get(`/hpd/building/${bin}/brief`)
 }

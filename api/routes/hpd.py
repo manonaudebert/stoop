@@ -8,12 +8,24 @@ from database import get_db
 from limiter import limiter
 from cache import cache_get, cache_set
 from schemas import (
+    BriefCitation,
+    BriefWatchItem,
+    BuildingBriefResponse,
     HpdBuildingSummaryResponse,
     HpdBuildingDetailResponse,
     HpdViolationResponse,
     ViolationClassBreakdownItem,
     ViolationAgeBucketItem,
     TimelinePoint,
+)
+# Imported from the submodules directly, NOT from `services.briefs`. The package
+# __init__ is lazy on purpose and importing the wrong name there drags in the
+# Anthropic SDK — a ~17s cost the API must never pay at startup, for a code path
+# that makes no model calls at all.
+from services.briefs.confidence import confidence_note_from_signals
+from services.briefs.rules import load_rules, select_rules
+from services.briefs.taxonomy import (
+    describe_hazard_areas, describe_violation_categories,
 )
 
 router = APIRouter(prefix="/hpd", tags=["hpd"])
@@ -416,5 +428,102 @@ async def get_hpd_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
         )
         for r in rows
     ]
+    cache_set(cache_key, result)
+    return result
+
+
+@router.get("/building/{bin}/brief", response_model=BuildingBriefResponse)
+async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
+    """The deterministic Building Brief — no model, no generated text.
+
+    Reads the precomputed signals from `hpd_brief_signals` and runs the same
+    rule evaluation `smoke.py` runs inline. The view exists because that inline
+    computation takes ~2.5s per building against an 11M-row table; here it is a
+    single indexed lookup.
+
+    A building with no row in the view is NOT an error, and NOT a special case.
+    The view covers every building with any HPD record; a BIN outside it has no
+    HPD history at all, which is the same thing to a reader as a building whose
+    signals are all zero. Both go through the identical path below and both come
+    back with `no_flags` set — the only difference is the confidence note, which
+    correctly says "no HPD records on file" for one and nothing for the other.
+    """
+    cache_key = f"hpd_brief:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    row = (await db.execute(
+        text("""
+            SELECT open_class_c_violations, lead_paint_violations,
+                   smoke_co_detector_violations, open_class_c_categories,
+                   mold_complaints, pest_complaints, heat_hot_water_complaints,
+                   hpd_record_count, latest_hpd_activity
+            FROM hpd_brief_signals
+            WHERE bin = :bin
+        """),
+        {"bin": bin},
+    )).first()
+
+    # Exactly the keys rules.yaml and confidence.py reference — built explicitly
+    # so a rule naming a signal nobody supplies raises instead of silently never
+    # firing. Mirrors smoke.to_signals; the two are pinned equal by a test.
+    #
+    # A BIN with no row in the view has no HPD record at all, and is fed through
+    # this same path as all-zero signals rather than short-circuited above. The
+    # two states are indistinguishable to a reader — both are "nothing flagged"
+    # — and an early return would skip confidence_note's dedicated branch for a
+    # zero record count, so the building with the LEAST history would be the one
+    # rendering no caveat at all.
+    signals = {
+        "open_class_c_violations": row.open_class_c_violations if row else 0,
+        "heat_hot_water_complaints": row.heat_hot_water_complaints if row else 0,
+        "mold_complaints": row.mold_complaints if row else 0,
+        "pest_complaints": row.pest_complaints if row else 0,
+        "lead_paint_violations": row.lead_paint_violations if row else 0,
+        "smoke_co_detector_violations": row.smoke_co_detector_violations if row else 0,
+        # Read by the suppression layer, not by any `when` predicate.
+        "open_class_c_categories": row.open_class_c_categories if row else None,
+        "hpd_record_count": row.hpd_record_count if row else 0,
+        "latest_hpd_activity": row.latest_hpd_activity if row else None,
+    }
+
+    selected = select_rules(signals)
+    _, document = load_rules()
+
+    watch_items = [
+        BriefWatchItem(
+            rule_id=rule.id,
+            brief_line=rule.brief_line,
+            condition=rule.condition,
+            why_it_matters=rule.why_it_matters,
+            action=rule.action,
+            citations=[
+                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                for c in rule.citations(document)
+            ],
+            magnitude=rule.magnitude_text(signals),
+            # Only the class C rule is about hazard areas. For every other rule
+            # this stays None, which is not the same as the empty list the class
+            # C rule gets when nothing it flagged is describable.
+            hazard_areas=(
+                describe_hazard_areas(row.open_class_c_categories)
+                if rule.id == "open_class_c" else None
+            ),  # unreachable when row is None: no rule fires on all-zero signals
+            hazard_area_labels=(
+                describe_violation_categories(row.open_class_c_categories)
+                if rule.id == "open_class_c" else None
+            ),
+        )
+        for rule in selected
+    ]
+
+    result = BuildingBriefResponse(
+        bin=bin,
+        watch_items=watch_items,
+        confidence_note=confidence_note_from_signals(signals),
+        no_flags=not watch_items,
+        has_records=bool(signals["hpd_record_count"]),
+    )
     cache_set(cache_key, result)
     return result

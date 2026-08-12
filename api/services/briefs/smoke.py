@@ -26,9 +26,11 @@ It is built to exercise the rendering, not to measure anything. Never read rule
 base rates off this output — for that, dump `to_signals()` over an `ORDER BY
 random()` sample and count offline.
 
-Queries run inline rather than off a materialized view. The view is a
-performance concern for corpus generation; there is no reason to commit to a
-schema change before the rules read right against real buildings.
+Queries run inline against the base tables, NOT off `hpd_brief_signals`. That is
+deliberate and worth keeping: the view is what the page reads, and a smoke run
+that read the same view could not catch the view being wrong. The two are held
+equal by `tests/test_briefs_signals_sql.py` plus a periodic parity check
+(`--check-view`), which is the only thing that would surface a stale refresh.
 """
 
 import argparse
@@ -45,53 +47,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from services.briefs.confidence import confidence_note_from_signals  # noqa: E402
 from services.briefs.rules import load_rules, select_rules  # noqa: E402
-from services.briefs.taxonomy import minor_categories  # noqa: E402
+# The category lists and the complaint window live in signals.py, shared with
+# the hpd_brief_signals materialized view and the route that serves it. They
+# were defined here first; they moved when the view was added, because a smoke
+# run that disagrees with the view is a smoke run that proves nothing.
+from services.briefs.signals import (  # noqa: E402,F401
+    COMPLAINT_WINDOW_YEARS, DETECTOR_CATEGORIES, HAZARD_AREA_LIMIT,
+    HEAT_CATEGORIES, MOLD_CATEGORIES, PEST_CATEGORIES,
+    VIOLATION_CATEGORIES_SCANNED,
+)
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[3] / ".env")
 
-# Complaint minor-categories behind the mold and pest rules. Named explicitly
-# rather than taken from the mold_pests_sanitation taxonomy group, which also
-# contains RUBBISH, ODOR, and UNSANITARY CONDITION — real complaints, but not
-# what the HPD guidance for mold or pests is about. That narrowing is safe
-# because the rule text makes a narrower claim than the card does: "Tenants here
-# have reported mold" against a card labelled "Mold & pests". Different label,
-# different number, no contradiction.
-MOLD_CATEGORIES = ["MOLD"]
-PEST_CATEGORIES = ["PESTS", "VERMIN"]
-
-# Heat is the opposite case and must NOT be narrowed. The rule says "problems
-# with heat or hot water" and the building page shows a "Heat / hot water" card
-# — same label, so they have to be the same number. Read from the shared
-# taxonomy so they cannot drift.
-#
-# This replaced `major_category = 'HEAT/HOT WATER'`, which looked more faithful
-# to HPD but disagreed with the card: RADIATOR (36,162 complaints over five
-# years) and BOILER sit in other majors while being squarely inside the
-# renter-facing heat group. Measured over 4,000 random buildings, the two
-# definitions produced a different count on 263 of them — 21% of the buildings
-# where the rule fires — and every one of those would have printed a number next
-# to a card showing a different one.
-HEAT_CATEGORIES = minor_categories("heating_hot_water")
-
-# Violation categories behind the detector rule. One signal, because the source
-# gives one section of guidance for both devices.
-DETECTOR_CATEGORIES = ["SMOKE DETECTING DEVICES", "CARBON MONOXIDE DETECTING DEVICES"]
-
-# Every violation category the lead/detector LATERAL needs to scan. Passed as a
-# single filter so that subquery walks a building's open violations once rather
-# than once per signal.
-VIOLATION_CATEGORIES_SCANNED = ["LEAD-BASED PAINT", *DETECTOR_CATEGORIES]
-
-# The complaint window every complaint-driven rule uses. Stated once because the
-# rules used to disagree: mold and pests were windowed here while heat was read
-# from `hpd_complaints_building_summary.heat_complaints`, which carries NO date
-# filter at all. Measured on 3,000 random buildings, that fired the heat rule on
-# 46.5% of them versus 31.0% within five years — 15.5% of all buildings were
-# being told about heat complaints whose most recent entry was over five years
-# old, some of them single complaints from the early 2000s. The view column is
-# still correct for the pages that want a lifetime total; it is the wrong input
-# for a rule that tells a prospective tenant what to expect this winter.
-COMPLAINT_WINDOW_YEARS = 5
 
 SAMPLE = """
     hv.bin, hv.address, hv.borough, hv.nta_name,
@@ -105,7 +72,7 @@ SAMPLE = """
 # Enrichment runs only against the already-chosen sample. Applying these
 # correlated subqueries across all 227,915 rows before narrowing does not
 # complete against an 11M-row hpd_violations.
-ENRICH = """
+ENRICH = f"""
 LEFT JOIN hpd_complaints_building_summary hc ON s.bin = hc.bin
 LEFT JOIN LATERAL (
     SELECT
@@ -139,7 +106,8 @@ LEFT JOIN LATERAL (
         -- the shared taxonomy, not major_category — see HEAT_CATEGORIES.
         count(*) FILTER (WHERE minor_category = ANY($6)) AS heat_hot_water_complaints
     FROM hpd_complaints
-    WHERE bin = s.bin AND received_date >= NOW() - INTERVAL '5 years'
+    WHERE bin = s.bin
+      AND received_date >= CURRENT_DATE - INTERVAL '{COMPLAINT_WINDOW_YEARS} years'
 ) cc ON TRUE
 -- The categories behind this building's OPEN class C violations, most common
 -- first. Without these the class C rule is the only abstract one in the set:
@@ -158,7 +126,7 @@ LEFT JOIN LATERAL (
           AND o.category IS NOT NULL
         GROUP BY o.category
         ORDER BY n DESC
-        LIMIT 3
+        LIMIT {HAZARD_AREA_LIMIT}
     ) t
 ) cat ON TRUE
 """
@@ -191,6 +159,20 @@ WITH s AS (SELECT {SAMPLE} FROM hpd_building_summary hv WHERE hv.bin = $1)
 SELECT {COLUMNS} FROM s {ENRICH}
 """
 
+# Used only by --check-view. The stratified sampler above cannot serve a parity
+# check: DISTINCT ON over six percentile buckets returns at most six rows, so
+# `--limit 50` against it silently checks six buildings and reports success.
+RANDOM_QUERY = f"""
+WITH s AS (
+    SELECT {SAMPLE}
+    FROM hpd_building_summary hv
+    WHERE hv.violations_density_pct IS NOT NULL
+    ORDER BY random()
+    LIMIT $1
+)
+SELECT {COLUMNS} FROM s {ENRICH}
+"""
+
 
 def to_signals(row: dict) -> dict:
     """Exactly the keys rules.yaml and confidence.py reference.
@@ -206,17 +188,23 @@ def to_signals(row: dict) -> dict:
         "pest_complaints": row["pest_complaints"],
         "lead_paint_violations": row["lead_paint_violations"],
         "smoke_co_detector_violations": row["smoke_co_detector_violations"],
+        # Not a `when` predicate input — the suppression layer reads it. See
+        # rules.eligible_rules.
+        "open_class_c_categories": row["open_class_c_categories"],
         "hpd_record_count": (row["total_violations"] or 0) + (row["total_complaints"] or 0),
         "latest_hpd_activity": max(latest) if latest else None,
     }
 
 
-async def fetch_buildings(limit: int, bins: list[str] | None) -> list[dict]:
+async def fetch_buildings(
+    limit: int, bins: list[str] | None, random_sample: bool = False
+) -> list[dict]:
     conn = await asyncpg.connect(
         os.environ["DATABASE_URL"].split("?")[0],
         # A selection query should never be what hangs a run. Query-side
-        # equivalent of the call cap: fail fast and loudly.
-        server_settings={"statement_timeout": "30000"},
+        # equivalent of the call cap: fail fast and loudly. Random sampling
+        # enriches one row per building and needs longer than the stratified six.
+        server_settings={"statement_timeout": "300000" if random_sample else "30000"},
     )
     try:
         if bins:
@@ -230,12 +218,82 @@ async def fetch_buildings(limit: int, bins: list[str] | None) -> list[dict]:
             ]
             return [dict(r) for r in rows if r is not None]
         rows = await conn.fetch(
-            STRATIFIED_QUERY, limit, MOLD_CATEGORIES, PEST_CATEGORIES,
+            RANDOM_QUERY if random_sample else STRATIFIED_QUERY,
+            limit, MOLD_CATEGORIES, PEST_CATEGORIES,
             DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED, HEAT_CATEGORIES,
         )
         return [dict(r) for r in rows]
     finally:
         await conn.close()
+
+
+VIEW_QUERY = """
+SELECT bin, open_class_c_violations, lead_paint_violations,
+       smoke_co_detector_violations, open_class_c_categories,
+       mold_complaints, pest_complaints, heat_hot_water_complaints,
+       hpd_record_count, latest_hpd_activity
+FROM hpd_brief_signals WHERE bin = ANY($1)
+"""
+
+
+async def check_view(rows: list[dict]) -> int:
+    """Compare `hpd_brief_signals` against the inline computation, per building.
+
+    The view is what the page reads and the inline queries are what every
+    measurement in BRIEF_ROLLOUT.md was taken from. If they disagree, one of two
+    things is true and both matter: the generated SQL is wrong, or the view is
+    stale. Neither is visible from the site — a stale view just renders
+    confidently wrong numbers — so this is the check that has to be run after
+    every refresh, not only after a schema change.
+    """
+    conn = await asyncpg.connect(
+        os.environ["DATABASE_URL"].split("?")[0],
+        server_settings={"statement_timeout": "60000"},
+    )
+    try:
+        view = {r["bin"]: dict(r) for r in await conn.fetch(
+            VIEW_QUERY, [row["bin"] for row in rows]
+        )}
+    finally:
+        await conn.close()
+
+    mismatches = 0
+    missing = 0
+    for row in rows:
+        bin_ = row["bin"]
+        inline = to_signals(row)
+        got = view.get(bin_)
+        if got is None:
+            missing += 1
+            print(f"MISSING  BIN {bin_} — no row in hpd_brief_signals")
+            continue
+        # Hazard areas are compared as a set: the view breaks count ties by
+        # category name and the inline query does not, so ordering can differ
+        # legitimately between two equally correct results.
+        diffs = [
+            (k, inline[k], got[k]) for k in inline
+            if inline[k] != got[k]
+        ]
+        hazard_inline = set(row["open_class_c_categories"] or [])
+        hazard_view = set(got["open_class_c_categories"] or [])
+        if hazard_inline != hazard_view:
+            diffs.append(("open_class_c_categories",
+                          sorted(hazard_inline), sorted(hazard_view)))
+        if diffs:
+            mismatches += 1
+            print(f"MISMATCH BIN {bin_} {row['address']}")
+            for k, a, b in diffs:
+                print(f"    {k}: inline={a!r} view={b!r}")
+
+    checked = len(rows)
+    print("=" * 78)
+    print(f"{checked} buildings checked · {mismatches} mismatched · {missing} missing")
+    if mismatches or missing:
+        print("\nThe view disagrees with the base tables. Either the migration was "
+              "edited by hand (run the tests) or the view needs a refresh:")
+        print("  REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_brief_signals;")
+        return 1
+    return 0
 
 
 async def main() -> int:
@@ -254,10 +312,19 @@ async def main() -> int:
     parser.add_argument("--provider", choices=["ollama", "anthropic"], default="ollama")
     parser.add_argument("--model", default=None)
     parser.add_argument("--cap", type=int, default=50, help="hard call cap for this run")
+    parser.add_argument(
+        "--check-view", action="store_true",
+        help="compare hpd_brief_signals against the inline computation and exit",
+    )
     args = parser.parse_args()
 
     _, document = load_rules()
-    rows = await fetch_buildings(args.limit, args.bins)
+    # --check-view samples randomly: the stratified sample is six buildings at
+    # any --limit, which is far too few to trust a parity result.
+    rows = await fetch_buildings(args.limit, args.bins, random_sample=args.check_view)
+
+    if args.check_view:
+        return await check_view(rows)
 
     provider = None
     if args.with_model:

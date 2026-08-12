@@ -229,6 +229,75 @@ class ViolationAgeBucketItem(BaseModel):
     count: int
 
 
+# ── Building Brief ────────────────────────────────────────────────────────────
+
+class BriefCitation(BaseModel):
+    """One source behind a watch item. `url` is set for sources that live on the
+    web rather than in the ABCs PDF; `covers` names which claims this source
+    backs, and is only populated when the item cites more than one document."""
+    label: str
+    url: str | None = None
+    covers: str | None = None
+
+
+class BriefWatchItem(BaseModel):
+    """One flagged condition. Every text field here is AUTHORED, not generated.
+
+    `condition`, `why_it_matters` and `action` are copied verbatim from
+    rules.yaml, and `citation` names the page of HPD's *ABCs of Housing* they
+    came from. `magnitude` is formatted by the rules layer from a database
+    value. Nothing in this model has been near a model — that is what makes it
+    safe to render without a validator, and it is why phase 0 ships before
+    phase 1.
+    """
+    rule_id: str
+    # The compact line the page leads with; the fields below sit behind a
+    # disclosure. None when the rule authors none, in which case the frontend
+    # falls back to `condition`.
+    brief_line: str | None = None
+    condition: str
+    why_it_matters: str
+    action: str
+    # Every source behind this item, primary first. A list rather than a string
+    # because a rule can make claims from two documents — the class C item takes
+    # its violation classes from the ABCs PDF and its correction deadlines from
+    # HPD's penalties-and-fees page, and citing only the first would put a real
+    # claim behind a reference that does not support it.
+    citations: list[BriefCitation]
+    magnitude: str | None = None
+    # Populated only for the class C rule. Empty list and None mean different
+    # things: [] is "flagged, nothing describable" (4.6% of class C buildings),
+    # None is "this rule is not about hazard areas at all".
+    hazard_areas: list[str] | None = None
+    # The same areas as bare group labels, for layer 1. `hazard_areas` pairs
+    # each label with its authored tooltip sentence, which is the right depth
+    # for the expanded block and far too much for a one-line summary — the
+    # sentences are dictionary definitions, not body copy. Sent as its own field
+    # rather than split from the above on " — ", which would break the moment a
+    # label contained a dash.
+    hazard_area_labels: list[str] | None = None
+
+
+class BuildingBriefResponse(BaseModel):
+    bin: str
+    watch_items: list[BriefWatchItem]
+    # The computed caveat — thin record, stale record — or null when neither
+    # applies. Independent of watch_items: a building can flag nothing and still
+    # warrant "we have very little on this address".
+    confidence_note: str | None = None
+    # True when no rule fired. Explicit rather than left to the reader of an
+    # empty list, because the frontend renders a specific sentence for it and
+    # "empty because nothing fired" must not be confused with "empty because the
+    # lookup failed".
+    no_flags: bool = False
+    # False only when the building has no HPD record whatsoever. Splits the
+    # no_flags case in two, and the two need different sentences: "nothing
+    # crossed the thresholds we flag" implies checking happened, which is a lie
+    # on a building with nothing to check. The frontend must not infer this by
+    # matching the text of confidence_note — that copy is expected to change.
+    has_records: bool = True
+
+
 # ── SF (San Francisco) ────────────────────────────────────────────────────────
 
 class Sf311ComplaintResponse(BaseModel):

@@ -10,10 +10,12 @@ still open, see [`BRIEF_ROLLOUT.md`](BRIEF_ROLLOUT.md).
 
 Status: **phase 0 is live — every HPD building page shows a brief, and none of
 it is generated.** What renders today is entirely authored and cited: six rules,
-their compact `brief_line`, and the full block behind a disclosure. The model,
-the validator and the corpus are phase 1 and are not built. That ordering is the
-architecture working as intended — the deterministic layer is the majority of
-the product and shipped without waiting on any of them.
+their compact `brief_line`, and the full block behind a disclosure. Phase 1 is
+under way: the validator gates on two implemented checks, the corpus table and
+its key exist, and the prompt is verified against `claude-haiku-4-5` — but
+**no corpus has been generated, so nothing on the page is generated text.** That ordering is the architecture working as intended — the
+deterministic layer is the majority of the product and shipped without waiting
+on any of it.
 
 ---
 
@@ -57,7 +59,7 @@ issue, so every sentence has exactly one record to be checked against.
 | Risk levels and neighborhood rankings | SQL (`PERCENT_RANK()` within NTA) | No |
 | Complaint category groupings | Shared renter-facing taxonomy | No |
 | "What you can do about it" advice | Rules table, authored from NYC HPD's *ABCs of Housing 2024* with page citations — plus, where a claim is not in that document, the HPD page that carries it | **No** |
-| Which of up to 5 pieces of advice apply | Rule predicates over computed signals, ranked by priority then magnitude | No |
+| Which of up to 5 pieces of advice apply | Rule predicates over computed signals, ranked by priority then `rank_by` signal | No |
 | Which advice is redundant and dropped | Class C hazard group overlaps the rule's group — verified supersedes reported | No |
 | The compact line the page leads with | Rules table (`brief_line`), compressed from the same cited text | **No** |
 | Confidence note | Computed from record count and recency | No |
@@ -84,7 +86,9 @@ model derived has nothing to check it against.
                    ↓ unvalidated
 4. VALIDATION  groundedness · severity language · jargon · causal claims
                    ↓ pass → published    fail → quarantined
-5. STORAGE     keyed by BIN, with prompt version + source-data hash
+5. STORAGE     keyed by (rule, input shape, prompt version) — NOT by building.
+               The prompt holds no counts, so thousands of buildings share one
+               row: ~12,000 rows for 464,000 buildings. See corpus.py.
                    ↓
 6. PAGE        Renders published briefs. No brief → page as it is today.
 ```
@@ -120,9 +124,12 @@ editorially showed a single mold complaint ahead of dozens of pest complaints on
 4.1% of buildings. Ordering peers by count removes that class of error entirely
 rather than relocating it.
 
-The display cap is 4, also set from that sample: a cap of 3 truncated an
-eligible rule on 10.2% of buildings, 4 on 3.0%, and at 4 the only rule that can
-be truncated is the lower-ranked of the two peers.
+The display cap is 5, re-measured over a fresh random 8,000-building sample
+once all six rules were in place: a cap of 3 truncates an eligible rule on
+10.6% of buildings, 4 on 5.5%, 5 on 1.8%. (This section said 4 until
+2026-08-12; that figure came from the five-rule set, and adding
+`smoke_co_detectors` above the complaint rules nearly doubled truncation.)
+Full table in BRIEF_ROLLOUT.md, open decision 2.
 
 ### Why validation sits outside generation
 
@@ -170,10 +177,11 @@ In place before the first API call, not retrofitted:
 
 ## What the validator checks
 
-*(Designed; `validate.py` exists but its registry is empty. `is_publishable`
-returns False on an empty verdict list rather than True, so nothing can be
-published while no check runs — `all([])` would otherwise green-light every
-brief and read as assurance.)*
+*(Two of these are implemented as of 2026-08-12 — vague quantifiers and rights
+language, marked ✅ below. The rest are designed and not built. `is_publishable`
+returns False on an empty verdict list rather than True, so a brief with no
+generated text cannot be published — `all([])` would otherwise green-light it
+and read as assurance.)*
 
 The direction-preservation check that briefly lived here was removed with
 `context_line`. It asserted that generated text preserved the computed
@@ -192,7 +200,7 @@ more, so the failure it caught cannot occur.
 - **Absolute-severity adjectives** ("high", "poor", "severe") are a hard fail
   when the percentile is below 70. Raw counts and HPD's own class labels remain
   permitted — those are facts on the record, not inferences from rank.
-- **Vague quantifiers** ("a few", "several", "some", "a number of") are a hard
+- ✅ **Vague quantifiers** ("a few", "several", "some", "a number of") are a hard
   fail unconditionally. This one was found by running the thing: forbidding
   digits in the prompt did not stop the model quantifying, it moved the claim
   into words. The first three sentences generated all opened "A few issues…" for
@@ -201,15 +209,22 @@ more, so the failure it caught cannot occur.
   to check it against, which makes it strictly worse than the number it
   replaced.
 - **Rule IDs** must be a subset of the eligible set.
-- **Rights language in `watch_for`** is a hard fail. That field says what to
+- ✅ **Rights language in `watch_for`** is a hard fail. That field says what to
   look at; what a tenant is *entitled* to — 311, rent withholding, filing
   deadlines, what an owner is obliged to do — is authored in `rules.yaml` with a
   page citation and must never be paraphrased into generated text. A wrong
   entitlement is the one failure in this feature a reader can act on to their
   own cost.
 
+  The line the implementation holds: asking a landlord a question is in scope,
+  telling the reader what the landlord owes them is not. `must` and `required`
+  fail only when attached to a party — "you must look closely" is advice.
+
 Verdicts are emitted per claim, not as a single pass/fail, so failures are
-diagnosable rather than merely countable.
+diagnosable rather than merely countable. A failing verdict names the issue it
+judged ("issue 2 (mold)"), because `watch_for[i]` answers `selected_rules[i]`
+and a brief failing on its second sentence is a different problem from one
+failing on its first.
 
 ---
 

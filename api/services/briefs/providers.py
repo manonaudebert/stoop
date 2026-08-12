@@ -73,7 +73,17 @@ class AnthropicProvider:
         model: str = "claude-haiku-4-5",
         cap: CallCap | None = None,
         base_url: str | None = None,
-        effort: str = "low",
+        # None on purpose: `effort` is an Opus-tier parameter, and the corpus
+        # model is Haiku. Sending it to a model that does not support it is a
+        # 400 — "This model does not support the effort parameter" — not a
+        # silently ignored field. It defaulted to "low" and was never exercised,
+        # because the dev loop runs against Ollama, which ignores it.
+        #
+        # Left as a parameter rather than deleted: the whole point of `effort`
+        # is to buy depth on a harder model, and this prompt is one sentence of
+        # renter-facing English. If a future run wants Opus for a comparison,
+        # the seam is here.
+        effort: str | None = None,
     ):
         self.model = model
         self.effort = effort
@@ -113,9 +123,12 @@ class AnthropicProvider:
                     }
                 ],
                 messages=messages,
+                # `format` is the structured-output contract and is supported on
+                # Haiku; `effort` is Opus-tier only, so the key is omitted
+                # entirely rather than sent as null — see __init__.
                 output_config={
                     "format": {"type": "json_schema", "schema": schema},
-                    "effort": self.effort,
+                    **({"effort": self.effort} if self.effort else {}),
                 },
             )
         except anthropic.RateLimitError as e:

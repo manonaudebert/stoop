@@ -13,10 +13,10 @@ import TooltipIcon from './TooltipIcon'
  *   Layer 2  the full authored block, verbatim and unchanged, behind a
  *            per-item disclosure.
  *
- * NO NUMBERS IN LAYER 1. `magnitude` is still on the API response and still in
- * rules.yaml, and nothing renders it: the counts sit in cards inches away on
- * the same page, and suppression now encodes severity structurally. A magnitude
- * chip was tried here and cut.
+ * NO NUMBERS ANYWHERE. `magnitude` — a per-rule count template — was cut from
+ * rules.yaml and the API response on 2026-08-12, after a chip was tried here
+ * and rejected: the counts sit in cards inches away on the same page, and
+ * suppression now encodes severity structurally.
  *
  * Every string is authored — `brief_line`, `condition`, `why_it_matters` and
  * `action` all come verbatim from rules.yaml, each carrying the page of HPD's

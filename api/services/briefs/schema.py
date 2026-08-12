@@ -42,7 +42,13 @@ from pydantic import BaseModel, Field, StringConstraints
 # neighborhood was described as "typical", then as "typical ... with fewer
 # violations than most" in one breath. The model's entire output is now
 # per-issue and concrete.
-PROMPT_VERSION = "brief-v5"
+# v5 -> v6: the class C hazard-area block now tells the model to base its
+# sentence on the FIRST area — the one this building has the most open
+# violations of — rather than "one of them". Nothing about the data changed;
+# the list was already ordered by open count descending. What changed is that
+# the prompt stopped leaving the choice open, so the model can no longer pick
+# the most writable area over the largest one.
+PROMPT_VERSION = "brief-v6"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
 # 200 characters a model that starts listing findings runs out of room and fails

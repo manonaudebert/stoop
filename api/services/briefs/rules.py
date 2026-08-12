@@ -19,7 +19,7 @@ from typing import Any
 
 import yaml
 
-from services.briefs.taxonomy import group_of_violation_category
+from services.briefs.taxonomy import group_of_violation_category, join_prose
 
 RULES_PATH = Path(__file__).resolve().parent / "rules.yaml"
 
@@ -81,14 +81,38 @@ class Rule:
     # one — otherwise every item would carry a redundant clause.
     covers: str | None = None
     additional_sources: tuple["Citation", ...] = ()
+    # Appended to `condition` to name the building's hazard areas in the
+    # sentence. Only the class C rule declares one — see rules.yaml.
+    areas_clause: str | None = None
+    # The signal that orders this rule against its priority peers. Never
+    # displayed — `magnitude`, the count template that was, is gone; the brief
+    # carries no numbers at all now.
     rank_by: str | None = None
-    magnitude: str | None = None
     # The renter-facing taxonomy group this rule describes. When that group is
     # already present among the building's OPEN class C violation categories,
     # this rule is suppressed: an inspector confirmed the condition, so a
     # tenant's complaint about the same thing is the weaker evidence for the
     # same claim. Only complaint-keyed rules set this.
     suppressed_by_class_c_group: str | None = None
+
+    def condition_with_areas(self, areas: list[str] | None) -> str:
+        """`condition`, with the building's hazard areas named in the sentence.
+
+        Returns the authored `condition` unchanged when the rule declares no
+        `areas_clause` (every rule but class C) or when the building has none
+        that are describable — the empty-list case, 4.6% of class C buildings,
+        where the categories are all administrative or unmapped. Silence beats
+        "including issues related to" trailing into nothing.
+
+        The authored sentence is never rewritten, only extended: its final
+        period is moved to the end of the appended clause. That keeps the
+        verbatim guarantee checkable — the rendered string still *starts* with
+        exactly what rules.yaml says — while letting one sentence carry both.
+        """
+        if not self.areas_clause or not areas:
+            return self.condition
+        clause = self.areas_clause.format(areas=join_prose(areas))
+        return f"{self.condition.rstrip('.')}, {clause}."
 
     def cite(self, document: str) -> str:
         """The primary citation as one string. `citations()` is what renders."""
@@ -100,25 +124,6 @@ class Rule:
             Citation(label=self.cite(document), covers=self.covers),
             *self.additional_sources,
         ]
-
-    def magnitude_text(self, signals: dict[str, Any]) -> str | None:
-        """The count behind the condition, rendered from the template.
-
-        Formatted here, from the database value, never by the model — which is
-        the whole reason a number is safe to show at all. `str.format_map` over
-        the signals dict means the template can only ever interpolate a signal
-        that exists; a typo'd field name raises rather than printing a literal
-        brace into a renter's brief.
-        """
-        if self.magnitude is None:
-            return None
-        try:
-            return self.magnitude.format_map(signals)
-        except KeyError as e:
-            raise MissingSignalError(
-                f"rule {self.id!r} magnitude references signal {e.args[0]!r}, "
-                "which the selection layer did not supply"
-            ) from None
 
     def rank_value(self, signals: dict[str, Any]) -> float:
         """Magnitude used to order this rule against its priority peers.
@@ -155,12 +160,12 @@ def load_rules() -> tuple[list[Rule], str]:
                 " ".join(r["brief_line"].split()) if r.get("brief_line") else None
             ),
             covers=r.get("covers"),
+            areas_clause=r.get("areas_clause"),
             additional_sources=tuple(
                 Citation(label=a["label"], url=a.get("url"), covers=a.get("covers"))
                 for a in r.get("additional_sources", ())
             ),
             rank_by=r.get("rank_by"),
-            magnitude=r.get("magnitude"),
             suppressed_by_class_c_group=r.get("suppressed_by_class_c_group"),
         )
         for r in spec["rules"]
@@ -169,7 +174,7 @@ def load_rules() -> tuple[list[Rule], str]:
     if len(ids) != len(set(ids)):
         raise ValueError(f"duplicate rule ids in {RULES_PATH}: {ids}")
 
-    # Sharing a priority is legal, but only with a magnitude to break the tie.
+    # Sharing a priority is legal, but only with a rank_by signal to break the tie.
     # Otherwise the ordering falls back to file position, which is exactly the
     # arbitrary ranking sharing a priority was meant to disclaim.
     by_priority: dict[int, list[str]] = {}

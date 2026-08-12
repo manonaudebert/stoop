@@ -23,9 +23,11 @@ from schemas import (
 # Anthropic SDK — a ~17s cost the API must never pay at startup, for a code path
 # that makes no model calls at all.
 from services.briefs.confidence import confidence_note_from_signals
+from services.briefs.corpus import PROMPT_VERSION, keys_for_selection
 from services.briefs.rules import load_rules, select_rules
 from services.briefs.taxonomy import (
-    describe_hazard_areas, describe_violation_categories,
+    describe_hazard_areas, describe_hazard_areas_prose,
+    describe_violation_categories,
 )
 
 router = APIRouter(prefix="/hpd", tags=["hpd"])
@@ -432,6 +434,50 @@ async def get_hpd_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
     return result
 
 
+async def _generated_watch_for(
+    db: AsyncSession, selected_rules, *, categories, percentile
+) -> dict[str, str]:
+    """rule_id -> the generated sentence for it, for the rules that have one.
+
+    A miss is the normal case and not an error — an absent rule id simply means
+    the page renders that rule's authored `brief_line`. That is what makes a
+    partial corpus a shippable state rather than a broken one, and it is the
+    per-rule kill-switch: deleting a rule's rows turns its generated text off
+    with no code change.
+
+    Skipped entirely when nothing is flagged, which is roughly half of all
+    buildings — there is no rule to look up a sentence for, and this is the
+    hottest route on the site.
+
+    Keyed on (rule_id, input_key, prompt_version), which is the primary key, so
+    a stale corpus from an older prompt is invisible rather than served.
+    """
+    keys = keys_for_selection(
+        selected_rules, categories=categories, percentile=percentile
+    )
+    if not keys:
+        return {}
+
+    rows = (await db.execute(
+        text("""
+            SELECT rule_id, watch_for
+            FROM brief_texts
+            WHERE prompt_version = :version
+              AND (rule_id, input_key) IN (
+                  SELECT * FROM unnest(
+                      CAST(:rule_ids AS text[]), CAST(:input_keys AS text[])
+                  )
+              )
+        """),
+        {
+            "version": PROMPT_VERSION,
+            "rule_ids": [rule_id for rule_id, _ in keys],
+            "input_keys": [key for _, key in keys],
+        },
+    )).all()
+    return {r.rule_id: r.watch_for for r in rows}
+
+
 @router.get("/building/{bin}/brief", response_model=BuildingBriefResponse)
 async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
     """The deterministic Building Brief — no model, no generated text.
@@ -455,12 +501,21 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
 
     row = (await db.execute(
         text("""
-            SELECT open_class_c_violations, lead_paint_violations,
-                   smoke_co_detector_violations, open_class_c_categories,
-                   mold_complaints, pest_complaints, heat_hot_water_complaints,
-                   hpd_record_count, latest_hpd_activity
-            FROM hpd_brief_signals
-            WHERE bin = :bin
+            SELECT s.open_class_c_violations, s.lead_paint_violations,
+                   s.smoke_co_detector_violations, s.open_class_c_categories,
+                   s.mold_complaints, s.pest_complaints,
+                   s.heat_hot_water_complaints,
+                   s.hpd_record_count, s.latest_hpd_activity,
+                   -- Not a rule signal, and deliberately not added to
+                   -- hpd_brief_signals: it gates whether severity language was
+                   -- permitted in the prompt, so it is part of the corpus key.
+                   -- Joined here rather than materialized because it is an
+                   -- indexed single-row lookup, and adding a column to the view
+                   -- costs a full recompute for a value the rules never read.
+                   hv.violations_density_pct
+            FROM hpd_brief_signals s
+            LEFT JOIN hpd_building_summary hv ON hv.bin = s.bin
+            WHERE s.bin = :bin
         """),
         {"bin": bin},
     )).first()
@@ -490,19 +545,30 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
 
     selected = select_rules(signals)
     _, document = load_rules()
+    generated = await _generated_watch_for(
+        db, selected,
+        categories=row.open_class_c_categories if row else None,
+        percentile=row.violations_density_pct if row else None,
+    )
 
     watch_items = [
         BriefWatchItem(
             rule_id=rule.id,
             brief_line=rule.brief_line,
-            condition=rule.condition,
+            watch_for=generated.get(rule.id),
+            # Authored sentence plus, for the class C rule only, this
+            # building's hazard areas named inside it. Every other rule gets
+            # its `condition` back unchanged — see Rule.condition_with_areas.
+            condition=rule.condition_with_areas(
+                describe_hazard_areas_prose(row.open_class_c_categories)
+                if row else None
+            ),
             why_it_matters=rule.why_it_matters,
             action=rule.action,
             citations=[
                 BriefCitation(label=c.label, url=c.url, covers=c.covers)
                 for c in rule.citations(document)
             ],
-            magnitude=rule.magnitude_text(signals),
             # Only the class C rule is about hazard areas. For every other rule
             # this stays None, which is not the same as the empty list the class
             # C rule gets when nothing it flagged is describable.

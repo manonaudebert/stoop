@@ -36,8 +36,16 @@ viol AS (
         COUNT(*) FILTER (
             WHERE v.violation_status = 'Open' AND v.violation_class = 'C'
         )                                                   AS open_class_c_violations,
+        -- Two predicates, not one: the current LEAD-BASED PAINT category, plus
+        -- the repealed order numbers whose category is RETIRED but whose
+        -- violations are open lead paint. See RETIRED_LEAD_ORDER_NUMBERS —
+        -- 22% of open lead violations live under the second branch.
         COUNT(*) FILTER (
-            WHERE v.violation_status = 'Open' AND o.category = 'LEAD-BASED PAINT'
+            WHERE v.violation_status = 'Open'
+              AND (
+                o.category = 'LEAD-BASED PAINT'
+                OR v.order_number = ANY(ARRAY['555', '606', '607', '610', '611', '612', '614'])
+              )
         )                                                   AS lead_paint_violations,
         -- Smoke and CO in one signal: the source treats them as one section and
         -- the guidance is identical. Neither category carries any open class C

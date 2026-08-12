@@ -9,7 +9,9 @@ from datetime import date
 
 import pytest
 
-from services.briefs import confidence, prompt, rules, schema, taxonomy, validate
+from services.briefs import (
+    confidence, corpus, prompt, rules, schema, taxonomy, validate,
+)
 
 
 # --------------------------------------------------------------------------
@@ -131,6 +133,60 @@ def test_hazard_areas_dedupe_by_group_keeping_the_most_common_category():
     assert len(areas) == 2
     assert areas[0].startswith("Bldg maintenance — ")
     assert areas[1].startswith("Heat / hot water — ")
+
+
+def test_every_group_that_can_be_a_hazard_area_declares_a_prose_label():
+    """The chart legend is not a sentence. `prose_label` is the expansion used
+    in running text; without one a group falls back to its lowercased label and
+    "bldg maintenance" or "safety & fire" lands mid-clause."""
+    for group, spec in taxonomy.groups().items():
+        if spec.get("violation_categories"):
+            assert spec.get("prose_label"), f"{group} has no prose_label"
+            assert spec["prose_label"] == spec["prose_label"].lower()
+            assert "&" not in spec["prose_label"], group
+            assert "/" not in spec["prose_label"], group
+
+
+def test_prose_labels_expand_the_chart_label_rather_than_renaming_it():
+    """One page, one name per group — the expansion has to stay recognisable.
+
+    "Bldg maintenance" -> "building maintenance" connects on sight. The failure
+    this guards is reaching for the raw HPD category instead: the card says
+    "Safety & fire" and EGRESS would be a second name for the same group.
+    """
+    assert taxonomy.prose_label("building_maintenance_operations") == "building maintenance"
+    assert taxonomy.prose_label("safety_fire") == "fire safety"
+    assert taxonomy.prose_label("heating_hot_water") == "heat and hot water"
+
+
+def test_prose_areas_select_and_order_exactly_like_the_labels():
+    """Same dedupe, same admin exclusion, same significance order.
+
+    If these diverge, the sentence, the layer-1 labels, and what the model is
+    shown describe different sets on the same building.
+    """
+    cats = ["MAINTENANCE", "HEAT AND HOT WATER", "RETIRED", "PAINTING", "EGRESS"]
+    prose = taxonomy.describe_hazard_areas_prose(cats)
+    labels = taxonomy.describe_violation_categories(cats)
+    assert len(prose) == len(labels) == 3
+    assert prose == ["building maintenance", "heat and hot water", "fire safety"]
+
+
+@pytest.mark.parametrize("items,expected", [
+    ([], ""),
+    (["heat and hot water"], "heat and hot water"),
+    (["a", "b"], "a and b"),
+    # Serial comma is load-bearing: entries contain their own "and", so the
+    # plain two-item join rendered "mold and pests and building maintenance".
+    (["mold and pests", "building maintenance"],
+     "mold and pests, and building maintenance"),
+    (["building maintenance", "heat and hot water"],
+     "building maintenance, and heat and hot water"),
+    (["building maintenance", "heat and hot water", "fire safety"],
+     "building maintenance, heat and hot water, and fire safety"),
+])
+def test_join_prose(items, expected):
+    assert taxonomy.join_prose(items) == expected
 
 
 def test_admin_categories_are_excluded_from_hazard_area_sentences_too():
@@ -368,7 +424,6 @@ def test_no_rule_depends_on_construction_year():
     import json
     for rule in rules.load_rules()[0]:
         assert "construction_year" not in json.dumps(rule.when)
-        assert "construction_year" not in (rule.magnitude or "")
 
 
 def test_none_signal_is_not_treated_as_zero_or_as_a_hit():
@@ -417,39 +472,33 @@ def test_authored_action_text_is_never_generated():
 
 
 # --------------------------------------------------------------------------
-# Magnitude — the counts the thresholds used to throw away
+# No counts anywhere
 # --------------------------------------------------------------------------
 
-def test_every_rule_carries_a_magnitude():
-    """Without it, a condition reads identically at two complaints and at 200."""
-    for rule in rules.load_rules()[0]:
-        assert rule.magnitude, f"{rule.id} has no magnitude template"
+def test_no_rule_carries_a_count_template():
+    """`magnitude` was removed 2026-08-12 — the brief shows no numbers at all.
 
-
-def test_magnitude_renders_from_the_signal_the_rule_fired_on():
-    mold = next(r for r in rules.load_rules()[0] if r.id == "mold")
-    assert mold.magnitude_text(_signals(mold_complaints=58)) == (
-        "58 complaints in the last five years"
-    )
-
-
-def test_magnitude_states_the_windows_that_actually_differ():
-    """Violations are open-right-now; complaints are a five-year window.
-
-    One shared phrase would be false for one of them, so each rule states its
-    own. Pinned because the two are easy to unify by accident.
+    The cards on the same page own every count, and suppression encodes severity
+    structurally. Pinned as a field-absence check because the tempting way to
+    reintroduce a number is to add it back to rules.yaml, where nothing else
+    would object.
     """
-    by_id = {r.id: r for r in rules.load_rules()[0]}
-    assert "currently open" in by_id["open_class_c"].magnitude
-    assert "currently open" in by_id["lead_paint"].magnitude
-    for rid in ("heat_hot_water", "mold", "pests"):
-        assert "last five years" in by_id[rid].magnitude, rid
+    import yaml
+    with rules.RULES_PATH.open() as f:
+        spec = yaml.safe_load(f)
+    for rule in spec["rules"]:
+        assert "magnitude" not in rule, f"{rule['id']} reintroduced a count template"
+    assert not hasattr(rules.load_rules()[0][0], "magnitude")
 
 
-def test_magnitude_with_a_missing_signal_raises_rather_than_printing_braces():
-    mold = next(r for r in rules.load_rules()[0] if r.id == "mold")
-    with pytest.raises(rules.MissingSignalError):
-        mold.magnitude_text({"pest_complaints": 3})
+def test_authored_text_carries_no_bare_counts():
+    """Digits are still legal in authored copy — "68°F", "October 1", "14 days"
+    are all cited figures. What must not come back is a rendered count of this
+    building's own records."""
+    for rule in rules.load_rules()[0]:
+        for field in (rule.brief_line or "", rule.condition, rule.why_it_matters,
+                      rule.action):
+            assert "{" not in field, f"{rule.id}: unrendered template in {field!r}"
 
 
 # --------------------------------------------------------------------------
@@ -625,7 +674,54 @@ def test_hazard_areas_reach_the_prompt_when_present():
     )
     assert "Bldg maintenance — Broken fixtures." in body
     assert "Heat / hot water — No heat." in body
-    assert "Do not name an area not listed here" in body
+    assert "Do not name an area that is not listed here" in body
+
+
+def test_prompt_tells_the_model_to_use_the_most_common_area_first():
+    """The list is ordered by open count descending; the prompt must say so.
+
+    "Most common first" alone left the choice open, and the model took the most
+    writable area rather than the largest. The fall-through is deliberate: some
+    categories are real but not inspectable, and a sentence about the biggest
+    area is worth nothing if the reader cannot act on it.
+    """
+    body = _context(
+        conditions=["Hazardous conditions are open."],
+        hazard_areas=[
+            "Bldg maintenance — Broken fixtures.", "Heat / hot water — No heat.",
+        ],
+        hazard_issue_index=0,
+    )
+    assert "the first being the one this building has most of" in body
+    assert "Base the Issue 1 sentence on the FIRST area" in body
+    assert "only if the first names nothing a reader can look at" in body
+    # Order must survive into the rendered block — the instruction is useless
+    # if the list itself is reordered on the way in.
+    assert body.index("Bldg maintenance") < body.index("Heat / hot water")
+
+
+def test_hazard_area_order_is_carried_through_from_the_categories():
+    """End to end: raw HPD categories in significance order, prompt out.
+
+    The SQL sorts by open count (`ORDER BY n DESC, category`) and every layer
+    below preserves that. A dedupe or a set anywhere in between would silently
+    reorder the list the model is told to read in order.
+    """
+    body = _context(
+        conditions=["Hazardous conditions are open."],
+        hazard_areas=prompt.hazard_areas_for({
+            "open_class_c_violations": 12,
+            "open_class_c_categories": [
+                "MAINTENANCE", "HEAT AND HOT WATER", "EGRESS",
+            ],
+        }),
+        hazard_issue_index=0,
+    )
+    assert (
+        body.index("Bldg maintenance")
+        < body.index("Heat / hot water")
+        < body.index("Safety & fire")
+    )
 
 
 def test_hazard_areas_bind_to_their_own_issue_only():
@@ -737,6 +833,230 @@ def test_publishable_requires_every_verdict_to_pass():
     bad = validate.Verdict("y", False, "")
     assert validate.is_publishable([ok])
     assert not validate.is_publishable([ok, bad])
+
+
+def _rule(rule_id: str = "mold"):
+    return {r.id: r for r in rules.load_rules()[0]}[rule_id]
+
+
+def _verdicts(sentence: str, rule_id: str = "mold"):
+    return validate.validate([sentence], selected_rules=[_rule(rule_id)])
+
+
+def _failed(sentence: str, check: str, rule_id: str = "mold") -> bool:
+    return any(
+        v.check == check and not v.passed for v in _verdicts(sentence, rule_id)
+    )
+
+
+def test_a_clean_sentence_is_publishable():
+    """The reference pass. Names an observable thing, claims nothing else."""
+    verdicts = _verdicts(
+        "On a viewing, look at the window sills and the paint around them for "
+        "chips or peeling.",
+        "lead_paint",
+    )
+    assert validate.is_publishable(verdicts)
+    assert {v.check for v in verdicts} == {"vague_quantifiers", "rights_language"}
+
+
+@pytest.mark.parametrize("sentence", [
+    # The observed failure, verbatim: this opened the first three sentences ever
+    # generated, for buildings carrying 616, 473, and 552 open violations.
+    "A few issues appear on this building's record.",
+    "Several tenants have reported problems worth asking about.",
+    "Ask whether some of the radiators have been serviced.",
+    "There are multiple areas worth looking at on a viewing.",
+    "Reports here are isolated to one part of the building.",
+])
+def test_vague_quantifiers_hard_fail(sentence):
+    assert _failed(sentence, "vague_quantifiers")
+    assert not validate.is_publishable(_verdicts(sentence))
+
+
+@pytest.mark.parametrize("sentence", [
+    # A hard fail costs a rule its corpus entry, so a substring match here is
+    # expensive. Every one of these contains a banned quantifier as substring.
+    "Ask the neighbors whether something smells damp in the hallway.",
+    "Ask how often the boiler is serviced, and whether it sometimes cuts out.",
+    "Ask whether the smell is coming from somewhere below the sink.",
+])
+def test_quantifier_check_is_word_boundaried(sentence):
+    assert not _failed(sentence, "vague_quantifiers")
+
+
+@pytest.mark.parametrize("sentence", [
+    # A legal right — the prompt's own bad example.
+    "You are entitled to heat between October and May.",
+    "Tenants have the right to a habitable apartment.",
+    # A remedy or filing channel. rules.yaml says this, with a citation.
+    "Call 311 to report a heat outage.",
+    "Unresolved conditions can be raised in housing court.",
+    "Rent withholding is possible while the condition is open.",
+    "You can file a complaint about the condition.",
+    # An obligation attributed to a party.
+    "The landlord must fix this within the correction period.",
+    "The owner is required to inspect for peeling paint.",
+    # A deadline, which is cited to HPD's penalties page in rules.yaml and would
+    # arrive here with no citation at all.
+    "This is legally a hazard and carries a deadline.",
+])
+def test_rights_language_hard_fails(sentence):
+    assert _failed(sentence, "rights_language")
+
+
+@pytest.mark.parametrize("sentence", [
+    # `watch_for` is for what to look at and what to ask. Asking a landlord a
+    # question is in scope; only telling the reader what they are OWED is not.
+    "Ask the landlord who is responsible for pest treatment.",
+    "Ask the super when the building was last treated for mice.",
+    "Ask current tenants how the heat held up last winter.",
+    "Look under the sinks and around the tub for damp or staining.",
+    "Ask the managing agent what happened with the previous repairs.",
+])
+def test_rights_check_does_not_fire_on_ordinary_questions(sentence):
+    assert not _failed(sentence, "rights_language")
+
+
+def test_banned_quantifiers_are_all_named_in_the_prompt():
+    """The prompt asks and the validator enforces; they must ban the same words.
+
+    A word banned here but absent from the prompt is a hard fail the model was
+    never warned about — it quarantines output for a constraint it could not
+    have known. When these drift, the prompt is what gets updated.
+    """
+    for quantifier in validate.VAGUE_QUANTIFIERS:
+        assert f'"{quantifier}"' in prompt.SYSTEM, (
+            f"{quantifier!r} is a hard fail but the prompt never mentions it"
+        )
+
+
+def test_more_sentences_than_rules_is_a_pairing_failure():
+    """`zip` would drop the extra and pass — the surplus sentence goes unchecked.
+
+    generate.py truncates this case, so reaching the validator means a corpus
+    row was assembled by hand against the wrong rule list.
+    """
+    verdicts = validate.validate(
+        ["Look at the window sills.", "A few issues appear."],
+        selected_rules=[_rule("lead_paint")],
+    )
+    assert not validate.is_publishable(verdicts)
+    assert [v.check for v in verdicts] == ["pairing"]
+
+
+def test_verdicts_name_the_issue_they_judge():
+    """Per-claim, not per-brief: a failure has to say which sentence failed."""
+    verdicts = validate.validate(
+        ["Look at the window sills.", "A few issues appear on the record."],
+        selected_rules=[_rule("lead_paint"), _rule("mold")],
+    )
+    failed = validate.failures(verdicts)
+    assert len(failed) == 1
+    assert "issue 2 (mold)" in failed[0].detail
+    assert len(verdicts) == 4  # two checks × two sentences
+
+
+# --------------------------------------------------------------------------
+# Corpus key
+# --------------------------------------------------------------------------
+
+def test_key_ignores_the_building_and_keys_on_the_input_shape():
+    """The whole cost model: ~12,000 keys for 464,000 buildings.
+
+    Two buildings differing only in their counts produce the same input to the
+    model — the prompt carries no counts — so they must produce one corpus row.
+    """
+    a = corpus.key_for("mold", categories=["MAINTENANCE"], percentile=12.0)
+    b = corpus.key_for("mold", categories=["MAINTENANCE"], percentile=12.0)
+    assert a == b
+
+
+def test_severity_permission_splits_the_key():
+    """Below 70 the prompt forbids severity language; above it, allows it.
+
+    Same rule, genuinely different instructions, so genuinely different text.
+    Sharing a row would publish text written under one constraint on buildings
+    that were never granted it.
+    """
+    low = corpus.key_for("mold", categories=None, percentile=31.3)
+    high = corpus.key_for("mold", categories=None, percentile=95.0)
+    assert low != high
+    assert "sev=0" in low and "sev=1" in high
+
+
+def test_hazard_areas_only_enter_the_key_for_the_class_c_rule():
+    """They only enter the PROMPT for that rule, so nothing else may key on them.
+
+    Keying every rule on them would fragment the corpus by a value those rules
+    were never shown — multiplying the cost for text that cannot differ.
+    """
+    areas = ["HEAT AND HOT WATER", "PAINTING"]
+    assert corpus.key_for("mold", categories=areas, percentile=10.0) == \
+        corpus.key_for("mold", categories=None, percentile=10.0)
+    assert corpus.key_for("open_class_c", categories=areas, percentile=10.0) != \
+        corpus.key_for("open_class_c", categories=None, percentile=10.0)
+
+
+def test_key_distinguishes_categories_that_share_a_group():
+    """The prompt shows a group LABEL with a specific category's sentence.
+
+    Two buildings whose hazard areas resolve to the same group can still be
+    shown different text, so the key carries the category and not only the
+    group. Collapsing them would serve one building the sentence written from
+    another building's condition.
+    """
+    members: dict[str, list[str]] = {}
+    for category, group in taxonomy.violation_category_to_group().items():
+        if group not in taxonomy.NON_OBSERVABLE_GROUPS:
+            members.setdefault(group, []).append(category)
+    shared = next(
+        (c for c in members.values()
+         if len(c) > 1 and all(taxonomy.violation_category_tooltip(x) for x in c)),
+        None,
+    )
+    assert shared, "no two categories share a group; test is vacuous"
+    first, second = shared[0], shared[1]
+    assert taxonomy.describe_hazard_areas([first]) != \
+        taxonomy.describe_hazard_areas([second])
+    assert corpus.key_for("open_class_c", categories=[first], percentile=10.0) != \
+        corpus.key_for("open_class_c", categories=[second], percentile=10.0)
+
+
+def test_hazard_area_keys_stay_parallel_to_the_prose_form():
+    """One is what the model is shown, the other is what the row is keyed on.
+
+    They must select and drop the same areas in the same order, or the corpus
+    keys on a set that differs from the set the model saw — a silent mis-key
+    that renders as a plausible sentence about the wrong hazard.
+    """
+    categories = ["MAINTENANCE", "PAINTING", "RETIRED", None, "NOT A CATEGORY"]
+    assert len(taxonomy.hazard_area_keys(categories)) == \
+        len(taxonomy.describe_hazard_areas(categories))
+    # RETIRED is administrative — non-observable — and must be dropped by both.
+    assert not any("low_priority_admin" in k
+                   for k in taxonomy.hazard_area_keys(categories))
+
+
+def test_hazard_area_order_is_significance_not_alphabetical():
+    """The prompt presents them most common first and says to base the sentence
+    on one of them, so two orders are two different inputs."""
+    a = corpus.key_for(
+        "open_class_c", categories=["MAINTENANCE", "PAINTING"], percentile=10.0
+    )
+    b = corpus.key_for(
+        "open_class_c", categories=["PAINTING", "MAINTENANCE"], percentile=10.0
+    )
+    assert a != b
+
+
+def test_key_is_readable_rather_than_hashed():
+    """A corpus miss degrades silently to phase-0 rendering, so the key has to
+    be greppable in a log and comparable by eye against a row in the table."""
+    key = corpus.key_for("open_class_c", categories=["PAINTING"], percentile=95.0)
+    assert key.startswith("open_class_c|")
+    assert "sev=1" in key
+    assert "PAINTING" in key
 
 
 def test_heat_signal_matches_the_page_card_definition():

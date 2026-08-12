@@ -646,8 +646,16 @@ viol AS (
         COUNT(*) FILTER (
             WHERE v.violation_status = 'Open' AND v.violation_class = 'C'
         )                                                   AS open_class_c_violations,
+        -- Two predicates, not one: the current LEAD-BASED PAINT category, plus
+        -- the repealed order numbers whose category is RETIRED but whose
+        -- violations are open lead paint. See RETIRED_LEAD_ORDER_NUMBERS —
+        -- 22% of open lead violations live under the second branch.
         COUNT(*) FILTER (
-            WHERE v.violation_status = 'Open' AND o.category = 'LEAD-BASED PAINT'
+            WHERE v.violation_status = 'Open'
+              AND (
+                o.category = 'LEAD-BASED PAINT'
+                OR v.order_number = ANY(ARRAY['555', '606', '607', '610', '611', '612', '614'])
+              )
         )                                                   AS lead_paint_violations,
         -- Smoke and CO in one signal: the source treats them as one section and
         -- the guidance is identical. Neither category carries any open class C
@@ -739,6 +747,23 @@ LEFT JOIN hpd_complaints_building_summary hc ON hc.bin = b.bin;
 
 CREATE UNIQUE INDEX IF NOT EXISTS hpd_brief_signals_bin_idx
     ON hpd_brief_signals (bin);
+
+-- ── brief_texts ───────────────────────────────────────────────────────────────
+-- The Building Brief's generated-sentence corpus: one row per (rule, input
+-- shape, prompt version), roughly 12,000 rows for all of NYC. The key is built
+-- by `api/services/briefs/corpus.py::input_key`; a missing row is a normal
+-- state and falls back to the authored `brief_line` in rules.yaml.
+
+CREATE TABLE IF NOT EXISTS brief_texts (
+    rule_id         text        NOT NULL,
+    input_key       text        NOT NULL,
+    watch_for       text        NOT NULL,
+    prompt_version  text        NOT NULL,
+    model           text        NOT NULL,
+    -- A row exists only if it passed services/briefs/validate.py.
+    validated_at    timestamptz NOT NULL,
+    PRIMARY KEY (rule_id, input_key, prompt_version)
+);
 
 -- ── SF (San Francisco) ────────────────────────────────────────────────────────
 

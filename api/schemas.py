@@ -241,20 +241,30 @@ class BriefCitation(BaseModel):
 
 
 class BriefWatchItem(BaseModel):
-    """One flagged condition. Every text field here is AUTHORED, not generated.
+    """One flagged condition. Every text field here is authored, except one.
 
     `condition`, `why_it_matters` and `action` are copied verbatim from
     rules.yaml, and `citation` names the page of HPD's *ABCs of Housing* they
-    came from. `magnitude` is formatted by the rules layer from a database
-    value. Nothing in this model has been near a model — that is what makes it
-    safe to render without a validator, and it is why phase 0 ships before
-    phase 1.
+    came from. No counts are sent at all — `magnitude` was removed 2026-08-12,
+    and the cards on the same page own every number.
+
+    `watch_for` is the single exception and the only generated text on this
+    page — read from the `brief_texts` corpus, where a row exists only if it
+    passed the validator. It is null on every item until a corpus is generated,
+    and null is a normal state for any individual item forever: the rest of the
+    item is unaffected, and the frontend renders the authored `brief_line`.
+    Anything rendering it must carry the AI-assisted label.
     """
     rule_id: str
     # The compact line the page leads with; the fields below sit behind a
     # disclosure. None when the rule authors none, in which case the frontend
     # falls back to `condition`.
     brief_line: str | None = None
+    # The generated sentence for this rule, or null when the corpus has no row
+    # for this input shape. Sits in layer 1 beside `brief_line` and must be
+    # labelled as AI-assisted wherever it renders — it is the only text on the
+    # page a model wrote.
+    watch_for: str | None = None
     condition: str
     why_it_matters: str
     action: str
@@ -264,7 +274,6 @@ class BriefWatchItem(BaseModel):
     # HPD's penalties-and-fees page, and citing only the first would put a real
     # claim behind a reference that does not support it.
     citations: list[BriefCitation]
-    magnitude: str | None = None
     # Populated only for the class C rule. Empty list and None mean different
     # things: [] is "flagged, nothing describable" (4.6% of class C buildings),
     # None is "this rule is not about hazard areas at all".

@@ -57,10 +57,43 @@ HEAT_CATEGORIES = minor_categories("heating_hot_water")
 # gives one section of guidance for both devices.
 DETECTOR_CATEGORIES = ["SMOKE DETECTING DEVICES", "CARBON MONOXIDE DETECTING DEVICES"]
 
+# Lead-paint violations filed under order numbers HPD has since retired.
+#
+# `hpd_order_numbers.category` is 'RETIRED' for these, which describes the ORDER
+# NUMBER — the legal provision was repealed — and says nothing about whether the
+# violation was corrected. `current_status` on them is still NOV SENT OUT / NOT
+# COMPLIED WITH, and their short_description is literally
+# "REPEALED: LEAD - BASED PAINT". They are open lead-paint violations wearing an
+# administrative label.
+#
+# Filtering on `category = 'LEAD-BASED PAINT'` alone therefore missed 18,895
+# open class C lead violations — 22% of all of them — leaving **2,421 buildings
+# with open lead paint and no lead paint item**, while those same rows inflated
+# the abstract class C count and were dropped from hazard areas as admin. Wrong
+# twice on the same rows, and in the direction that costs a renter most: the
+# lead rule is the one that matters to anyone with a child under six.
+#
+# Not a legacy cleanup — order 614 was issued 2,211 times in 2020 and 1,716 in
+# 2021, and those NOVs carry same-year inspection dates, so they are live
+# findings filed under an old order number, not re-keyed history.
+#
+# Pinned as an explicit list rather than `short_description ILIKE '%LEAD%'`:
+# the pattern is what found them, but a scan of free text is not a definition,
+# and it would silently absorb any future order whose wording happens to match.
+# 606 and 607 carry zero open violations today and are included anyway — they
+# are the same repealed provision, and a list that omits them invites the next
+# reader to wonder whether the omission meant something. Re-derive with:
+#
+#   SELECT order_number FROM hpd_order_numbers
+#   WHERE category = 'RETIRED' AND short_description ILIKE '%LEAD%';
+RETIRED_LEAD_ORDER_NUMBERS = ["555", "606", "607", "610", "611", "612", "614"]
+
 # Every violation category the lead/detector aggregate needs to scan. Kept as a
 # single filter so that pass walks a building's open violations once rather than
-# once per signal.
-VIOLATION_CATEGORIES_SCANNED = ["LEAD-BASED PAINT", *DETECTOR_CATEGORIES]
+# once per signal. RETIRED joins the scan because the lead orders above live
+# under it — the signal itself still narrows by order number, so no other
+# retired violation is counted.
+VIOLATION_CATEGORIES_SCANNED = ["LEAD-BASED PAINT", "RETIRED", *DETECTOR_CATEGORIES]
 
 # The complaint window every complaint-driven rule uses. Stated once because the
 # rules used to disagree: mold and pests were windowed here while heat was read
@@ -114,8 +147,16 @@ viol AS (
         COUNT(*) FILTER (
             WHERE v.violation_status = 'Open' AND v.violation_class = 'C'
         )                                                   AS open_class_c_violations,
+        -- Two predicates, not one: the current LEAD-BASED PAINT category, plus
+        -- the repealed order numbers whose category is RETIRED but whose
+        -- violations are open lead paint. See RETIRED_LEAD_ORDER_NUMBERS —
+        -- 22% of open lead violations live under the second branch.
         COUNT(*) FILTER (
-            WHERE v.violation_status = 'Open' AND o.category = 'LEAD-BASED PAINT'
+            WHERE v.violation_status = 'Open'
+              AND (
+                o.category = 'LEAD-BASED PAINT'
+                OR v.order_number = ANY({_sql_array(RETIRED_LEAD_ORDER_NUMBERS)})
+              )
         )                                                   AS lead_paint_violations,
         -- Smoke and CO in one signal: the source treats them as one section and
         -- the guidance is identical. Neither category carries any open class C

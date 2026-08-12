@@ -11,7 +11,7 @@ from datetime import date
 
 from main import app
 from database import get_db
-from services.briefs import rules as rules_mod
+from services.briefs import corpus, rules as rules_mod
 from services.briefs.smoke import to_signals
 from cache import cache_clear
 from tests.conftest import MockRow, MockResult, make_mock_db, db_override
@@ -33,6 +33,10 @@ SIGNALS_ROW = {
     "heat_hot_water_complaints": 21,
     "hpd_record_count": 260,
     "latest_hpd_activity": date(2026, 5, 1),
+    # Joined from hpd_building_summary, not a rule signal: it decides whether
+    # severity language was permitted in the prompt, which is part of the
+    # corpus key. Below 70, so severity language was NOT allowed.
+    "violations_density_pct": 31.3,
 }
 
 QUIET_ROW = {**SIGNALS_ROW, **{
@@ -46,13 +50,19 @@ QUIET_ROW = {**SIGNALS_ROW, **{
 }}
 
 
-async def _get(client, row: dict | None):
+async def _get(client, row: dict | None, corpus: list[dict] | None = None):
     # Clear first: the route caches on `hpd_brief:{bin}` and every call here
     # uses the same BIN, so a second _get in one test would otherwise return the
     # FIRST response. Tests that compare two briefs would then be comparing a
     # response to itself and passing regardless of the route's behaviour.
     cache_clear()
-    mock_db = make_mock_db(MockResult([MockRow(row)] if row else []))
+    # Two execute() calls: the signals row, then the brief_texts lookup. The
+    # second is skipped entirely when no rule fires, so an unused MockResult
+    # here is expected rather than a sign the query did not run.
+    mock_db = make_mock_db(
+        MockResult([MockRow(row)] if row else []),
+        MockResult([MockRow(c) for c in (corpus or [])]),
+    )
     app.dependency_overrides[get_db] = db_override(mock_db)
     try:
         return await client.get(f"/hpd/building/{SAMPLE_BIN}/brief")
@@ -89,7 +99,12 @@ async def test_watch_item_text_is_verbatim_from_rules_yaml(client):
     by_id = {r.id: r for r in rules_mod.load_rules()[0]}
     for item in resp.json()["watch_items"]:
         rule = by_id[item["rule_id"]]
-        assert item["condition"] == rule.condition
+        # `condition` may be EXTENDED with this building's hazard areas — the
+        # class C rule only — but never rewritten, so the authored sentence has
+        # to survive as a literal prefix (minus the period the clause moves).
+        assert item["condition"].startswith(rule.condition.rstrip(".")), rule.id
+        if rule.id != "open_class_c":
+            assert item["condition"] == rule.condition
         assert item["why_it_matters"] == rule.why_it_matters
         assert item["action"] == rule.action
 
@@ -130,6 +145,36 @@ def test_single_source_rules_do_not_carry_a_redundant_covers_clause():
         if not rule.additional_sources:
             assert rule.covers is None, rule.id
             assert len(rule.citations(document)) == 1
+
+
+@pytest.mark.asyncio
+async def test_class_c_condition_names_the_buildings_hazard_areas(client):
+    """"Immediately hazardous" names no observable thing on its own.
+
+    The areas are already given to the model and shown as layer-1 labels; this
+    puts them in the sentence a reader actually reads. Order is significance —
+    SIGNALS_ROW is MAINTENANCE then PAINTING, which dedupe to one group.
+    """
+    resp = await _get(client, SIGNALS_ROW)
+    item = next(i for i in resp.json()["watch_items"] if i["rule_id"] == "open_class_c")
+    assert "including issues related to building maintenance." in item["condition"]
+    # The prose form, not the chart legend and not the raw HPD string.
+    assert "Bldg maintenance" not in item["condition"]
+    assert "MAINTENANCE" not in item["condition"]
+
+
+@pytest.mark.asyncio
+async def test_class_c_condition_falls_back_when_no_area_is_describable(client):
+    """4.6% of class C buildings: every category is administrative or unmapped.
+
+    A dangling "including issues related to" is worse than the abstract
+    sentence, so the clause is dropped whole.
+    """
+    row = {**SIGNALS_ROW, "open_class_c_categories": ["RETIRED"]}
+    resp = await _get(client, row)
+    item = next(i for i in resp.json()["watch_items"] if i["rule_id"] == "open_class_c")
+    assert item["condition"].endswith("on this building's record.")
+    assert "including" not in item["condition"]
 
 
 @pytest.mark.asyncio
@@ -274,3 +319,74 @@ def test_brief_line_carries_no_digits():
     """No numbers in layer 1 — the cards on the same page own every count."""
     for rule in rules_mod.load_rules()[0]:
         assert not any(c.isdigit() for c in rule.brief_line), rule.id
+
+
+# --------------------------------------------------------------------------
+# The generated-sentence corpus (phase 1)
+# --------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_watch_for_is_null_when_the_corpus_has_no_row(client):
+    """The state of every building today, and a normal state forever.
+
+    An empty corpus must leave the brief exactly as phase 0 rendered it — that
+    is what makes a partial corpus shippable and the per-rule kill-switch free.
+    """
+    resp = await _get(client, SIGNALS_ROW, corpus=[])
+    items = resp.json()["watch_items"]
+    assert items
+    assert all(i["watch_for"] is None for i in items)
+
+
+@pytest.mark.asyncio
+async def test_watch_for_attaches_to_the_rule_it_was_written_for(client):
+    """Keyed by rule id, not by position — the corpus returns rows unordered."""
+    resp = await _get(client, SIGNALS_ROW, corpus=[
+        {"rule_id": "lead_paint", "watch_for": "Look at the window sills."},
+    ])
+    items = {i["rule_id"]: i for i in resp.json()["watch_items"]}
+    assert items["lead_paint"]["watch_for"] == "Look at the window sills."
+    assert all(
+        i["watch_for"] is None for rid, i in items.items() if rid != "lead_paint"
+    )
+    # The authored line is untouched: layer 1 shows both, and dropping the
+    # corpus must never take the authored text with it.
+    assert items["lead_paint"]["brief_line"] == \
+        {r.id: r for r in rules_mod.load_rules()[0]}["lead_paint"].brief_line
+
+
+@pytest.mark.asyncio
+async def test_zero_flag_building_makes_no_corpus_query(client):
+    """Half of all buildings, on the site's hottest route. Nothing to look up."""
+    cache_clear()
+    mock_db = make_mock_db(MockResult([MockRow(QUIET_ROW)]))
+    app.dependency_overrides[get_db] = db_override(mock_db)
+    try:
+        resp = await client.get(f"/hpd/building/{SAMPLE_BIN}/brief")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+    assert resp.status_code == 200
+    assert resp.json()["no_flags"] is True
+    assert mock_db.execute.await_count == 1
+
+
+def test_only_the_top_two_rules_are_looked_up():
+    """Only two sentences are ever generated, so only two can ever be stored.
+
+    Looking up the rest would be a guaranteed miss on every building — harmless
+    in itself, and it would make the corpus hit rate useless as a health metric.
+    """
+    signals = to_signals({
+        **SIGNALS_ROW,
+        "total_violations": 1, "total_complaints": 1,
+        "latest_violation_date": date(2026, 5, 1),
+        "latest_complaint_date": None,
+    })
+    selected = rules_mod.select_rules(signals)
+    assert len(selected) > 2, "fixture no longer exercises the truncation"
+    keys = corpus.keys_for_selection(
+        selected,
+        categories=SIGNALS_ROW["open_class_c_categories"],
+        percentile=SIGNALS_ROW["violations_density_pct"],
+    )
+    assert [rule_id for rule_id, _ in keys] == [r.id for r in selected[:2]]

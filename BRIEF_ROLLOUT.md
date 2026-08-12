@@ -6,9 +6,9 @@ This one covers what it costs to run, how it reaches the frontend, and which
 decisions are still open.
 
 Status: **phase 0 ships — the rules-only brief renders on every HPD building
-page.** No corpus has been generated and no paid API call has ever been made.
-All model numbers below are measured locally against `qwen3:8b` via Ollama, or
-computed from real data.
+page.** No corpus has been generated. The prompt has now been verified against
+`claude-haiku-4-5` — 10 calls, $0.02 — so the cost figures below are measured on
+the real model rather than extrapolated from Ollama.
 
 Branch: `building-brief` (not pushed). Companion memory: the Building Brief
 entry in the project memory index.
@@ -24,16 +24,21 @@ is nothing in it to hallucinate.
 
 **Next step: phase 1**, in the order the open decisions block each other:
 
-1. **Verify the prompt on Haiku** (open decision 5). Five calls, well under a
-   cent. Tuning stopped deliberately at three rounds on `qwen3:8b`; the listing
-   behaviour may simply not occur on the corpus model, in which case the prompt
-   is done.
-2. **Land the first validator check** (open decision 3). `validate.py` has the
-   registry seam and nothing in it, and `is_publishable([])` returns False on
-   purpose, so nothing can publish until a check exists. Vague quantifiers and
-   rights language are the cheapest and both have been observed failing.
-3. **`brief_texts` table and the corpus.** Note the keying decision below —
-   structured key, not a hash of the rendered prompt.
+1. **Verify the prompt on Haiku** (open decision 5). ✅ **Done 2026-08-12** —
+   two runs of five calls, `brief-v5` then `brief-v6`, all ten returning `ok`
+   with no repairs and no refusals. Total spend **$0.02**. The run also
+   corrected the cost model: see *Cost* below.
+2. **Land the first validator check** (open decision 3). ✅ **Done 2026-08-12**
+   — `vague_quantifiers` and `rights_language`, both lexical hard fails, both
+   already observed failing on real output. `is_publishable` now has something
+   to gate on, and `smoke.py --with-model` prints the verdicts, so step 1's five
+   calls report whether their output would have published rather than leaving it
+   to be eyeballed.
+3. **`brief_texts` table and the corpus.** Table, key and read path landed
+   2026-08-12; **the corpus itself has not been generated** and needs step 1
+   first. `migrate_brief_texts.sql` is written and NOT yet applied to prod. The
+   route joins the table already: with it empty, every `watch_for` comes back
+   null and the page renders exactly as it does today.
 
 `watch_for` renders in layer 1 beside the authored `brief_line`, carrying the
 AI-assisted label. That gives phase 1 a per-rule kill-switch for free: if the
@@ -48,7 +53,7 @@ to it, that rule's corpus simply does not ship. No fallback logic to write.
 | `GET /hpd/building/{bin}/brief` | watch items, citations, hazard areas, confidence note |
 | Refresh | `sync_all.py::_refresh_all_views`, after both summary views |
 | `BuildingBrief.tsx` | two-layer rendering, after the Severity card |
-| Tests | 271, offline, no database and no API key |
+| Tests | 308, offline, no database and no API key |
 
 Verified against real pages rather than only tests: BIN 2003187 (suppression
 plus three layer-1 lines), BIN 3096715 (three items with citations), BIN 1000041
@@ -65,14 +70,15 @@ All under `api/services/briefs/`:
 | File | |
 |---|---|
 | `rules.yaml` | the six rules — `brief_line`, `condition`, `why_it_matters`, `action`, sources, suppression group. Config, not code; most product changes happen here |
-| `rules.py` | predicate evaluation, priority + magnitude ordering, class C suppression, display cap |
+| `rules.py` | predicate evaluation, priority + `rank_by` ordering, class C suppression, display cap |
 | `signals.py` | the shared category lists and the generator for the view's SQL |
 | `taxonomy.py` | the three HPD vocabularies and the renter-facing labels |
 | `confidence.py` | the computed caveat (thin record / stale record) |
 | `prompt.py` | what the model is allowed to see. It gets no numbers |
 | `schema.py` | `GeneratedContext` — `watch_for: list[str]`, max 2, nothing else |
 | `generate.py` | retry vs repair vs fatal, token accounting, call cap |
-| `validate.py` | registry seam, **empty** — blocks phase 1, see open decision 3 |
+| `validate.py` | the publish gate — two lexical checks, both hard fails |
+| `corpus.py` | the structured `input_key` a stored sentence is looked up by |
 | `smoke.py` | signals in, brief out. Also `--check-view` |
 | `golden.yaml` | hand-reviewed cases, failing outputs kept verbatim |
 
@@ -104,14 +110,22 @@ before believing the HTML.
 
 ### Measured, not estimated
 
-From `data/brief_calls.jsonl`, 40 successful local generations at
-`PROMPT_VERSION = brief-v5`:
+From `data/brief_calls.jsonl`, the 5 paid generations at
+`PROMPT_VERSION = brief-v6`:
 
 | | |
 |---|---|
-| Average input | **1,102 tokens** |
-| Average output | **42 tokens** |
-| Cost per call on `claude-haiku-4-5` | **$0.00131** |
+| Average input | **1,702 tokens** |
+| Average output | **65 tokens** |
+| Cost per call on `claude-haiku-4-5` | **$0.00203** |
+
+**These replace figures measured on Ollama, which were 55% too low.** The old
+row said 1,102 input tokens and $0.00131/call, taken from local `qwen3:8b`
+runs. Haiku tokenizes the same prompt to ~1,700 — `qwen3:8b` counts ~1,062 for
+byte-identical input. Nothing about the prompt grew; the tokenizers simply
+differ, and a token count is not portable between them. **Never price a corpus
+off local telemetry** — run `count_tokens`, or a handful of real calls, against
+the model that will actually generate it.
 
 An earlier estimate in this project put the corpus at ~$295. That was computed
 against the v1 prompt and is superseded — v1 asked for a summary, concerns, and
@@ -124,10 +138,13 @@ document.
 
 | Approach | Calls | Cost |
 |---|---|---|
-| Naive — one per eligible NYC building | 463,913 | $608 |
-| Skip zero-flag buildings | 242,858 | $318 |
-| **Deduplicate identical prompts** | ~11,850 | **$15.53** |
-| Dedup + Batch API (50%) | ~11,850 | **$7.77** |
+| Naive — one per eligible NYC building | 463,913 | $940 |
+| Skip zero-flag buildings | 242,858 | $492 |
+| **Deduplicate identical prompts** | ~11,850 | **$24** |
+| Dedup + Batch API (50%) | ~11,850 | **$12** |
+
+Recomputed 2026-08-12 at the measured Haiku rate. The conclusion is unchanged
+and the argument for dedup is unaffected — a 39× reduction either way.
 
 **Lever 1 — skip zero-flag buildings.** 47.6% of buildings fire no rule, so
 `watch_for` is `[]` by construction and there is nothing for the model to write.
@@ -155,7 +172,7 @@ reduction against naive.
 
 Caveats worth carrying: this is a two-point power-law fit and could be off by
 2×, but even at 25,000 distinct prompts the corpus is $33, so the conclusion is
-robust to the estimate being wrong. Identical text across buildings is *correct*
+robust to the estimate being wrong — at 25,000 distinct prompts it is $51. Identical text across buildings is *correct*
 here rather than a bug — `watch_for` says what to look at given a hazard type,
 and every building-specific number is rendered by code around it ("674 currently
 open"). The authored rule text is already identical across buildings, so this
@@ -187,8 +204,8 @@ available under the naive design.
 ### The thing that makes phasing possible
 
 **The deterministic layer needs no model at all.** Watch items, their
-why-it-matters and action text, page citations, magnitudes, and the confidence
-note are computed or authored. That is the majority of the brief, and it can
+why-it-matters and action text, page citations, and the confidence note are
+computed or authored. That is the majority of the brief, and it can
 ship with zero AI spend, no corpus, and no dependency on the validator.
 
 ### Where the rule engine runs — decided 2026-08-11
@@ -327,12 +344,58 @@ areas with their authored sentences, action, citation — verbatim behind a
 native `<details>`. Server component, no client JS, and the expanded text stays
 findable by in-page search.
 
-**No numbers in layer 1.** `magnitude` still exists in rules.yaml and on the API
-response and nothing renders it. A chip was tried and cut: the counts sit in
-cards inches away, and suppression now encodes severity structurally. The
-field's comment in rules.yaml carries its original rationale, why that rationale
-retired, and its current status — a field whose justification no longer matches
-its use is the drift those comments exist to prevent.
+**No numbers anywhere — `magnitude` removed 2026-08-12.** It was a per-rule
+count template ("46 currently open"), already unrendered on the page after a
+chip was tried and cut. It is now gone from rules.yaml, the `Rule` dataclass,
+the API response, the TypeScript type, and the smoke output, so the brief shows
+no counts at all.
+
+The justification had retired twice over and the field had not: the counts sit
+in cards inches away on the same page, and suppression now encodes severity
+structurally — a condition an inspector confirmed replaces the complaint rule
+entirely rather than out-numbering it. A field kept alive by its own comment
+explaining why nothing reads it is the drift those comments exist to prevent.
+
+`rank_by` is a different field and stays — it orders priority peers by the
+signal that decides which is the bigger problem, and is never displayed. Two
+tests pin the absence: no `magnitude` key in rules.yaml, and no unrendered `{}`
+template in any authored string.
+
+**The class C condition names the building's hazard areas — added 2026-08-12.**
+"Conditions that HPD classifies as immediately hazardous are currently open on
+this building's record" names no observable thing, which is the same gap the
+model's hazard-area block exists to close; it is now closed for the reader too:
+
+    ...on this building's record, including issues related to mold and pests,
+    and building maintenance.
+
+`areas_clause` in rules.yaml carries the phrasing (product copy belongs there),
+and code fills `{areas}` from the taxonomy in open-count order. Three things
+this is NOT: it is not a count (`magnitude` was deleted the same day — this says
+*what* is open, never *how much*); it is not model output; and it is not a
+rewrite of the authored sentence, which survives as a literal prefix with only
+its period moved. The route test pins exactly that.
+
+**It needed a third naming form, and that is the interesting part.** The raw HPD
+categories are jargon and, worse, a second name for a group the page already
+names — the card says "Safety & fire", the raw category is `EGRESS`. The chart
+labels are legends built for a constrained axis and read badly mid-clause
+("bldg maintenance", "heat / hot water"). So the taxonomy JSON grew
+`prose_label`: an *expansion* of the same name, never a different one, which is
+what keeps the one-page-one-vocabulary rule intact. A test pins that every group
+carrying violation categories declares one.
+
+**The two-item join was wrong and only a rendered page showed it.** "heat and
+hot water" is a single area, so the ordinary "X and Y" join produced "mold and
+pests and building maintenance". `join_prose` now uses the serial comma whenever
+any entry contains its own "and". Renaming the areas to avoid it was the wrong
+fix — it would have reintroduced the second-name problem to dodge a punctuation
+one.
+
+**`PROMPT_VERSION` is unaffected.** The model is still shown the plain authored
+`condition`; the areas reach it through its own block, with the tooltips that
+make them concrete. Composing them into the sentence the model sees would only
+invite it to read the list back. The verified `brief-v6` corpus key still holds.
 
 **`brief_line` may compress the cited text but never extend it.** It inherits
 its rule's citation, so at fifteen words the temptation to add practical advice
@@ -463,14 +526,49 @@ more concrete than the authored line it sits next to. If Haiku's output for a
 given rule is not clearly better, the corpus for that rule simply does not ship
 — per rule, with zero rendering change and no fallback logic to write. Keep it.
 
-**Blocked on two things that do not exist:**
+**What landed 2026-08-12**, leaving only the corpus itself outstanding:
 
-- **The validator has no checks implemented.** `validate.py` has a registry seam
-  and `is_publishable([])` deliberately returns `False`, so nothing can be
-  published while the registry is empty. This is a guard, not an oversight —
-  `all([])` is `True` and would silently green-light every brief.
-- **No storage table.** The endpoint exists and is live; phase 1 adds a join to
-  it rather than a new surface.
+- **The validator gates publishing.** Two checks, both lexical, both
+  unconditional hard fails: `vague_quantifiers` and `rights_language`. Chosen
+  first because both have been *observed* failing rather than anticipated — "A
+  few issues…" opened the first three sentences ever generated, for buildings
+  carrying 616, 473 and 552 open violations. The remaining designed checks
+  (numeric, categorical, absence, causal, absolute-severity, rule-id subset) are
+  still unimplemented; they need the record behind a sentence, which is why
+  every check is handed the rule its sentence answers rather than prose alone.
+
+  A hard fail costs a rule its corpus entry, so both checks are written to avoid
+  false positives on the sentences the field exists for. "Ask the landlord who is
+  responsible for pest treatment" must pass — `responsible for` was tried in the
+  obligation pattern and cut for exactly that sentence. `must`/`required` fail
+  only when attached to a party, because "you must look closely" is advice, not
+  an entitlement.
+
+  The banned-quantifier list is pinned by test to also appear in `prompt.SYSTEM`:
+  a word that hard-fails but was never in the prompt quarantines output for a
+  constraint the model could not have known. When they drift, the prompt is what
+  gets updated.
+
+- **`brief_texts` exists as a migration** (`migrate_brief_texts.sql`, not yet
+  applied) and the route reads it. `corpus.py::input_key` builds the structured
+  key; `keys_for_selection` looks up only the top `MAX_WATCH_ITEMS` rules,
+  because only those were ever generated. A zero-flag building makes no corpus
+  query at all — half the site, on its hottest route.
+
+  Two things the key had to get right that the design sketch did not name.
+  **The severity segment needs the percentile, which `hpd_brief_signals` does not
+  carry** — the route joins `hpd_building_summary` for it rather than adding a
+  column, since the rules never read it and a new column costs a full recompute.
+  **Hazard areas key on `group:CATEGORY`, not on the group**, because
+  `describe_hazard_areas` pairs a group label with the *specific* category's
+  authored sentence: two buildings resolving to the same group can be shown
+  different text, and one corpus row would serve one of them the sentence written
+  from the other's condition.
+
+**Still outstanding: the corpus.** Nothing has been generated, so every
+`watch_for` is null and the page is byte-identical to phase 0. Generating it
+needs step 1 first, and the frontend has no rendering for the field yet — that
+change is where the AI-assisted label gets designed.
 
 The signals are already materialized (`hpd_brief_signals`), so the ~2.5s live
 query that used to block this is no longer in the way.
@@ -548,18 +646,22 @@ Base rates from the same sample, useful on their own:
 Zero-flag buildings came in at **48.1%**, confirming the 47.6% figure the cost
 model rests on.
 
-### 3. Which validator check lands first — blocks phase 1
+### 3. Which validator check lands first — SETTLED 2026-08-12
 
-`validate.py` has the registry seam and nothing in it. `is_publishable([])`
-returns `False` on purpose, so no brief can be published until at least one
-check exists. `AI_METHODOLOGY.md` specifies the designed set: numeric claims,
-categorical claims, absence claims, causal language, absolute-severity
-adjectives, vague quantifiers, rule-id subset.
+**Vague quantifiers and rights language**, both lexical, both unconditional hard
+fails. They were the cheapest to write and the only two in the designed set that
+had already been *seen* failing rather than reasoned about.
 
-The per-issue `watch_for` shape helps here — each sentence is answerable to one
-flagged rule, so a check can be written against a single record rather than
-against prose. Vague quantifiers and rights language are the cheapest first
-checks; both are lexical and both have already been observed failing.
+The per-issue `watch_for` shape is what made them writable: each sentence is
+answerable to one flagged rule, so a check runs against a single record rather
+than against prose. That is also why the check signature takes the rule and not
+just the sentence — the rest of the designed set (numeric, categorical, absence
+claims) needs the record, and a signature that only saw text could never grow
+one.
+
+Still unimplemented, in `AI_METHODOLOGY.md`'s order: numeric claims, categorical
+claims, absence claims, causal language, absolute-severity adjectives, rule-id
+subset. None of them block the corpus the way an empty registry did.
 
 ### 4. Whether SF gets briefs — not blocking
 
@@ -567,7 +669,7 @@ SF has its own datasets, no authored rules, and no equivalent of the ABCs of
 Housing to cite. The citation discipline is the product's spine, so this is a
 sourcing question before it is an engineering one.
 
-### 5. Prompt tuning against Haiku — not blocking, but do it before any corpus
+### 5. Prompt tuning against Haiku — SETTLED 2026-08-12
 
 Tuning stopped deliberately after three rounds on `qwen3:8b`. Structural
 properties hold everywhere — no invented numbers, no jargon, no rights language
@@ -581,6 +683,19 @@ cd api && ../.venv/bin/python -m services.briefs.smoke \
 
 Five calls, well under a cent. The call cap raises *before* dispatch, so hitting
 it costs nothing.
+
+**Run 2026-08-12 — SETTLED.** Two rounds of five calls, `brief-v5` then
+`brief-v6`, all ten `ok`: no repairs, no refusals, no truncation, no dropped
+`watch_for`. $0.02 total. The run prints validator verdicts alongside each
+sentence, so it answered both questions at once.
+
+**One bug surfaced on the first paid call, and only there:** `output_config`
+carried `effort: "low"`, which is an Opus-tier parameter. Haiku rejects it with
+a 400 — *"This model does not support the effort parameter"* — rather than
+ignoring it. It had never been exercised because the dev loop runs against
+Ollama, whose provider takes no `effort` at all. `AnthropicProvider(effort=...)`
+now defaults to `None` and the key is omitted unless set. The same shape of gap
+is worth expecting anywhere the free path and the paid path differ.
 
 ---
 

@@ -90,6 +90,28 @@ def label(group: str) -> str:
     return groups()[group]["label"]
 
 
+def prose_label(group: str) -> str:
+    """The group's name as it reads inside a sentence.
+
+    `label` is a chart legend, written for a constrained axis: "Bldg
+    maintenance", "Heat / hot water", "Safety & fire". Those are correct on a
+    chart and wrong in running text — an abbreviation, a slash, and an ampersand
+    mid-clause.
+
+    This is an expansion of the same name, never a different one. That
+    distinction is the whole constraint: a reader who meets "building
+    maintenance" in the sentence and "Bldg maintenance" on the card beside it
+    connects them instantly, which is why the page may not instead reach for the
+    raw HPD category ("EGRESS" for what the card calls Safety & fire) — that
+    genuinely would be two names for one group.
+
+    Falls back to the lowercased label so a newly mapped group renders
+    something sane rather than raising; a test pins that every group carrying
+    violation categories declares one explicitly.
+    """
+    return groups()[group].get("prose_label") or label(group).lower()
+
+
 def description(group: str) -> str:
     return groups()[group]["description"]
 
@@ -177,6 +199,30 @@ def describe_violation_categories(categories) -> list[str]:
     return labels
 
 
+def _hazard_areas(categories) -> list[tuple[str, str]]:
+    """(group, category) for each describable hazard area, most common first.
+
+    The category is kept alongside its group because the two public forms below
+    both depend on it: the prose form takes its sentence from the specific
+    category, so two buildings with the same GROUP set but different top
+    categories within it are described differently — and a corpus keyed on group
+    alone would collide them.
+
+    Deduped by group, keeping the first (most common) category, so a building
+    whose two top categories share a group is described once and by its larger
+    problem.
+    """
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for category in categories or ():
+        group = group_of_violation_category(category)
+        if group is None or group in NON_OBSERVABLE_GROUPS or group in seen:
+            continue
+        seen.add(group)
+        out.append((group, category.upper()))
+    return out
+
+
 def describe_hazard_areas(categories) -> list[str]:
     """Renter-facing labels paired with the sentence the page shows on hover.
 
@@ -185,18 +231,63 @@ def describe_hazard_areas(categories) -> list[str]:
     detail. The authored sentence — "insufficient or missing required lighting
     in apartments, hallways, or common areas" — already contains the concrete
     nouns, so the model can point at one instead of guessing.
-
-    Deduped by group, keeping the first (most common) category's sentence, so a
-    building whose two top categories share a group is described once and by its
-    larger problem.
     """
-    seen: set[str] = set()
     out: list[str] = []
-    for category in categories or ():
-        group = group_of_violation_category(category)
-        if group is None or group in NON_OBSERVABLE_GROUPS or group in seen:
-            continue
-        seen.add(group)
+    for group, category in _hazard_areas(categories):
         tooltip = violation_category_tooltip(category)
         out.append(f"{label(group)} — {tooltip}" if tooltip else label(group))
     return out
+
+
+def describe_hazard_areas_prose(categories) -> list[str]:
+    """The same areas as sentence-ready names, in the same significance order.
+
+    Feeds the class C item's condition line, which names what the hazardous
+    conditions actually are instead of leaving "immediately hazardous" abstract.
+    Selection and order are identical to `describe_hazard_areas` — same dedupe,
+    same admin exclusion — so the sentence, the layer-1 labels, and what the
+    model is shown can never describe different sets.
+    """
+    return [prose_label(group) for group, _ in _hazard_areas(categories)]
+
+
+def join_prose(items: list[str]) -> str:
+    """"a", "a and b", "a, b, and c" — with a serial comma whenever any entry
+    contains its own "and", including the two-item case.
+
+    Found by reading a rendered page rather than a test: "heat and hot water"
+    is a single area, so the plain two-item join produced "mold and pests and
+    building maintenance" and "building maintenance and heat and hot water" —
+    parseable only if you already know where the boundaries are. The comma form
+    ("mold and pests, and building maintenance") puts them back.
+
+    Not solved by renaming the areas: "heat and hot water" is what the card
+    says, and inventing an and-free synonym would give the page two names for
+    one group. So the joiner adapts instead of the vocabulary.
+    """
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2 and not any(" and " in i for i in items):
+        return f"{items[0]} and {items[1]}"
+    return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+
+def hazard_area_keys(categories) -> list[str]:
+    """The same areas as identifiers rather than as prose — `group:CATEGORY`.
+
+    This is what the corpus key is built from. It carries the category and not
+    only the group because the prose form does: the sentence the model sees for
+    "Mold & pests" differs by which category supplied it, so two prompts that
+    differ in what the model was told must not share a corpus row.
+
+    Deliberately not the prose itself. Authored tooltip text is edited without
+    ceremony; a key made of it would invalidate the corpus on a typo fix, while
+    a key made of identifiers changes only when the underlying data does. The
+    tradeoff runs the other way too — re-wording a tooltip changes what the
+    model was shown WITHOUT changing the key — and that is what `prompt_version`
+    is for. Bump it when the taxonomy's authored sentences change, not only when
+    `prompt.py` does.
+    """
+    return [f"{group}:{category}" for group, category in _hazard_areas(categories)]

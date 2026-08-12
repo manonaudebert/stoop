@@ -78,12 +78,18 @@ cases:
       hpd_violations_percentile: 10.5
       open_class_c_violations: 137
       heat_hot_water_complaints: 0
-      lead_paint_violations: 0
+      # Was 0 until 2026-08-12, and that zero was the bug, not the data. 49 of
+      # this building's open violations are lead paint filed under repealed
+      # order numbers (555/610/611/612/614), which carry category RETIRED. The
+      # signal filtered on category = 'LEAD-BASED PAINT' and missed every one,
+      # so the building with 49 open lead violations showed no lead paint item.
+      # See signals.RETIRED_LEAD_ORDER_NUMBERS.
+      lead_paint_violations: 49
       construction_year: 1910
       open_class_c_categories: [RETIRED, MAINTENANCE, HEAT AND HOT WATER]
     expected:
       standing_direction: better
-      flags: [open_class_c]
+      flags: [open_class_c, lead_paint]
     observed_failures:
       - failure: invented_nouns
         status: fixed
@@ -102,6 +108,28 @@ cases:
           `open_class_c_categories` now reaches the prompt, mapped through the
           shared renter-facing taxonomy. Post-fix output referenced building
           maintenance and heat — both genuinely on this building's record.
+
+      - failure: lead_paint_hidden_by_retired_category
+        status: fixed
+        output: >-
+          No lead paint watch item at all, on a building carrying 49 open
+          lead-based paint violations.
+        diagnosis: >-
+          `hpd_order_numbers.category = 'RETIRED'` means the ORDER NUMBER was
+          repealed, not that the violation was corrected — current_status on
+          these rows is still NOV SENT OUT. The lead signal filtered on
+          category = 'LEAD-BASED PAINT', so every violation filed under the
+          repealed lead orders was invisible to it. The same rows were then
+          dropped from hazard areas as administrative, while still inflating
+          the abstract class C count: wrong twice, and in the direction that
+          costs a renter with a young child the most.
+        fix: >-
+          The signal now also matches the seven repealed lead order numbers.
+          Citywide this moved the lead rule from 15,478 to 17,899 buildings
+          in hpd_violations — 17,582 in hpd_brief_signals, which only covers
+          buildings that have an HPD page — recovering 18,833 open violations
+          across 2,421 buildings that previously showed nothing. Found from a
+          screenshot of this building's violation table, not from a test.
 
       - failure: direction_flattened
         status: open

@@ -315,7 +315,6 @@ export interface BriefWatchItem {
   why_it_matters: string
   action: string
   citations: BriefCitation[]
-  magnitude: string | null
   // Only populated for the class C rule. [] and null differ: [] means flagged
   // but nothing describable, null means this rule is not about hazard areas.
   hazard_areas: string[] | null

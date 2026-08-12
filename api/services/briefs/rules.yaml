@@ -57,21 +57,22 @@
 # source gives nothing concrete enough to compress, omit the field: rendering
 # falls back to `condition` alone.
 #
-# `magnitude` is a format template rendered by code against the same signals,
-# never by the model. Each rule states its OWN window, because they genuinely
-# differ — open-right-now for violations, a five-year window for complaints —
-# and one shared phrase would be false for some of them.
+# REMOVED 2026-08-12: `magnitude`, a per-rule count template ("46 currently
+# open") rendered by code from the same signals. It was already unrendered on
+# the page — a chip was tried in the two-layer rendering and cut — and it is now
+# gone from the smoke output and the API response too, so the brief carries no
+# counts at all.
 #
-# STATUS: informational, NOT rendered. Its original rationale was that the
-# `when` thresholds throw away everything except the yes/no, so without it
-# "Tenants here have reported mold" reads identically at two complaints and at
-# two hundred. That was written when the brief was the only surface. It no
-# longer holds: the counts sit in cards on the same page, inches away, and
-# suppression now encodes severity structurally — a condition an inspector
-# confirmed replaces the complaint rule entirely rather than out-numbering it.
-# A magnitude chip was tried in the two-layer rendering and cut. The field stays
-# because it costs nothing and layer 2 or a tooltip may want it, but nothing
-# reads it today.
+# Its original rationale was that the `when` thresholds throw away everything
+# except the yes/no, so "Tenants here have reported mold" reads identically at
+# two complaints and at two hundred. That was true when the brief was the only
+# surface and stopped being true twice over: the counts sit in cards on the same
+# page, inches away, and suppression now encodes severity structurally — a
+# condition an inspector confirmed replaces the complaint rule entirely rather
+# than out-numbering it.
+#
+# `rank_by` is a different field and stays: it orders priority peers by the
+# signal that decides which is the bigger problem, and is never displayed.
 
 version: 1
 source_document: "NYC HPD, ABCs of Housing 2024 (Tenants' Guide)"
@@ -82,10 +83,22 @@ rules:
       Hazardous violations are open — check the list below before a viewing.
     priority: 1
     when: {signal: open_class_c_violations, op: ">", value: 0}
-    magnitude: "{open_class_c_violations} currently open"
     condition: >-
       Conditions that HPD classifies as immediately hazardous are currently open
       on this building's record.
+    # Appended to `condition` by code when the building has describable hazard
+    # areas, so the sentence names what the conditions ARE rather than leaving
+    # "immediately hazardous" abstract — the same gap the model's hazard-area
+    # block exists to close, closed for the reader too.
+    #
+    # `{areas}` is filled from the taxonomy's prose labels, in open-count order,
+    # by `taxonomy.describe_hazard_areas_prose`. It is categorical, not a count:
+    # `magnitude` was deleted on the same day this arrived, and the distinction
+    # is that this says WHAT is open, never HOW MUCH. Do not add a number here.
+    #
+    # Only this rule has one. Every other condition already names its own
+    # subject ("Tenants here have reported mold"), so a clause would restate it.
+    areas_clause: "including issues related to {areas}"
     # The correction deadline is NOT uniformly 24 hours, and this text used to
     # say it was ("most must be corrected within 24 hours"). It is wrong in the
     # direction that matters: the carve-outs are among the most common class C
@@ -97,19 +110,19 @@ rules:
     # The windows below are the point past which civil penalties can be sought
     # in Housing Court, measured from the date of service, not a promise that
     # the condition gets fixed by then.
+    # Shortened 2026-08-12. Every figure and both framings — measured from
+    # service, and marking when penalties can be sought rather than promising a
+    # fix — survive the cut, because they are the part that was wrong before.
     why_it_matters: >-
-      How long the owner has depends on the condition. Heat and hot water carry
-      no grace period at all; self-closing doors carry 14 days; lead paint,
-      window guards, mold, and mice, cockroaches or rats carry 21 days; every
-      other immediately hazardous condition carries 24 hours. Those windows run
-      from the date the owner is served and mark the point past which civil
-      penalties can apply if sought in Housing Court. If the owner does not fix
-      the condition, HPD can send its own contractor through the Emergency
-      Repair Program and bill the owner for the work.
+      Deadlines vary by condition: none at all for heat and hot water, 14 days
+      for self-closing doors, 21 days for lead paint, window guards, mold, and
+      mice, cockroaches or rats, and 24 hours for everything else. They run from
+      the date the owner is served, and mark when civil penalties can be sought
+      in Housing Court — not a promise the condition is fixed by then. If the
+      owner does not fix it, HPD can send its own contractor and bill them.
     action: >-
-      The violations listed further down this page show which conditions are
-      open and when each was cited. If a hazardous condition in your own
-      apartment is still unaddressed, call 311 to report it.
+      The violation list below shows which conditions are open and when each was
+      cited. If one in your own apartment is still unaddressed, call 311.
     # Two sources, because this item makes claims from two documents. The ABCs
     # guide defines the violation classes; it does NOT carry the correction
     # timeline. That table is on HPD's penalties-and-fees page, verified against
@@ -137,19 +150,16 @@ rules:
     priority: 2
     suppressed_by_class_c_group: heating_hot_water
     when: {signal: heat_hot_water_complaints, op: ">", value: 0}
-    magnitude: "{heat_hot_water_complaints} complaints in the last five years"
     condition: >-
       Tenants here have reported problems with heat or hot water.
     why_it_matters: >-
-      Heat is required from October 1 through May 31. When it is below 55°F
-      outside, apartments must be at least 68°F between 6am and 10pm. Between
-      10pm and 6am they must be at least 62°F regardless of the outside
-      temperature. Hot water must be at least 120°F, 24 hours a day, all year.
+      Heat is required October 1 through May 31: at least 68°F from 6am to 10pm
+      when it is below 55°F outside, and 62°F overnight whatever the temperature
+      outside. Hot water must be at least 120°F, 24 hours a day, all year.
     action: >-
-      If your apartment is colder than that, call 311 or use the 311 mobile app
-      to file a complaint, and keep your service request number so you can track
-      what happens with it. Never use a gas oven or range to heat your home — it
-      can produce dangerous levels of carbon monoxide.
+      If your apartment is colder than that, file a complaint with 311 and keep
+      the service request number so you can track it. Never use a gas oven or
+      range for heat — it can produce dangerous levels of carbon monoxide.
     source: "p.9"
 
   # This rule used to require construction_year < 1960 AND open lead violations.
@@ -171,19 +181,17 @@ rules:
       Lead-paint violations on record — matters most if a child under six will live here.
     priority: 3
     when: {signal: lead_paint_violations, op: ">", value: 0}
-    magnitude: "{lead_paint_violations} currently open"
     condition: >-
       This building has lead-based paint violations on record.
     why_it_matters: >-
-      Buildings built before 1960 may still contain lead-based paint. Lead causes
-      behavioral and learning problems in young children, who can swallow dust
-      and paint chips from windowsills and floors.
+      Buildings built before 1960 may still contain lead-based paint, which
+      causes behavioral and learning problems in young children — they can
+      swallow dust and paint chips from windowsills and floors.
     action: >-
-      If a child under six lives with you, or regularly spends 10 or more hours a
-      week in your apartment, tell the owner in writing — that is what obliges
-      them to inspect annually. Report peeling paint to the owner, and call 311
-      if it is not fixed or if repair work is creating dust that is not being
-      contained.
+      If a child under six lives with you, or spends 10 or more hours a week in
+      your apartment, tell the owner in writing — that is what obliges them to
+      inspect annually. Report peeling paint, and call 311 if it is not fixed or
+      if repair work is raising dust that is not being contained.
     source: "p.8"
 
   # Smoke and CO detectors are one rule, not two, because the source treats them
@@ -205,23 +213,20 @@ rules:
     brief_line: >-
       Detector violations on record — check the ceilings on a viewing.
     priority: 4
-    magnitude: "{smoke_co_detector_violations} currently open"
     when: {signal: smoke_co_detector_violations, op: ">", value: 0}
     condition: >-
       This building has open violations for smoke or carbon monoxide detectors.
     why_it_matters: >-
       Working smoke and carbon monoxide detectors are required in New York City
-      apartments. Responsibility for them is shared, which is unusual: the owner
-      must provide them, but tenants are responsible for maintaining both
-      devices. If a tenant removed a detector or failed to replace its battery,
-      returning it to working order is the tenant's job, and a tenant may be
-      required to pay for a replacement if the device was damaged.
+      apartments, and responsibility is split, which is unusual: the owner
+      provides them, the tenant maintains them. If a detector was removed or its
+      battery not replaced, restoring it is the tenant's job — and a tenant may
+      have to pay for a replacement if the device was damaged.
     action: >-
-      On a viewing, look at the ceiling of each room and check that detectors are
-      present and have not been painted over. Once you move in, test every
-      detector at least once a month, replace the batteries at least twice a
-      year, and use only the battery type printed on the device. If an alarm
-      chirps to signal a low battery, replace it immediately.
+      On a viewing, check the ceiling of each room for detectors that are
+      present and not painted over. Once you move in, test them monthly and
+      replace the batteries twice a year, using only the type printed on the
+      device. A chirping alarm means a low battery — replace it immediately.
     source: "p.6"
 
   # The source also describes special requirements for buildings with more than
@@ -249,18 +254,17 @@ rules:
     rank_by: mold_complaints
     suppressed_by_class_c_group: mold_pests_sanitation
     when: {signal: mold_complaints, op: ">", value: 1}
-    magnitude: "{mold_complaints} complaints in the last five years"
     condition: >-
       Tenants here have reported mold.
     why_it_matters: >-
       Mold can cause allergic reactions and irritation, and can trigger asthma in
-      some people. It needs water or moisture to grow, so it generally indicates
-      a leak or persistent damp.
+      some people. It needs moisture to grow, so it generally indicates a leak or
+      persistent damp.
     action: >-
-      Report mold to the property owner, and call 311 if it is not addressed.
-      Owners are expected to inspect units annually for mold and to respond to
-      complaints. After a repair, using exhaust fans, opening windows, and
-      cleaning surfaces helps keep it from returning.
+      Report mold to the owner and call 311 if it is not addressed — owners are
+      expected to inspect annually and to respond to complaints. After a repair,
+      exhaust fans, open windows, and cleaning surfaces help keep it from
+      returning.
     source: "p.9"
 
   # Bedbugs have no distinguishable signal. The `FILING: BEDBUGS` violation
@@ -275,17 +279,16 @@ rules:
     rank_by: pest_complaints
     suppressed_by_class_c_group: mold_pests_sanitation
     when: {signal: pest_complaints, op: ">", value: 1}
-    magnitude: "{pest_complaints} complaints in the last five years"
     condition: >-
       Tenants here have reported pests.
     why_it_matters: >-
       Roaches, mice, and rats can be hazards for people with respiratory
       conditions such as asthma. Bedbugs spread between apartments through small
-      cracks in walls and floors, so catching an infestation early matters.
+      cracks in walls and floors, so catching them early matters.
     action: >-
-      Report pests to the property owner and call 311 if they are not dealt with.
-      For bedbugs specifically, an HPD inspector will visit — a violation is
-      issued only if the inspector can visually confirm live bedbugs.
+      Report pests to the owner and call 311 if they are not dealt with. For
+      bedbugs, an HPD inspector visits — a violation is issued only if they can
+      visually confirm live bedbugs.
     source: "p.10"
 
 # ---------------------------------------------------------------------------

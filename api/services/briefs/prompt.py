@@ -130,6 +130,16 @@ def render_context(
     traced to nothing. Naming the actual areas makes the ask answerable instead
     of tempting.
 
+    **The order is significance and the prompt now says so.** The SQL sorts by
+    open count descending (`ORDER BY n DESC, category`, capped at
+    HAZARD_AREA_LIMIT), and `describe_hazard_areas` preserves that order, so
+    position 1 is the area this building has the most of. Saying only "most
+    common first" left the choice open and the model took the most *writable*
+    area rather than the largest one; it is now told to use the first and fall
+    through only when the first names nothing observable. The fall-through is
+    deliberate — some categories are real but not inspectable, and a sentence
+    about the biggest area is worth nothing if the reader cannot act on it.
+
     Its three states are all distinct and none may collapse into another:
 
         ["Heat / hot water", ...]  class C flagged, areas known
@@ -163,11 +173,15 @@ def render_context(
                 if hazard_areas:
                     areas = "\n".join(f"      - {a}" for a in hazard_areas)
                     lines.append(
-                        f"    Issue {i} covers these areas, most common first:\n"
+                        f"    Issue {i} covers these areas. They are listed in "
+                        f"order, the first being the one this building has most "
+                        f"of:\n"
                         f"{areas}\n"
-                        f"    Base the Issue {i} sentence on one of them. Do not "
-                        f"name an area not listed here, and do not let this list "
-                        f"constrain your sentence for any other issue."
+                        f"    Base the Issue {i} sentence on the FIRST area. Use "
+                        f"a later one only if the first names nothing a reader "
+                        f"can look at or ask about. Do not name an area that is "
+                        f"not listed here, and do not let this list constrain "
+                        f"your sentence for any other issue."
                     )
                 else:
                     lines.append(

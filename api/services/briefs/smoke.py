@@ -47,6 +47,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from services.briefs.confidence import confidence_note_from_signals  # noqa: E402
 from services.briefs.rules import load_rules, select_rules  # noqa: E402
+from services.briefs.validate import (  # noqa: E402
+    failures, is_publishable, validate,
+)
 # The category lists and the complaint window live in signals.py, shared with
 # the hpd_brief_signals materialized view and the route that serves it. They
 # were defined here first; they moved when the view was added, because a smoke
@@ -54,7 +57,7 @@ from services.briefs.rules import load_rules, select_rules  # noqa: E402
 from services.briefs.signals import (  # noqa: E402,F401
     COMPLAINT_WINDOW_YEARS, DETECTOR_CATEGORIES, HAZARD_AREA_LIMIT,
     HEAT_CATEGORIES, MOLD_CATEGORIES, PEST_CATEGORIES,
-    VIOLATION_CATEGORIES_SCANNED,
+    RETIRED_LEAD_ORDER_NUMBERS, VIOLATION_CATEGORIES_SCANNED,
 )
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[3] / ".env")
@@ -84,8 +87,13 @@ LEFT JOIN LATERAL (
 ) oc ON TRUE
 LEFT JOIN LATERAL (
     SELECT
-        count(*) FILTER (WHERE o.category = 'LEAD-BASED PAINT')
-                                                AS lead_paint_violations,
+        -- Mirrors hpd_brief_signals: the LEAD-BASED PAINT category plus the
+        -- repealed order numbers whose violations are open lead paint but whose
+        -- category reads RETIRED. See signals.RETIRED_LEAD_ORDER_NUMBERS.
+        count(*) FILTER (
+            WHERE o.category = 'LEAD-BASED PAINT'
+               OR v.order_number = ANY($7)
+        )                                       AS lead_paint_violations,
         -- Smoke and CO in one signal: the source treats them as one section and
         -- the guidance is identical. Neither category carries any open class C
         -- violations, so this cannot be folded into the class C signal.
@@ -212,7 +220,7 @@ async def fetch_buildings(
                 await conn.fetchrow(
                     BY_BIN_QUERY, b, MOLD_CATEGORIES, PEST_CATEGORIES,
                     DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED,
-                    HEAT_CATEGORIES,
+                    HEAT_CATEGORIES, RETIRED_LEAD_ORDER_NUMBERS,
                 )
                 for b in bins
             ]
@@ -221,6 +229,7 @@ async def fetch_buildings(
             RANDOM_QUERY if random_sample else STRATIFIED_QUERY,
             limit, MOLD_CATEGORIES, PEST_CATEGORIES,
             DETECTOR_CATEGORIES, VIOLATION_CATEGORIES_SCANNED, HEAT_CATEGORIES,
+            RETIRED_LEAD_ORDER_NUMBERS,
         )
         return [dict(r) for r in rows]
     finally:
@@ -327,11 +336,13 @@ async def main() -> int:
         return await check_view(rows)
 
     provider = None
+    cap = None
+    CallCapExceeded = ()  # nothing to catch when no model is in play
     if args.with_model:
         # Imported lazily: without --with-model this script must not pay the
         # Anthropic SDK import cost, and must not require an API key.
         from services.briefs.providers import AnthropicProvider, OllamaProvider
-        from services.briefs.telemetry import CallCap
+        from services.briefs.telemetry import CallCap, CallCapExceeded
 
         cap = CallCap(limit=args.cap)
         provider = (
@@ -381,16 +392,27 @@ async def main() -> int:
 
         context = None
         if provider is not None:
-            context = await _generate_context(row, selected, provider)
+            try:
+                context = await _generate_context(row, selected, provider)
+            except CallCapExceeded as e:
+                # The cap raises BEFORE dispatch, so this building cost nothing
+                # — but letting it propagate would abort the run and throw away
+                # every brief already rendered above. Stop generating, keep
+                # rendering: the deterministic layer is most of the output and
+                # needs no model at all.
+                print(f"\n  [cap]   {e}")
+                print("          nothing was charged for this building. "
+                      "Remaining buildings render without a generated sentence "
+                      "— raise --cap to generate for all of them.")
+                provider = None
 
         print("-" * 78)
         _print_full_brief(context, selected, signals, note, document,
                           has_model=provider is not None)
 
     print("=" * 78)
-    calls = 0 if provider is None else provider._cap.used  # type: ignore[attr-defined]
-    cost = 0.0 if provider is None else _TOTAL_COST
-    print(f"{len(rows)} buildings · {calls} model calls · ${cost:.4f}")
+    calls = cap.used if cap else 0
+    print(f"{len(rows)} buildings · {calls} model calls · ${_TOTAL_COST:.4f}")
     return 0
 
 
@@ -425,12 +447,12 @@ def _print_full_brief(context, selected, signals, note, document, *,
     # visible here so a mismatch is obvious on sight rather than only in a test.
     watch = list(context.watch_for) if context is not None else []
 
+    from services.briefs.taxonomy import describe_hazard_areas_prose
+
+    areas = describe_hazard_areas_prose(signals.get("open_class_c_categories"))
     for i, rule in enumerate(selected):
         print()
-        print(_wrap(rule.condition, indent="  • ", hang="    "))
-        magnitude = rule.magnitude_text(signals)
-        if magnitude:
-            print(f"    {magnitude}.")
+        print(_wrap(rule.condition_with_areas(areas), indent="  • ", hang="    "))
         if i < len(watch):
             print(_wrap(watch[i], indent="    Worth checking: ", hang="    "))
         print(_wrap(rule.why_it_matters, indent="    "))
@@ -472,6 +494,19 @@ async def _generate_context(row: dict, selected, provider):
 
     _TOTAL_COST += result.record.cost_usd or 0.0
     r = result.record
+    # Run the publish gate here rather than only in the corpus builder: a smoke
+    # run whose whole purpose is judging prompt output should say whether that
+    # output would have been publishable, not leave it to be eyeballed. The
+    # sentence is still printed on a failure — the point of a smoke run is to
+    # see what the model wrote, and quarantining it from the terminal would hide
+    # exactly what needs reading.
+    verdicts = validate(result.context.watch_for, selected_rules=selected)
+    if is_publishable(verdicts):
+        print(f"  [valid] {len(verdicts)} check(s) passed")
+    else:
+        print(f"  [valid] WOULD NOT PUBLISH ({len(failures(verdicts))} failed)")
+        for v in failures(verdicts):
+            print(f"          {v.check}: {v.detail}")
     # Measured locally after the response returns — none of this comes from the
     # model, so it is tagged separately from the generated text and printed
     # outside the brief.

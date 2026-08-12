@@ -3,6 +3,10 @@
 
 # ── Environment / secrets ─────────────────────────────────────────────────────
 .env
+# Neon branch connection strings, written during a migration test. Live
+# credentials with the same access as prod — `.env` alone does NOT match these.
+.env.branch
+.env.*
 !.env.example
 frontend/.env.local
 !frontend/.env.local.example

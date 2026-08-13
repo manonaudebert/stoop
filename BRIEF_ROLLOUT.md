@@ -17,43 +17,52 @@ entry in the project memory index.
 
 ## Start here
 
-**State: phase 0 is live and phase 1 has not started.** The brief on the page
-today is 100% authored and cited — six rules, zero generated text, no model in
-the request path. That is why it could ship before the validator exists: there
-is nothing in it to hallucinate.
+**State as of 2026-08-12, commit `429a06f` on `building-brief` (not pushed).**
+Nothing on the page is generated. Every phase-1 *mechanism* now exists — prompt
+verified on Haiku, validator gating, corpus table, key, and route read path —
+but **no corpus has been generated**, so every `watch_for` is null and the page
+renders the same authored brief it did at phase 0.
 
-**Next step: phase 1**, in the order the open decisions block each other:
+**Phase 1's three blockers are cleared. Two steps remain, and both are optional:**
 
-1. **Verify the prompt on Haiku** (open decision 5). ✅ **Done 2026-08-12** —
-   two runs of five calls, `brief-v5` then `brief-v6`, all ten returning `ok`
-   with no repairs and no refusals. Total spend **$0.02**. The run also
-   corrected the cost model: see *Cost* below.
-2. **Land the first validator check** (open decision 3). ✅ **Done 2026-08-12**
-   — `vague_quantifiers` and `rights_language`, both lexical hard fails, both
-   already observed failing on real output. `is_publishable` now has something
-   to gate on, and `smoke.py --with-model` prints the verdicts, so step 1's five
-   calls report whether their output would have published rather than leaving it
-   to be eyeballed.
-3. **`brief_texts` table and the corpus.** Table, key and read path landed
-   2026-08-12; **the corpus itself has not been generated** and needs step 1
-   first. `migrate_brief_texts.sql` is written and NOT yet applied to prod. The
-   route joins the table already: with it empty, every `watch_for` comes back
-   null and the page renders exactly as it does today.
+1. ~~Verify the prompt on Haiku~~ ✅ 2026-08-12. Ten calls across `brief-v5`
+   and `brief-v6`, all `ok`, $0.02. Also corrected the cost model — see *Cost*.
+2. ~~Land the first validator check~~ ✅ 2026-08-12. `vague_quantifiers` and
+   `rights_language`, both lexical hard fails.
+3. ~~`brief_texts` table, key, route read~~ ✅ 2026-08-12. Migration **applied
+   to prod 2026-08-12**; table exists, zero rows. It was briefly left unapplied
+   on the reasoning that a missing table and an empty table both mean "no
+   generated text" — that was wrong and it broke the page. See *The missing
+   table* below.
 
-`watch_for` renders in layer 1 beside the authored `brief_line`, carrying the
-AI-assisted label. That gives phase 1 a per-rule kill-switch for free: if the
-generated sentence for a rule is not clearly better than the authored line next
-to it, that rule's corpus simply does not ship. No fallback logic to write.
+**To actually ship generated text, two things are left:**
+
+- **Generate the corpus.** ~11,850 Haiku calls, **~$24** at the measured rate.
+  Apply `migrate_brief_texts.sql` first. No script exists yet — `smoke.py` runs
+  one building at a time; a batch runner that walks distinct prompt shapes,
+  validates, and writes rows has to be written.
+- **Render `watch_for` in `BuildingBrief.tsx`.** The API field exists and is
+  always null today; the component ignores it. This is where the AI-assisted
+  label gets designed, and it is the only user-visible change.
+
+**Stopping here is a coherent choice.** Phase 0 is a complete product: authored,
+cited, no model in the request path. Everything above is additive.
+
+`watch_for` is designed to render in layer 1 beside the authored `brief_line`,
+carrying the AI-assisted label. That gives a per-rule kill-switch for free: if a
+rule's generated sentence is not clearly better than the authored line next to
+it, that rule's corpus simply does not ship. No fallback logic to write.
 
 ### What is live, all on prod
 
 | | |
 |---|---|
-| `hpd_brief_signals` | materialized view, 310,400 rows, applied 2026-08-11 |
+| `hpd_brief_signals` | materialized view, 310,400 rows. Rebuilt 2026-08-12 with the lead-paint fix |
 | `GET /hpd/building/{bin}/brief` | watch items, citations, hazard areas, confidence note |
 | Refresh | `sync_all.py::_refresh_all_views`, after both summary views |
 | `BuildingBrief.tsx` | two-layer rendering, after the Severity card |
-| Tests | 308, offline, no database and no API key |
+| Tests | 321, offline, no database and no API key |
+| `brief_texts` | applied to prod 2026-08-12, 0 rows — the phase-1 corpus table |
 
 Verified against real pages rather than only tests: BIN 2003187 (suppression
 plus three layer-1 lines), BIN 3096715 (three items with citations), BIN 1000041
@@ -284,7 +293,7 @@ already makes 11 parallel fetches:
 | Signal | Available from | Status |
 |---|---|---|
 | `open_class_c_violations` | `getHpdBreakdown` → `open_count` where class C | ✅ |
-| `lead_paint_violations` | same, `category = 'LEAD-BASED PAINT'` | ✅ |
+| `lead_paint_violations` | same, `category = 'LEAD-BASED PAINT'` **OR order number in the repealed lead set** — see below | ✅ |
 | `smoke_co_detector_violations` | same, the two detector categories | ✅ |
 | `open_class_c_categories` (hazard areas) | same, class C rows by `open_count` desc | ✅ |
 | `mold_complaints` | `getHpdComplaintMinorBreakdown(bin, 5)` → `MOLD` | ✅ |
@@ -294,6 +303,36 @@ already makes 11 parallel fetches:
 Note `getHpdBreakdown` is all-time but carries `open_count`, which is what the
 rules want: open is point-in-time, and a violation issued a decade ago can still
 be open. `getHpdBreakdownRecent` (5yr) is the wrong input for these signals.
+
+### The lead paint definition — corrected 2026-08-12
+
+`hpd_order_numbers.category = 'RETIRED'` describes the **order number**: the
+legal provision was repealed. It says nothing about whether the violation was
+corrected — `current_status` on those rows is still `NOV SENT OUT` or
+`NOT COMPLIED WITH`, and the short description reads `REPEALED: LEAD - BASED
+PAINT`.
+
+Filtering the signal on `category = 'LEAD-BASED PAINT'` therefore missed 18,895
+open lead violations — **22% of all of them** — so 2,421 buildings with open
+lead paint showed no lead paint item. The same rows were dropped from hazard
+areas as administrative *and* counted toward the abstract class C total: wrong
+twice, in the direction that costs a renter with a young child the most.
+
+Not a legacy cleanup. Order 614 was issued 2,211 times in 2020 and 1,716 in
+2021, and those NOVs carry same-year inspection dates — live findings filed
+under a repealed order number, not re-keyed history.
+
+Seven orders (555, 606, 607, 610, 611, 612, 614) are pinned as an explicit list
+in `signals.py`, not matched by `short_description ILIKE '%LEAD%'`: the pattern
+found them, but a free-text scan is not a definition. `open_class_c_violations`
+still counts them — they are genuine immediately-hazardous conditions.
+
+Applied to prod 2026-08-12: the rule now fires on 17,582 buildings in the view,
+up from 15,478 measured the old way. Full methodology note in `METRICS.md`.
+
+**Found from a screenshot of a violations table, not from a test.** No test
+could have caught it — every test passed before and after, because the bug was
+in what the definition *meant*, not in whether the code matched the definition.
 
 ### The heat definition — resolved
 
@@ -573,6 +612,39 @@ change is where the AI-assisted label gets designed.
 The signals are already materialized (`hpd_brief_signals`), so the ~2.5s live
 query that used to block this is no longer in the way.
 
+### The missing table — fixed 2026-08-12
+
+Commit 429a06f shipped the `brief_texts` read path and deliberately left
+`migrate_brief_texts.sql` unapplied, on the reasoning that a missing table and
+an empty table both mean "no generated text". **That is false, and it took the
+brief off the page for ~52% of buildings for the length of the branch.**
+
+An empty table returns zero rows. An absent one raises `undefined_table`
+(sqlstate `42P01`), which is a 500 — and `page.tsx` fetches the brief with
+`.catch(() => null)`, so the failure was silent: the section simply was not
+there. It went unnoticed because `_generated_watch_for` returns before the query
+when no rule fires, so the ~48% of buildings that flag nothing kept rendering
+their empty state correctly. The half of the site with nothing to say looked
+fine; the half with something to say was blank.
+
+Two changes, because either alone leaves a trap:
+
+- **The migration is applied to prod** (2026-08-12, 0 rows). This is the real
+  fix — an empty corpus table is the intended steady state.
+- **The route degrades instead of raising.** `_generated_watch_for` catches
+  `ProgrammingError` and returns `{}` when, and only when, `orig.sqlstate` is
+  `42P01`; any other database error still propagates, since `ProgrammingError`
+  also covers syntax and permission faults that must not be hidden. It rolls the
+  aborted transaction back and logs a warning naming the migration.
+
+Two tests pin it (`test_briefs_route.py`): one that a missing table still
+returns the authored brief, one that a different sqlstate is not swallowed. Both
+were verified to fail with the guard disabled.
+
+**The general rule: a route that reads a new optional table must ship in the
+same change as the migration that creates it.** "Optional at the row level" does
+not make it optional at the table level.
+
 ---
 
 ## Open decisions
@@ -701,6 +773,10 @@ is worth expecting anywhere the free path and the paid path differ.
 
 ## Things that cost time, recorded so they cost it once
 
+- **A frontend `.catch(() => null)` turns a 500 into an invisible bug.** The
+  missing-`brief_texts` break (above) showed nothing in the UI — no error, no
+  empty state, just an absent section. When a section fails soft, check the API
+  status code directly; the page will not tell you.
 - **Never read rule base rates off `smoke.py`'s default sample.** It is
   stratified by percentile bucket and takes the *worst* building in each, so
   every rule fires by construction. Use an `ORDER BY random()` dump instead.

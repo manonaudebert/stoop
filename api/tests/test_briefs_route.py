@@ -8,6 +8,7 @@ unmodified, and that the three states of `hazard_areas` survive serialization.
 
 import pytest
 from datetime import date
+from sqlalchemy.exc import ProgrammingError
 
 from main import app
 from database import get_db
@@ -368,6 +369,71 @@ async def test_zero_flag_building_makes_no_corpus_query(client):
     assert resp.status_code == 200
     assert resp.json()["no_flags"] is True
     assert mock_db.execute.await_count == 1
+
+
+def _undefined_table_error(sqlstate: str = "42P01") -> ProgrammingError:
+    """A ProgrammingError shaped like the one SQLAlchemy's asyncpg dialect
+    raises for a missing relation.
+
+    The dialect copies asyncpg's `sqlstate` onto the translated DBAPI error
+    (dialects/postgresql/asyncpg.py::_handle_exception) and SQLAlchemy re-wraps
+    that as `orig`, so `e.orig.sqlstate` is what the route reads.
+    """
+    orig = Exception("relation \"brief_texts\" does not exist")
+    orig.sqlstate = sqlstate
+    return ProgrammingError("SELECT ...", {}, orig)
+
+
+@pytest.mark.asyncio
+async def test_missing_corpus_table_still_returns_the_authored_brief(client):
+    """A missing `brief_texts` degrades to phase 0; it does not 500.
+
+    This regressed once for real: the read path shipped while the migration was
+    unapplied, the route raised, and the frontend's `.catch(() => null)` erased
+    the whole section on every building where a rule fired. The migration is
+    applied now, so this test — not production — is what keeps it true.
+    """
+    cache_clear()
+    mock_db = make_mock_db(
+        MockResult([MockRow(SIGNALS_ROW)]), _undefined_table_error(),
+    )
+    app.dependency_overrides[get_db] = db_override(mock_db)
+    try:
+        resp = await client.get(f"/hpd/building/{SAMPLE_BIN}/brief")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+    assert resp.status_code == 200
+    items = resp.json()["watch_items"]
+    assert items, "the authored brief must survive a missing corpus"
+    assert all(i["watch_for"] is None for i in items)
+    assert all(i["brief_line"] for i in items)
+    # The aborted transaction is rolled back rather than left for teardown.
+    mock_db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_other_database_errors_are_not_swallowed(client):
+    """The guard is narrow: only undefined_table. Proving this fails red for
+    any other sqlstate is the whole reason the check is on the code and not on
+    the exception class — `ProgrammingError` also covers syntax errors and
+    permission failures, which are real faults and must not be hidden.
+    """
+    cache_clear()
+    mock_db = make_mock_db(
+        MockResult([MockRow(SIGNALS_ROW)]),
+        _undefined_table_error(sqlstate="42501"),   # insufficient_privilege
+    )
+    app.dependency_overrides[get_db] = db_override(mock_db)
+    try:
+        # It propagates rather than returning 500 because ASGITransport defaults
+        # to raise_app_exceptions=True. In production main.py's handler turns
+        # this into a 500 — either way it is a fault, which is the point.
+        with pytest.raises(ProgrammingError):
+            await client.get(f"/hpd/building/{SAMPLE_BIN}/brief")
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+    mock_db.rollback.assert_not_awaited()
 
 
 def test_only_the_top_two_rules_are_looked_up():

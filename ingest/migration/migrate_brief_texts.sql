@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS brief_texts (
 -- A missing key is a NORMAL state, not an error: the page renders the authored
 -- `brief_line` for that rule. That is what makes a partial corpus shippable and
 -- the per-rule kill-switch free.
+--
+-- A missing TABLE is a different thing, and was wrongly treated as equivalent.
+-- An empty table returns zero rows; an absent one raises undefined_table, which
+-- the frontend swallows into a null brief — so the whole section vanished from
+-- every building where a rule fired. Applied to prod 2026-08-12, and the route
+-- now degrades instead of raising. Apply this migration wherever the API runs;
+-- do not rely on the fallback.
 
 COMMENT ON TABLE brief_texts IS
     'Generated Building Brief sentences, one row per (rule, input shape, prompt '

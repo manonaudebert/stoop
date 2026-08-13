@@ -1,8 +1,10 @@
+import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 
 from database import get_db
 from limiter import limiter
@@ -31,6 +33,11 @@ from services.briefs.taxonomy import (
 )
 
 router = APIRouter(prefix="/hpd", tags=["hpd"])
+
+logger = logging.getLogger(__name__)
+
+# PostgreSQL undefined_table. See _generated_watch_for.
+UNDEFINED_TABLE = "42P01"
 
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
@@ -451,6 +458,20 @@ async def _generated_watch_for(
 
     Keyed on (rule_id, input_key, prompt_version), which is the primary key, so
     a stale corpus from an older prompt is invisible rather than served.
+
+    A MISSING `brief_texts` table is treated as an empty one. This is not
+    defensive padding — it is the difference between a degraded brief and no
+    brief at all, and it has already cost the site once: the read path shipped
+    in 429a06f while `migrate_brief_texts.sql` was deliberately left unapplied,
+    on the reasoning that a missing table and an empty table both mean "no
+    generated text". They do not. An empty table returns zero rows; a missing
+    one raises, and `page.tsx` fetches the brief with `.catch(() => null)`, so
+    the entire section silently disappeared from every building where a rule
+    fired — the ~52% of pages that have something to say. The early return above
+    is why the other 48% looked fine and hid the bug.
+
+    Narrow on purpose: only undefined_table, and only for this optional read.
+    Any other database error is a real fault and still propagates.
     """
     keys = keys_for_selection(
         selected_rules, categories=categories, percentile=percentile
@@ -458,23 +479,36 @@ async def _generated_watch_for(
     if not keys:
         return {}
 
-    rows = (await db.execute(
-        text("""
-            SELECT rule_id, watch_for
-            FROM brief_texts
-            WHERE prompt_version = :version
-              AND (rule_id, input_key) IN (
-                  SELECT * FROM unnest(
-                      CAST(:rule_ids AS text[]), CAST(:input_keys AS text[])
+    try:
+        rows = (await db.execute(
+            text("""
+                SELECT rule_id, watch_for
+                FROM brief_texts
+                WHERE prompt_version = :version
+                  AND (rule_id, input_key) IN (
+                      SELECT * FROM unnest(
+                          CAST(:rule_ids AS text[]), CAST(:input_keys AS text[])
+                      )
                   )
-              )
-        """),
-        {
-            "version": PROMPT_VERSION,
-            "rule_ids": [rule_id for rule_id, _ in keys],
-            "input_keys": [key for _, key in keys],
-        },
-    )).all()
+            """),
+            {
+                "version": PROMPT_VERSION,
+                "rule_ids": [rule_id for rule_id, _ in keys],
+                "input_keys": [key for _, key in keys],
+            },
+        )).all()
+    except ProgrammingError as e:
+        if getattr(e.orig, "sqlstate", None) != UNDEFINED_TABLE:
+            raise
+        # The failed statement aborted the transaction. Nothing downstream reads
+        # the database, but roll back explicitly rather than leave a poisoned
+        # session for the dependency teardown to discover.
+        await db.rollback()
+        logger.warning(
+            "brief_texts is missing — serving authored brief_line only. "
+            "Apply ingest/migration/migrate_brief_texts.sql."
+        )
+        return {}
     return {r.rule_id: r.watch_for for r in rows}
 
 

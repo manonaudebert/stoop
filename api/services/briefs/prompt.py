@@ -55,7 +55,7 @@ Verify with count_tokens before assuming cache savings in any cost model.
 
 from typing import Any
 
-from .schema import MAX_WATCH_ITEMS
+from .schema import MAX_WATCH_ITEMS, MIN_AREAS_FOR_PAIRED
 
 # Above this percentile, absolute-severity language describes something real:
 # the building genuinely stands out against its neighbors. Below it, "severe" is
@@ -73,7 +73,8 @@ You will be given the conditions flagged further down the page, numbered.
 
 You write one field.
 
-watch_for: a LIST of sentences, one per issue, for the issues numbered in your input. One sentence for issue 1, one for issue 2, in that order. If only one issue is listed, return one sentence. If none are listed, return an empty list.
+watch_for: a LIST of entries, one per issue, for the issues numbered in your input. One entry for issue 1, one for issue 2, in that order. If only one issue is listed, return one entry. If none are listed, return an empty list.
+  An entry is ONE sentence, unless your input explicitly asks that issue for two. Then write exactly two sentences in that one entry, still as a single list entry. Never split one issue across two entries — the entry positions are what tie your sentences to the issues.
   Each sentence names something the reader can look at, ask about, or check for themselves, for THAT issue only. Point at a thing in the physical apartment or a question worth asking a landlord, current tenant, or neighbor.
   Each sentence must stand alone. Do not write "also" or "in addition" — they are shown as separate items, not as a paragraph.
   Do not cover two issues in one sentence, and do not repeat the same check twice in different words. If two issues would genuinely produce the same check, find what is distinct about each.
@@ -84,7 +85,7 @@ watch_for: a LIST of sentences, one per issue, for the issues numbered in your i
   Bad: "Check for heat and paint problems." (one sentence covering both issues)
 
 Rules for EVERY sentence you write:
-- One sentence each, under 200 characters. Not two short ones joined by a semicolon.
+- Under 200 characters per sentence. One sentence per issue, unless that issue's input asks for two; then each of the two is still its own complete sentence under 200 characters. Never join sentences with a semicolon to dodge this.
 - Never write a number, a count, a percentage, an ordinal, or a year — not as digits, not as words.
 - Never use a vague quantifier either: no "a few", "several", "some", "a handful", "a number of", "multiple", "many", "numerous", "isolated", "a couple", "a high number of". These are counts in disguise, and you have not been told the count. A record you are told about may contain one entry or several hundred; you cannot tell, so do not imply it. This rule holds even when strong language about severity is permitted — being allowed to call a record bad is not being allowed to say how large it is.
 - Where you would reach for a quantifier, name the thing instead. "Heat and pest problems appear on this building's record" — not "a few problems appear".
@@ -177,11 +178,27 @@ def render_context(
                         f"order, the first being the one this building has most "
                         f"of:\n"
                         f"{areas}\n"
-                        f"    Base the Issue {i} sentence on the FIRST area. Use "
-                        f"a later one only if the first names nothing a reader "
-                        f"can look at or ask about. Do not name an area that is "
-                        f"not listed here, and do not let this list constrain "
-                        f"your sentence for any other issue."
+                        + (
+                            # Two areas, two sentences: this issue is the only
+                            # one whose single condition contains several
+                            # distinct things to look at, and naming only the
+                            # largest left the rest unmentioned in layer 1.
+                            f"    Write TWO sentences for Issue {i}, in one "
+                            f"entry. The first is about the FIRST area, the "
+                            f"second about the SECOND area. Do not write about "
+                            f"the same area twice, and do not merge them into "
+                            f"one sentence covering both."
+                            if len(hazard_areas) >= MIN_AREAS_FOR_PAIRED
+                            # One area: one sentence. Asking for two here is
+                            # asking the model to pad, and padding is what
+                            # produced invented nouns before this block existed.
+                            else f"    Base the Issue {i} sentence on the FIRST "
+                                 f"area. Use a later one only if the first names "
+                                 f"nothing a reader can look at or ask about."
+                        )
+                        + f" Do not name an area that is not listed here, and do "
+                          f"not let this list constrain your sentence for any "
+                          f"other issue."
                     )
                 else:
                     lines.append(
@@ -190,7 +207,10 @@ def render_context(
                         f"about it, omit its sentence."
                     )
         numbered = "\n".join(lines)
-        block = f"Write one watch_for sentence for each of these:\n{numbered}"
+        # "one entry", not "one sentence": an issue carrying two sentences would
+        # otherwise be contradicted by its own lead-in, and a prompt that argues
+        # with itself is resolved by the model rather than by us.
+        block = f"Write one watch_for entry for each of these:\n{numbered}"
         if rest:
             others = "\n".join(f"    - {c}" for c in rest)
             block += (

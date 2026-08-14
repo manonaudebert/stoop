@@ -48,12 +48,49 @@ from pydantic import BaseModel, Field, StringConstraints
 # the list was already ordered by open count descending. What changed is that
 # the prompt stopped leaving the choice open, so the model can no longer pick
 # the most writable area over the largest one.
+# v6, amended 2026-08-12 and deliberately NOT bumped to v7: the class C issue
+# may now carry TWO sentences, one for its largest hazard area and one for its
+# second, when both are describable. Previously it named only the first, so a
+# building with open violations for pests AND egress AND maintenance got one
+# sentence about pests and the rest went unmentioned in layer 1. Every other
+# issue is still exactly one sentence — see MAX_WATCH_FOR_PAIRED for why this
+# rule is the only one that can carry two.
+#
+# Amended in place because v6 has never backed a corpus: `brief_texts` is empty,
+# so there is nothing to invalidate and a bump would buy nothing. Bump on the
+# commit that FREEZES a prompt for generation, not on each edit — otherwise the
+# version log fills with numbers that never produced a row.
 PROMPT_VERSION = "brief-v6"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
 # 200 characters a model that starts listing findings runs out of room and fails
 # validation, which is the intended outcome rather than a tolerated one.
 MAX_WATCH_FOR = 200
+
+# The class C issue may carry TWO sentences in one entry when the building has
+# two describable hazard areas, so its budget is two sentences and nothing more.
+#
+# It is the only issue that can: every other rule names one condition, and a
+# second sentence about it would either repeat the first or invent a detail. The
+# class C rule is the one whose issue genuinely contains several distinct things
+# — a building can have open violations for pests AND for maintenance AND for
+# egress — and until now the reader heard about only the largest.
+#
+# Deliberately a hard multiple rather than a round number: the budget for two
+# sentences is exactly the budget for one, twice. A model given slack per
+# sentence writes longer sentences.
+MAX_WATCH_FOR_PAIRED = MAX_WATCH_FOR * 2
+
+# The rule allowed to use MAX_WATCH_FOR_PAIRED. Named here rather than in
+# prompt.py because the schema, the prompt and the validator all have to agree
+# on it, and two of the three already import from this module.
+PAIRED_SENTENCE_RULE_ID = "open_class_c"
+
+# A second sentence needs a second thing to be about. Below this many
+# describable hazard areas the model is asked for one sentence, because the
+# alternative is padding — and padding a sentence about hazards is how the
+# invented nouns ("water damage or mold") got in before the areas block existed.
+MIN_AREAS_FOR_PAIRED = 2
 
 # One per issue, for the top two. A list rather than a paragraph because each
 # entry is answerable to a specific rule: entry i addresses selected_rules[i],
@@ -62,7 +99,12 @@ MAX_WATCH_FOR = 200
 # checkable as a whole.
 MAX_WATCH_ITEMS = 2
 
-WatchSentence = Annotated[str, StringConstraints(max_length=MAX_WATCH_FOR)]
+# The schema holds the LOOSER cap, because one entry legitimately reaches it and
+# Pydantic cannot see which rule an entry answers. The tighter per-rule limit is
+# enforced by validate.check_length, which is handed the rule id. Schema rejects
+# what is structurally impossible; the validator rejects what is wrong for this
+# issue — the same split as everywhere else in this package.
+WatchSentence = Annotated[str, StringConstraints(max_length=MAX_WATCH_FOR_PAIRED)]
 
 
 class GeneratedContext(BaseModel):

@@ -2,28 +2,34 @@ import type { BuildingBrief as Brief, BriefWatchItem } from '@/lib/types'
 import TooltipIcon from './TooltipIcon'
 
 /**
- * The deterministic Building Brief — phase 0, no generated text.
+ * The Building Brief.
  *
  * Two layers, because the authored rules text is legally careful and cited,
  * which is exactly what makes it long. The page already carries every count in
  * cards; the brief's job is interpretation, not restatement.
  *
- *   Layer 1  one compact authored line per item — `brief_line` — plus, for the
- *            class C item, the bare group labels of its hazard areas.
+ *   Layer 1  one compact authored line per item — `brief_line` — the generated
+ *            `watch_for` sentence when the corpus has one, and, for the class C
+ *            item, the bare group labels of its hazard areas.
  *   Layer 2  the full authored block, verbatim and unchanged, behind a
- *            per-item disclosure.
+ *            per-item disclosure. Never generated, at any phase.
  *
  * NO NUMBERS ANYWHERE. `magnitude` — a per-rule count template — was cut from
  * rules.yaml and the API response on 2026-08-12, after a chip was tried here
  * and rejected: the counts sit in cards inches away on the same page, and
  * suppression now encodes severity structurally.
  *
- * Every string is authored — `brief_line`, `condition`, `why_it_matters` and
- * `action` all come verbatim from rules.yaml, each carrying the page of HPD's
- * "ABCs of Housing" it was written from. There is no AI-assisted label anywhere
- * in this component because there is nothing here a model wrote. Phase 1 adds
- * generated `watch_for` sentences into layer 1, and those get labelled; layer 2
- * stays fully authored.
+ * Every string here is authored except one. `brief_line`, `condition`,
+ * `why_it_matters` and `action` come verbatim from rules.yaml, each carrying the
+ * page of HPD's "ABCs of Housing" it was written from. `watch_for` is the single
+ * generated field, and it is the reason WatchForLine exists as its own labelled
+ * block rather than another sentence in the flow: a reader has to be able to
+ * tell, without being told twice, which line a model wrote.
+ *
+ * `watch_for` is null on most items and that is permanent, not provisional. Only
+ * the top two rules are ever generated, and any rule whose corpus is deleted
+ * falls back here with no code change — the per-rule kill-switch. Rendering must
+ * therefore treat null as ordinary, never as a loading or error state.
  *
  * The disclosure is a native <details>, so this stays a server component with
  * no client JS and the expanded text remains findable by in-page search.
@@ -85,19 +91,38 @@ function WatchItem({ item }: { item: BriefWatchItem }) {
   // a machine-cut sentence is exactly the kind of paraphrase this feature is
   // built to avoid.
   const headline = item.brief_line ?? item.condition
-  const labels = item.hazard_area_labels ?? []
+
+  // The hazard areas are named INSIDE the headline rather than on a muted line
+  // beneath it: "Hazardous violations are open" points at nothing on its own,
+  // and a reader who stops after line one — which is what layer 1 is for —
+  // should not be the one who misses what "hazardous" meant here.
+  //
+  // Only when the headline is the authored `brief_line`. When a rule authors
+  // none we fall back to `condition`, which the API has ALREADY extended with
+  // its own areas clause (Rule.condition_with_areas), so appending here would
+  // name them twice in one sentence.
+  //
+  // The phrase arrives joined. Building it from a list here would duplicate
+  // `taxonomy.join_prose`, whose serial comma exists because these entries
+  // contain their own "and" — the bug that produced "mold and pests and
+  // building maintenance". `??` rather than a truthiness check on a list also
+  // means a payload predating this field (Next's Data Cache holds fetches for
+  // a day) degrades to the bare authored line instead of throwing.
+  const areas = item.hazard_area_phrase ?? null
+  const headlineText = item.brief_line && areas
+    // The authored line keeps its wording and loses only its final period, the
+    // same contract `condition_with_areas` follows server-side: extended, never
+    // rewritten.
+    ? `${headline.replace(/\.\s*$/, '')}, including ${areas}.`
+    : headline
 
   return (
     <li>
       <div style={{ fontSize: 14, color: '#111111', lineHeight: 1.45 }}>
-        {headline}
+        {headlineText}
       </div>
 
-      {labels.length > 0 && (
-        <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.5, marginTop: 3 }}>
-          includes {labels.map((l) => l.toLowerCase()).join(', ')}
-        </div>
-      )}
+      {item.watch_for && <WatchForLine sentence={item.watch_for} />}
 
       <details style={{ marginTop: 5 }}>
         <summary
@@ -170,6 +195,47 @@ function WatchItem({ item }: { item: BriefWatchItem }) {
         </div>
       </details>
     </li>
+  )
+}
+
+/**
+ * The one generated sentence, and the only place on this page a model wrote
+ * anything.
+ *
+ * Set apart deliberately rather than blended into the authored line above it.
+ * The authored text is cited to a page of the ABCs of Housing and the generated
+ * text is not, so a reader who wants to check a claim needs to know which is
+ * which before they go looking — a labelled block answers that at a glance, and
+ * an inline sentence with a footnote does not.
+ *
+ * "Worth checking" is the same phrase `smoke.py` prints for this field in the
+ * terminal, on purpose: one name per thing, so the review artifact and the page
+ * can be read against each other without translation.
+ *
+ * The left rule is 2px #E8E8E8 rather than the disclosure's #F0F0F0 — related
+ * idiom, distinguishable weight — and the tag stays mono to inherit the card's
+ * existing register for machine-generated metadata.
+ */
+function WatchForLine({ sentence }: { sentence: string }) {
+  return (
+    <div style={{ marginTop: 6, paddingLeft: 10, borderLeft: '2px solid #E8E8E8' }}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontFamily: MONO, fontSize: 9.5, letterSpacing: '0.07em',
+          textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 2,
+        }}
+      >
+        Worth checking · AI-assisted
+        <TooltipIcon
+          text="Written by an AI model from this building's HPD violation and complaint record, then checked automatically before it was published. Everything else in this section is written by hand and cited — open “details & your rights” to read it."
+          align="left"
+        />
+      </div>
+      <div style={{ fontSize: 13, color: '#404040', lineHeight: 1.5 }}>
+        {sentence}
+      </div>
+    </div>
   )
 }
 

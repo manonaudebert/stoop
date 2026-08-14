@@ -322,6 +322,21 @@ def test_brief_line_carries_no_digits():
         assert not any(c.isdigit() for c in rule.brief_line), rule.id
 
 
+def test_prose_fields_carry_no_em_dashes():
+    """`why_it_matters` and `action` are prose; `brief_line` is a label.
+
+    In a full sentence an em dash makes the clause after it read as an aside,
+    and in this text that clause is usually the operative fact ("tell the owner
+    in writing — that is what obliges them to inspect annually"). Layer 1 is
+    exempt on purpose: `brief_line` uses the dash as a condition/action
+    separator, which is what makes it scannable at one line.
+    """
+    for rule in rules_mod.load_rules()[0]:
+        for field in ("why_it_matters", "action"):
+            value = getattr(rule, field)
+            assert "—" not in value, f"{rule.id}.{field}: {value}"
+
+
 # --------------------------------------------------------------------------
 # The generated-sentence corpus (phase 1)
 # --------------------------------------------------------------------------

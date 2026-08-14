@@ -20,6 +20,18 @@ open-weights model through Ollama, so prompt iteration stays free; only
     cd api && ../.venv/bin/python -m services.briefs.smoke \\
         --with-model --provider anthropic --limit 5 --cap 5
 
+    # same, but writes the publishable sentences into brief_texts so the page
+    # renders them. --reset clears the current prompt version first, which is
+    # what you want while iterating: see write_corpus.
+    cd api && ../.venv/bin/python -m services.briefs.smoke \\
+        --with-model --provider anthropic --write --reset \\
+        --bin 3096715 --bin 2003187 --cap 5
+
+The fast prompt loop is this script WITHOUT --write: it prints the brief as the
+page renders it, plus the validator verdict, in seconds and with no database or
+cache in the way. Add --write only once the wording reads right, to see the
+layout.
+
 NOTE ON SAMPLING: the default sample is stratified by percentile bucket and
 takes the *worst* building in each, so every rule fires on it by construction.
 It is built to exercise the rendering, not to measure anything. Never read rule
@@ -47,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from services.briefs.confidence import confidence_note_from_signals  # noqa: E402
 from services.briefs.rules import load_rules, select_rules  # noqa: E402
+from services.briefs.schema import PROMPT_VERSION  # noqa: E402
 from services.briefs.validate import (  # noqa: E402
     failures, is_publishable, validate,
 )
@@ -325,7 +338,24 @@ async def main() -> int:
         "--check-view", action="store_true",
         help="compare hpd_brief_signals against the inline computation and exit",
     )
+    parser.add_argument(
+        "--write", action="store_true",
+        help="upsert the publishable sentences into brief_texts (implies --with-model)",
+    )
+    parser.add_argument(
+        "--reset", action="store_true",
+        help=f"with --write: delete every row at the current prompt version "
+             f"first. See write_corpus.",
+    )
     args = parser.parse_args()
+
+    if args.write and not args.with_model:
+        # Not silently implied: --with-model is the flag that spends money, and
+        # a flag that turns spending on as a side effect of another flag is how
+        # an unintended bill happens.
+        parser.error("--write needs --with-model: there is nothing to write without a call")
+    if args.reset and not args.write:
+        parser.error("--reset only makes sense with --write")
 
     _, document = load_rules()
     # --check-view samples randomly: the stratified sample is six buildings at
@@ -350,6 +380,10 @@ async def main() -> int:
             if args.provider == "ollama"
             else AnthropicProvider(model=args.model or "claude-haiku-4-5", cap=cap)
         )
+
+    # Accumulated across buildings and written once at the end, so a run that
+    # dies partway leaves the corpus untouched rather than half-updated.
+    pending: list[tuple] = []
 
     for row in rows:
         signals = to_signals(row)
@@ -393,7 +427,11 @@ async def main() -> int:
         context = None
         if provider is not None:
             try:
-                context = await _generate_context(row, selected, provider)
+                result = await _generate_context(row, selected, provider)
+                if result is not None:
+                    context = result.context
+                    if args.write:
+                        pending += _corpus_rows(row, selected, result)
             except CallCapExceeded as e:
                 # The cap raises BEFORE dispatch, so this building cost nothing
                 # — but letting it propagate would abort the run and throw away
@@ -413,6 +451,9 @@ async def main() -> int:
     print("=" * 78)
     calls = cap.used if cap else 0
     print(f"{len(rows)} buildings · {calls} model calls · ${_TOTAL_COST:.4f}")
+
+    if args.write:
+        await write_corpus(pending, reset=args.reset)
     return 0
 
 
@@ -475,10 +516,16 @@ def _print_full_brief(context, selected, signals, note, document, *,
 
 
 async def _generate_context(row: dict, selected, provider):
-    """Generate the sentences the model writes; return them, or None on failure.
+    """Generate the sentences the model writes; return the BriefResult, or None
+    on failure.
 
     Returns rather than raising: a smoke run over several buildings is more
     useful when one refusal doesn't end it.
+
+    The whole result rather than just `.context`, because `--write` needs the
+    record's model and prompt version for the corpus row, and reading those off
+    the run's arguments instead would record what was ASKED for rather than what
+    answered — a repair or a provider fallback would then be logged wrong.
     """
     global _TOTAL_COST
     from services.briefs.generate import BriefGenerationFailed, generate_context_line
@@ -514,7 +561,120 @@ async def _generate_context(row: dict, selected, provider):
     print(f"\n  [call]  {r.latency_ms}ms · {r.repairs} repair(s) · "
           f"{r.input_tokens} in / {r.output_tokens} out · "
           f"${r.cost_usd:.5f}{dropped}")
-    return result.context
+    return result
+
+
+def _corpus_rows(row: dict, selected, result) -> list[tuple]:
+    """The `brief_texts` rows this building's generation earns, if any.
+
+    Validated PER SENTENCE, not per building. `is_publishable` over the whole
+    brief is all-or-nothing, which is right for deciding whether to show a
+    building generated text at all, and wrong here: the corpus is keyed by rule
+    and input shape, so one bad sentence would throw away a good sibling that
+    thousands of other buildings share. Each pair is validated on its own by
+    calling `validate` with a one-element list, which is the public API rather
+    than a reimplementation of it — the `pairing` check still holds at 1:1.
+
+    Keys come from `keys_for_selection`, the same function the route reads with.
+    Computing them any other way here would let the writer and the reader drift,
+    which is the one bug this design cannot detect: a mismatched key is a miss,
+    and a miss looks exactly like phase 0.
+    """
+    from services.briefs.corpus import keys_for_selection
+
+    keys = keys_for_selection(
+        selected,
+        categories=row["open_class_c_categories"],
+        percentile=row["hpd_violations_percentile"],
+    )
+    rules = list(selected)
+    record = result.record
+
+    rows: list[tuple] = []
+    for i, (rule_id, input_key) in enumerate(keys):
+        if i >= len(result.context.watch_for):
+            # Fewer sentences than keys: the model returned a short list, or one
+            # was dropped. Not an error — that rule falls back to its authored
+            # line — but it must not shift the pairing.
+            break
+        assert rule_id == rules[i].id, "keys_for_selection drifted from selected order"
+        sentence = result.context.watch_for[i]
+        verdicts = validate([sentence], selected_rules=[rules[i]])
+        if not is_publishable(verdicts):
+            print(f"  [write] SKIPPED {rule_id}: "
+                  + "; ".join(v.detail for v in failures(verdicts)))
+            continue
+        rows.append((rule_id, input_key, sentence,
+                     record.prompt_version, record.model))
+    return rows
+
+
+CORPUS_UPSERT = """
+INSERT INTO brief_texts
+    (rule_id, input_key, watch_for, prompt_version, model, validated_at)
+SELECT t.rule_id, t.input_key, t.watch_for, t.prompt_version, t.model, now()
+FROM unnest(
+    $1::text[], $2::text[], $3::text[], $4::text[], $5::text[]
+) AS t(rule_id, input_key, watch_for, prompt_version, model)
+ON CONFLICT (rule_id, input_key, prompt_version) DO UPDATE
+SET watch_for    = EXCLUDED.watch_for,
+    model        = EXCLUDED.model,
+    validated_at = EXCLUDED.validated_at
+"""
+
+
+async def write_corpus(pending: list[tuple], *, reset: bool) -> None:
+    """Upsert the run's sentences into `brief_texts`.
+
+    Upsert rather than insert, because the whole point of this flag is a loop:
+    tweak `prompt.py`, re-run, reload the page. An insert would collide on the
+    primary key the second time round and a delete-then-insert would leave the
+    corpus empty if the run died between them.
+
+    `--reset` exists because upserting only covers the shapes this run
+    regenerated. Change the prompt so a building resolves to a DIFFERENT input
+    key and the old shape's row survives untouched at the same prompt version,
+    still served to every other building that resolves to it. That stale row is
+    invisible — a corpus hit looks identical whenever it was written — so during
+    prompt iteration, clear the version and rewrite it.
+
+    Bumping `PROMPT_VERSION` is the production answer to the same problem and is
+    deliberately NOT done here: it invalidates the whole corpus for everyone,
+    which is correct once per shipped prompt change and absurd once per edit.
+    """
+    if reset:
+        # asyncpg returns the command tag, e.g. "DELETE 12".
+        status = await _execute(
+            "DELETE FROM brief_texts WHERE prompt_version = $1", PROMPT_VERSION
+        )
+        print(f"  [write] reset: cleared {status.split()[-1]} row(s) at {PROMPT_VERSION}")
+
+    if not pending:
+        print("  [write] nothing publishable to write")
+        return
+
+    # Deduplicated because the run is per building and the corpus is per input
+    # shape: five buildings flagging lead paint produce five identical keys, and
+    # ON CONFLICT cannot resolve two of them inside one statement.
+    by_key = {(r[0], r[1], r[3]): r for r in pending}
+    columns = list(zip(*by_key.values()))
+    await _execute(CORPUS_UPSERT, *[list(c) for c in columns])
+    print(f"  [write] {len(by_key)} row(s) upserted at {PROMPT_VERSION} "
+          f"({len(pending)} generated, {len(pending) - len(by_key)} duplicate shape(s))")
+    print("  [write] the API caches briefs for an hour and Next caches the "
+          "fetch for a day — restart the API and rm -rf .next before reading "
+          "the page, or check /hpd/building/<bin>/brief directly.")
+
+
+async def _execute(sql: str, *params) -> str:
+    conn = await asyncpg.connect(
+        os.environ["DATABASE_URL"].split("?")[0],
+        server_settings={"statement_timeout": "30000"},
+    )
+    try:
+        return await conn.execute(sql, *params)
+    finally:
+        await conn.close()
 
 
 if __name__ == "__main__":

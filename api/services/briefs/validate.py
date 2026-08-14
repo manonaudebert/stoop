@@ -47,6 +47,10 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+from .schema import (
+    MAX_WATCH_FOR, MAX_WATCH_FOR_PAIRED, PAIRED_SENTENCE_RULE_ID,
+)
+
 # ---------------------------------------------------------------------------
 # Check 1 — vague quantifiers
 # ---------------------------------------------------------------------------
@@ -174,12 +178,40 @@ def check_rights_language(sentence: str, rule_id: str, index: int) -> Verdict:
     return Verdict("rights_language", True, where)
 
 
+def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
+    """The per-issue character budget, which is not uniform.
+
+    Pydantic caps every entry at the LOOSER `MAX_WATCH_FOR_PAIRED`, because the
+    schema cannot see which rule an entry answers and one rule legitimately
+    reaches it. That leaves the tighter limit unenforced for every other rule,
+    which is exactly the gap a validator handed the rule id can close.
+
+    Without this, raising the schema cap to let the class C issue carry two
+    sentences would have silently doubled the budget for mold, pests, heat and
+    lead paint too — and the 200-character limit is not a formatting preference.
+    It is what makes a model that starts listing findings run out of room.
+    """
+    budget = (
+        MAX_WATCH_FOR_PAIRED if rule_id == PAIRED_SENTENCE_RULE_ID else MAX_WATCH_FOR
+    )
+    where = f"issue {index + 1} ({rule_id})"
+    if len(sentence) > budget:
+        return Verdict(
+            "length",
+            False,
+            f"{where}: {len(sentence)} characters, over the {budget} allowed "
+            f"for this issue",
+        )
+    return Verdict("length", True, where)
+
+
 # One check per (sentence, rule) pair. Registering them here rather than calling
 # them inline is what lets `validate` stay a loop while the designed set grows,
 # and what makes "which checks ran" answerable from the verdict list alone.
 CHECKS: tuple[Callable[[str, str, int], Verdict], ...] = (
     check_vague_quantifiers,
     check_rights_language,
+    check_length,
 )
 
 

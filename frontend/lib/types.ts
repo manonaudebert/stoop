@@ -311,6 +311,11 @@ export interface BriefWatchItem {
   // which case rendering falls back to `condition` — never a client-side
   // truncation, which would be exactly the paraphrase this feature avoids.
   brief_line: string | null
+  // The only generated text on the building page. Null whenever the corpus has
+  // no row for this rule's input shape, which is the normal state for every
+  // rule below the top two and for any rule whose corpus was deleted. Anything
+  // rendering it must carry the AI-assisted label — see WatchForLine.
+  watch_for: string | null
   condition: string
   why_it_matters: string
   action: string
@@ -318,10 +323,17 @@ export interface BriefWatchItem {
   // Only populated for the class C rule. [] and null differ: [] means flagged
   // but nothing describable, null means this rule is not about hazard areas.
   hazard_areas: string[] | null
-  // The same areas as bare group labels, for layer 1. hazard_areas pairs each
-  // label with its authored tooltip sentence — right depth for the expanded
-  // block, far too much for a one-line summary.
-  hazard_area_labels: string[] | null
+  // The same areas as one ready-to-interpolate prose phrase for layer 1, e.g.
+  // "mold and pests, and building maintenance". hazard_areas pairs each label
+  // with its authored tooltip sentence — right depth for the expanded block,
+  // far too much for a one-line summary.
+  //
+  // Joined server-side, and deliberately not a string[]: the entries contain
+  // their own "and", so the serial comma is load-bearing, and joining here
+  // would be a second implementation of taxonomy.join_prose free to drift from
+  // the one the expanded block uses. Null when the rule has no areas AND when
+  // none are describable — layer 1 renders the bare authored line either way.
+  hazard_area_phrase: string | null
 }
 
 export interface BuildingBrief {

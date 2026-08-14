@@ -278,13 +278,28 @@ class BriefWatchItem(BaseModel):
     # things: [] is "flagged, nothing describable" (4.6% of class C buildings),
     # None is "this rule is not about hazard areas at all".
     hazard_areas: list[str] | None = None
-    # The same areas as bare group labels, for layer 1. `hazard_areas` pairs
-    # each label with its authored tooltip sentence, which is the right depth
-    # for the expanded block and far too much for a one-line summary — the
-    # sentences are dictionary definitions, not body copy. Sent as its own field
-    # rather than split from the above on " — ", which would break the moment a
-    # label contained a dash.
-    hazard_area_labels: list[str] | None = None
+    # The same areas as ONE ready-to-interpolate prose phrase for layer 1, e.g.
+    # "mold and pests, and building maintenance". `hazard_areas` pairs each
+    # label with its authored tooltip sentence, which is the right depth for the
+    # expanded block and far too much for a one-line summary — the sentences are
+    # dictionary definitions, not body copy.
+    #
+    # A joined string rather than a list, and prose labels rather than the chart
+    # labels this field used to carry, because layer 1 now names the areas
+    # INSIDE its sentence instead of on a line beneath it. Two things follow.
+    # The chart labels are written for a legend and read badly mid-clause
+    # ("bldg maintenance", "safety & fire"); `prose_label` exists precisely to
+    # expand them, and the taxonomy asserts every hazard-area group declares
+    # one. And the join is not a `join(", ")` — entries contain their own "and",
+    # so the serial-comma rule in `taxonomy.join_prose` is load-bearing, and
+    # sending a list would mean reimplementing that rule in TypeScript where it
+    # could drift. Joining server-side keeps one implementation, the same one
+    # `condition_with_areas` uses for the expanded block.
+    #
+    # None when the rule is not about hazard areas, and None when it is but none
+    # are describable — layer 1 renders the bare authored line in both cases, so
+    # unlike `hazard_areas` the two states need no distinction here.
+    hazard_area_phrase: str | None = None
 
 
 class BuildingBriefResponse(BaseModel):

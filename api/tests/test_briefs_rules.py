@@ -687,17 +687,73 @@ def test_prompt_tells_the_model_to_use_the_most_common_area_first():
     """
     body = _context(
         conditions=["Hazardous conditions are open."],
-        hazard_areas=[
-            "Bldg maintenance — Broken fixtures.", "Heat / hot water — No heat.",
-        ],
+        hazard_areas=["Bldg maintenance — Broken fixtures."],
         hazard_issue_index=0,
     )
     assert "the first being the one this building has most of" in body
     assert "Base the Issue 1 sentence on the FIRST area" in body
     assert "only if the first names nothing a reader can look at" in body
+
+
+def test_only_one_rule_can_ever_carry_two_sentences():
+    """Two modules name this rule and they must not drift.
+
+    `prompt.HAZARD_AREA_RULE_ID` decides which issue is ASKED for two sentences;
+    `schema.PAIRED_SENTENCE_RULE_ID` decides which is ALLOWED two. They live
+    apart because prompt.py imports schema.py and not the reverse, so the
+    constant cannot simply be shared. If they diverge, every class C sentence is
+    requested at two sentences and then hard-failed at the one-sentence budget —
+    a total outage of the only rule that has hazard areas, produced by editing
+    one string.
+
+    The priority assertion guards the other half of the claim: issue 2 is always
+    a single sentence, which is only true while the paired rule outranks every
+    other rule and therefore never lands in position 2.
+    """
+    assert schema.PAIRED_SENTENCE_RULE_ID == prompt.HAZARD_AREA_RULE_ID
+
+    loaded = rules.load_rules()[0]
+    paired = [r for r in loaded if r.id == schema.PAIRED_SENTENCE_RULE_ID]
+    assert len(paired) == 1, "the paired rule is not in rules.yaml"
+    others = [r for r in loaded if r.id != schema.PAIRED_SENTENCE_RULE_ID]
+    assert all(paired[0].priority < r.priority for r in others), (
+        "the paired rule no longer outranks every other rule, so it can appear "
+        "as issue 2 — where a two-sentence entry is neither asked for nor capped"
+    )
+
+
+def test_two_areas_ask_for_two_sentences_and_one_area_does_not():
+    """The v7 change. One area is still one sentence, on purpose.
+
+    A second sentence needs a second thing to be about; asking for one anyway is
+    asking the model to pad, and padding a sentence about hazards is how the
+    invented nouns got in before the hazard-area block existed.
+    """
+    two = _context(
+        conditions=["Hazardous conditions are open."],
+        hazard_areas=[
+            "Bldg maintenance — Broken fixtures.", "Heat / hot water — No heat.",
+        ],
+        hazard_issue_index=0,
+    )
+    assert "Write TWO sentences for Issue 1" in two
+    assert "The first is about the FIRST area, the second about the SECOND" in two
     # Order must survive into the rendered block — the instruction is useless
     # if the list itself is reordered on the way in.
-    assert body.index("Bldg maintenance") < body.index("Heat / hot water")
+    assert two.index("Bldg maintenance") < two.index("Heat / hot water")
+
+    one = _context(
+        conditions=["Hazardous conditions are open."],
+        hazard_areas=["Bldg maintenance — Broken fixtures."],
+        hazard_issue_index=0,
+    )
+    assert "Write TWO sentences" not in one
+
+    # The trailing constraint survives both branches: it is appended after the
+    # per-branch instruction, and a string built by concatenation is exactly
+    # where a branch quietly loses a clause.
+    for body in (one, two):
+        assert "Do not name an area that is not listed here" in body
 
 
 def test_hazard_area_order_is_carried_through_from_the_categories():
@@ -796,10 +852,40 @@ def test_watch_for_caps_the_number_of_sentences():
 
 
 def test_each_watch_sentence_is_length_capped():
-    """Per-item, not just the list — one 5,000-char entry is the failure mode."""
+    """Per-item, not just the list — one 5,000-char entry is the failure mode.
+
+    The schema holds the LOOSER paired cap because it cannot see which rule an
+    entry answers. The tighter per-rule budget is check_length's job, pinned
+    below.
+    """
     with pytest.raises(Exception):
-        schema.GeneratedContext(watch_for=["x" * (schema.MAX_WATCH_FOR + 1)])
-    assert schema.GeneratedContext(watch_for=["x" * schema.MAX_WATCH_FOR]).watch_for
+        schema.GeneratedContext(watch_for=["x" * (schema.MAX_WATCH_FOR_PAIRED + 1)])
+    assert schema.GeneratedContext(
+        watch_for=["x" * schema.MAX_WATCH_FOR_PAIRED]
+    ).watch_for
+
+
+def test_only_the_paired_rule_may_spend_the_larger_budget():
+    """The gap raising the schema cap opened, and the reason check_length exists.
+
+    Without it, letting the class C issue carry two sentences would have doubled
+    the budget for mold, pests, heat and lead paint as well — and 200 characters
+    is not a formatting preference, it is what makes a model that starts listing
+    findings run out of room.
+    """
+    long_enough_for_two = "x" * (schema.MAX_WATCH_FOR + 1)
+
+    ok = _verdicts(long_enough_for_two, schema.PAIRED_SENTENCE_RULE_ID)
+    assert validate.is_publishable(ok)
+
+    too_long = _verdicts(long_enough_for_two, "mold")
+    assert not validate.is_publishable(too_long)
+    assert [v.check for v in validate.failures(too_long)] == ["length"]
+
+    # And the paired rule is not unbounded either.
+    over = _verdicts("x" * (schema.MAX_WATCH_FOR_PAIRED + 1),
+                     schema.PAIRED_SENTENCE_RULE_ID)
+    assert not validate.is_publishable(over)
 
 
 def test_schema_forbids_extra_fields():
@@ -857,7 +943,7 @@ def test_a_clean_sentence_is_publishable():
         "lead_paint",
     )
     assert validate.is_publishable(verdicts)
-    assert {v.check for v in verdicts} == {"vague_quantifiers", "rights_language"}
+    assert {v.check for v in verdicts} == {"vague_quantifiers", "rights_language", "length"}
 
 
 @pytest.mark.parametrize("sentence", [
@@ -954,7 +1040,7 @@ def test_verdicts_name_the_issue_they_judge():
     failed = validate.failures(verdicts)
     assert len(failed) == 1
     assert "issue 2 (mold)" in failed[0].detail
-    assert len(verdicts) == 4  # two checks × two sentences
+    assert len(verdicts) == 6  # three checks × two sentences
 
 
 # --------------------------------------------------------------------------

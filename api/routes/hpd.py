@@ -28,8 +28,7 @@ from services.briefs.confidence import confidence_note_from_signals
 from services.briefs.corpus import PROMPT_VERSION, keys_for_selection
 from services.briefs.rules import load_rules, select_rules
 from services.briefs.taxonomy import (
-    describe_hazard_areas, describe_hazard_areas_prose,
-    describe_violation_categories,
+    describe_hazard_areas, describe_hazard_areas_prose, join_prose,
 )
 
 router = APIRouter(prefix="/hpd", tags=["hpd"])
@@ -610,8 +609,15 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
                 describe_hazard_areas(row.open_class_c_categories)
                 if rule.id == "open_class_c" else None
             ),  # unreachable when row is None: no rule fires on all-zero signals
-            hazard_area_labels=(
-                describe_violation_categories(row.open_class_c_categories)
+            # Joined here, not on the client: `join_prose` carries a serial-comma
+            # rule that exists because these entries contain their own "and"
+            # ("mold and pests, and building maintenance"), and a second
+            # implementation of it in TypeScript would drift. Empty joins to ""
+            # — falsy on both sides — so "flagged, nothing describable" needs no
+            # special case in the renderer.
+            hazard_area_phrase=(
+                join_prose(describe_hazard_areas_prose(row.open_class_c_categories))
+                or None
                 if rule.id == "open_class_c" else None
             ),
         )

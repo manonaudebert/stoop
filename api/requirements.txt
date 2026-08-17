@@ -4,6 +4,9 @@ sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 pydantic==2.10.0
 python-dotenv==1.2.2
-geojson==3.1.0
 slowapi==0.1.9
 cachetools==5.5.0
+# Read by services/briefs/rules.py, which routes/hpd.py imports on the serving
+# path. It arrived transitively via uvicorn[standard] and worked by accident;
+# pinned here because it is imported directly.
+PyYAML==6.0.3

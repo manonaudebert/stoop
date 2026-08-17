@@ -60,7 +60,38 @@ from pydantic import BaseModel, Field, StringConstraints
 # so there is nothing to invalidate and a bump would buy nothing. Bump on the
 # commit that FREEZES a prompt for generation, not on each edit — otherwise the
 # version log fills with numbers that never produced a row.
-PROMPT_VERSION = "brief-v6"
+# v6 -> v7: MAX_WATCH_ITEMS 2 -> 3, and `select_rules` capped to a matching 3.
+# This one IS a bump rather than an amendment, on both halves of the rule above.
+# The prompt materially changes for any building with three or more flagged
+# conditions: it now numbers three issues instead of two, and the trailing
+# unnumbered "other conditions" list disappears, because with the two caps equal
+# there is never a remainder to list. A sentence generated under v6 was written
+# for a model shown a different record.
+#
+# The handful of v6 rows in `brief_texts` are smoke-test output, not a corpus,
+# and are invalidated by this on purpose.
+#
+# v7, amended in place 2026-08-14 (same session it was created, no rows behind
+# it): the user turn was rewritten around the reader's actual situation — a
+# fifteen-minute viewing, a broker, possibly an empty unit — and carries a
+# worked GOOD/BAD pair. It replaces "ask the current tenant about their
+# experience with X", which was grammatical, on-topic, and useless: it leaned on
+# a person who is usually absent, wanted an opinion rather than evidence, and
+# left the reader to invent the wording. SYSTEM lost the example that taught
+# exactly that shape.
+# v7 -> v8: showing the model each issue's authored `action` text, so that "do
+# not repeat the static text" became an instruction it could follow, was TRIED
+# AND REVERTED on 2026-08-17. It did not work: the detector line came back as
+# "Look for a smoke alarm within fifteen feet of the bedroom door... and press
+# their test buttons", which is the authored action with the nouns shuffled. A
+# model shown the text it must avoid rewrites it more carefully rather than
+# finding something else to say, so the +138 tokens per call bought nothing.
+#
+# The number stays at v8 rather than reverting to v7. Both have rows behind them
+# now, generated under prompts that differ, and reusing v7 would serve those
+# older rows alongside new ones under a version that no longer identifies a
+# single prompt — which is the one thing this field exists to prevent.
+PROMPT_VERSION = "brief-v8"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
 # 200 characters a model that starts listing findings runs out of room and fails
@@ -92,12 +123,23 @@ PAIRED_SENTENCE_RULE_ID = "open_class_c"
 # invented nouns ("water damage or mold") got in before the areas block existed.
 MIN_AREAS_FOR_PAIRED = 2
 
-# One per issue, for the top two. A list rather than a paragraph because each
-# entry is answerable to a specific rule: entry i addresses selected_rules[i],
-# which is what lets a validator check that a sentence about mold was produced
-# for a building with a mold flag. Free prose covering both would only be
+# One per issue. A list rather than a paragraph because each entry is
+# answerable to a specific rule: entry i addresses selected_rules[i], which is
+# what lets a validator check that a sentence about mold was produced for a
+# building with a mold flag. Free prose covering them all would only be
 # checkable as a whole.
-MAX_WATCH_ITEMS = 2
+#
+# RAISED 2026-08-14, 2 -> 3, to match `select_rules(max_items=3)`. The two are
+# now equal on purpose: every item the page shows carries a generated line,
+# rather than the top two of five. Measured over all 310,400 buildings in
+# `hpd_brief_signals` before the change — it adds ZERO corpus rows. Only
+# `open_class_c` carries hazard areas in its key (899 of the 909 rows); every
+# other rule's key is `rule|sev=0|1|areas=` and therefore has exactly two
+# possible rows however many slots exist. The third slot is always filled by a
+# rule whose rows were already being generated. The cost is calls, not rows:
+# distinct prompt shapes go 2,114 -> 3,170, about $4.86 -> $7.29 at Haiku
+# rates.
+MAX_WATCH_ITEMS = 3
 
 # The schema holds the LOOSER cap, because one entry legitimately reaches it and
 # Pydantic cannot see which rule an entry answers. The tighter per-rule limit is
@@ -108,7 +150,7 @@ WatchSentence = Annotated[str, StringConstraints(max_length=MAX_WATCH_FOR_PAIRED
 
 
 class GeneratedContext(BaseModel):
-    """Everything the model is allowed to write: up to two watch items.
+    """Everything the model is allowed to write: up to MAX_WATCH_ITEMS items.
 
     All of it is orientation. None of it is advice: what a tenant may *do* —
     call 311, write to the owner, what the owner is obliged to inspect — is
@@ -133,7 +175,7 @@ class GeneratedContext(BaseModel):
         default_factory=list,
         max_length=MAX_WATCH_ITEMS,
         description=(
-            "One sentence per flagged issue, for the two most significant, in "
+            "One sentence per flagged issue, in "
             "the same order they were given. Each names something the reader "
             "can look at, ask about, or check themselves. Each under 200 "
             "characters. Never a legal right, obligation, deadline, or remedy. "

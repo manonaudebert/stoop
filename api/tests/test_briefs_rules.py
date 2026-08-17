@@ -238,11 +238,11 @@ def test_single_condition_fires_its_rule():
 
 
 def test_selection_is_priority_ordered_and_capped():
-    """All six rules fire; the cap of 5 keeps the five highest-priority ones.
+    """All six rules fire; the cap keeps the highest-priority ones.
 
-    Only the lower-ranked of the two priority-5 peers is truncated. Pests (7
-    complaints) outranks mold (2) by magnitude, so mold is the one dropped —
-    the peers are ordered by `rank_by`, not by authoring order.
+    The cap is 3 as of 2026-08-14, matching MAX_WATCH_ITEMS so that every item
+    shown carries a generated line. Both priority-5 peers (mold, pests) and
+    smoke_co_detectors are truncated here.
     """
     selected = rules.select_rules(
         _signals(
@@ -255,9 +255,32 @@ def test_selection_is_priority_ordered_and_capped():
         )
     )
     assert [r.id for r in selected] == [
-        "open_class_c", "heat_hot_water", "lead_paint", "smoke_co_detectors",
-        "pests",
+        "open_class_c", "heat_hot_water", "lead_paint",
     ]
+
+
+def test_the_two_caps_stay_equal():
+    """Every item the page shows must be able to carry a generated line.
+
+    These are separate constants in separate modules — the display cap in
+    rules.py, the generation cap in schema.py — and nothing but this test makes
+    them agree. If they drift apart, either an item renders with a permanently
+    absent "worth checking" line (display > generation) or the corpus pays for
+    sentences no page will ever show (generation > display).
+    """
+    import inspect
+    default = inspect.signature(rules.select_rules).parameters["max_items"].default
+    assert default == schema.MAX_WATCH_ITEMS
+
+
+def test_truncation_drops_the_lowest_priority_peer_first():
+    """Within a priority, `rank_by` decides who survives the cap, not authoring
+    order. Pests (7 complaints) outranks mold (2), so mold goes first."""
+    selected = rules.select_rules(
+        _signals(mold_complaints=2, pest_complaints=7),
+        max_items=1,
+    )
+    assert [r.id for r in selected] == ["pests"]
 
 
 def test_detector_rule_sits_between_lead_paint_and_the_complaint_rules():
@@ -446,6 +469,81 @@ def test_rule_text_is_stripped_of_yaml_folding_artifacts():
             assert "  " not in field
 
 
+def _signal_names(predicate) -> set[str]:
+    """Every signal a `when` predicate reads, including nested all/any branches."""
+    if "signal" in predicate:
+        return {predicate["signal"]}
+    names: set[str] = set()
+    for key in ("all", "any"):
+        for sub in predicate.get(key, ()):
+            names |= _signal_names(sub)
+    return names
+
+
+def _is_complaint_rule(rule) -> bool:
+    return any(s.endswith("_complaints") for s in _signal_names(rule.when))
+
+
+def test_complaint_rules_state_the_window_they_actually_count():
+    """Every complaint-driven rule names its window, and names the real one.
+
+    The complaint signals are windowed (`signals.COMPLAINT_WINDOW_YEARS`) while
+    the violation signals are not — they filter on `violation_status = 'Open'`
+    with no date bound at all. So "Tenants here have reported mold" was true of
+    a complaint filed within five years and read as true of one filed twenty
+    years ago, which is the reading a renter would take.
+
+    The number is prose in rules.yaml and an integer in signals.py, and prose
+    cannot import. This is the join: change the constant without rewriting the
+    text and the sentence becomes a false statement about our own data, silently
+    and on every building the rule fires on. Fail loudly instead.
+
+    Keyed off the signal name rather than a hardcoded id list so a new
+    complaint rule is covered the day it is added.
+    """
+    from services.briefs.signals import COMPLAINT_WINDOW_YEARS
+
+    # Spelled, not a numeral: `test_brief_line_carries_no_digits` bans digits
+    # from layer 1 so the cards keep sole ownership of every count. A window is
+    # not a count, but "5" next to "Mold reported" reads as one at a glance,
+    # which is the confusion that guard exists to prevent. The word satisfies
+    # both. Mapped rather than hardcoded so the constant stays the source.
+    words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 10: "ten"}
+    assert COMPLAINT_WINDOW_YEARS in words, (
+        f"no spelled form for a {COMPLAINT_WINDOW_YEARS}-year window — add one, "
+        "and rewrite the complaint rules in rules.yaml to match"
+    )
+    window = f"in the last {words[COMPLAINT_WINDOW_YEARS]} years"
+    complaint_rules = [r for r in rules.load_rules()[0] if _is_complaint_rule(r)]
+    assert complaint_rules, "no complaint-driven rules found — has `when` changed shape?"
+    for rule in complaint_rules:
+        for field in ("brief_line", "condition"):
+            text = getattr(rule, field) or ""
+            assert window in text, (
+                f"{rule.id}.{field} does not state the {COMPLAINT_WINDOW_YEARS}-year "
+                f"complaint window: {text!r}"
+            )
+
+
+def test_violation_rules_do_not_claim_a_window_they_do_not_apply():
+    """The mirror of the test above, and the reason it is keyed on the signal.
+
+    Violation rules count OPEN violations regardless of age — a class C issued
+    in 1965 and never corrected still counts. Copying the window phrasing onto
+    them to make the headlines look uniform would assert a filter the SQL does
+    not apply.
+    """
+    for rule in rules.load_rules()[0]:
+        if _is_complaint_rule(rule):
+            continue
+        for field in ("brief_line", "condition"):
+            text = (getattr(rule, field) or "").lower()
+            assert "in the last" not in text, (
+                f"{rule.id}.{field} claims a time window, but its signal is not "
+                f"date-filtered: {text!r}"
+            )
+
+
 def test_no_hpd_jargon_leaks_into_rule_conditions():
     """Generated and authored text alike must avoid inspector shorthand.
 
@@ -586,14 +684,30 @@ def test_conditions_are_passed_through_verbatim():
 
 
 def test_issues_are_numbered_so_the_positional_contract_is_explicit():
+    """All three are numbered now that MAX_WATCH_ITEMS is 3.
+
+    `select_rules` caps at the same 3, so in production there is never a
+    remainder to list unnumbered — the trailing "other conditions" block only
+    renders if a caller passes more conditions than the cap, which the route
+    does not do. See test_conditions_beyond_the_cap_are_shown_but_excluded.
+    """
     body = _context(conditions=["First thing.", "Second thing.", "Third thing."])
     assert "Issue 1: First thing." in body
     assert "Issue 2: Second thing." in body
-    # The third is shown so the model knows the record is larger, but explicitly
-    # excluded from watch_for — otherwise it writes a sentence for it.
-    assert "Issue 3" not in body
+    assert "Issue 3: Third thing." in body
+
+
+def test_conditions_beyond_the_cap_are_shown_but_excluded():
+    """A condition past MAX_WATCH_ITEMS is still named, so the model knows the
+    record is larger than the issues it is writing for, but is explicitly
+    excluded from watch_for — otherwise it writes a sentence for it."""
+    body = _context(conditions=[
+        "First thing.", "Second thing.", "Third thing.", "Fourth thing.",
+    ])
+    assert "Issue 3: Third thing." in body
+    assert "Issue 4" not in body
     assert "do NOT write a" in body
-    assert "Third thing." in body
+    assert "Fourth thing." in body
 
 
 def test_prompt_never_contains_hpd_jargon():
@@ -635,11 +749,32 @@ def test_no_percentile_or_standing_reaches_the_model():
 
     This is what removing context_line bought: the field that made a claim about
     the building as a whole is gone, and so is the input that fed it.
+
+    Matched on word boundaries rather than as a bare substring. The task block
+    legitimately contains digits now ("311 complaint", "15 minutes", "30
+    words"), and `"31" in body` was true because of "311" — a false positive
+    that would have hidden a real leak just as easily as it invented this one.
     """
+    import re
     body = _context(percentile=31.3, conditions=["Something."])
-    assert "31" not in body
+    assert "31.3" not in body
+    assert not re.search(r"\b31\b", body)
     assert "Standing" not in body
     assert "fewer violations" not in body
+
+
+def test_only_the_task_blocks_own_digits_reach_the_model():
+    """The digits that ARE in the prompt are static task text and issue
+    numbers, never building data. Pinned so a future edit cannot smuggle a
+    count in behind them."""
+    import re
+    body = _context(
+        percentile=88.0,
+        conditions=["Tenants here have reported mold.", "Something else."],
+    )
+    task_digits = {"311", "15", "30"}
+    issue_numbers = {str(i) for i in range(1, schema.MAX_WATCH_ITEMS + 1)}
+    assert set(re.findall(r"\d+", body)) <= task_digits | issue_numbers
 
 
 def test_build_messages_reads_only_the_fields_the_prompt_needs():
@@ -846,9 +981,13 @@ def test_watch_for_defaults_to_empty_not_none():
 
 
 def test_watch_for_caps_the_number_of_sentences():
+    """Bound to the constant, not a literal — this test pinned 2 and had to be
+    rewritten when the cap moved to 3."""
+    at_cap = ["s"] * schema.MAX_WATCH_ITEMS
+    assert len(schema.GeneratedContext(watch_for=at_cap).watch_for) == \
+        schema.MAX_WATCH_ITEMS
     with pytest.raises(Exception):
-        schema.GeneratedContext(watch_for=["a", "b", "c"])
-    assert len(schema.GeneratedContext(watch_for=["a", "b"]).watch_for) == 2
+        schema.GeneratedContext(watch_for=at_cap + ["one too many"])
 
 
 def test_each_watch_sentence_is_length_capped():
@@ -943,7 +1082,9 @@ def test_a_clean_sentence_is_publishable():
         "lead_paint",
     )
     assert validate.is_publishable(verdicts)
-    assert {v.check for v in verdicts} == {"vague_quantifiers", "rights_language", "length"}
+    # Every registered check ran. Derived from CHECKS rather than listed, so
+    # adding a check cannot silently leave a sentence unexamined here.
+    assert len({v.check for v in verdicts}) == len(validate.CHECKS)
 
 
 @pytest.mark.parametrize("sentence", [
@@ -1004,6 +1145,76 @@ def test_rights_check_does_not_fire_on_ordinary_questions(sentence):
     assert not _failed(sentence, "rights_language")
 
 
+# --------------------------------------------------------------------------
+# Useless register — the check for sentences that are correct and worthless
+# --------------------------------------------------------------------------
+
+def test_the_sentence_this_check_was_written_for_hard_fails():
+    """Verbatim from `brief_texts`, where it was published and served.
+
+    17 words, 104 characters: inside every length limit, no banned quantifier,
+    no rights claim. It is the exact output the rewritten prompt argues
+    against, and before this check nothing could stop it reaching a page.
+    """
+    sentence = (
+        "When visiting, ask the current tenant about their experience with "
+        "heat and hot water through the winter."
+    )
+    assert len(sentence) < validate.MAX_WATCH_FOR
+    assert not _failed(sentence, "vague_quantifiers")
+    assert not _failed(sentence, "rights_language")
+    assert not _failed(sentence, "length")
+    assert _failed(sentence, "useless_register")
+
+
+@pytest.mark.parametrize("sentence", [
+    "Ask the super about their experience with the boiler.",
+    "Worth asking how last winter went for the current tenants.",
+    "Ask the neighbors how the heat has been this year.",
+    "Ask whether they find the apartment warm enough.",
+    "Once you have moved in, check the radiators each month.",
+    "After you sign, look at the window sills for peeling paint.",
+])
+def test_useless_register_hard_fails(sentence):
+    assert _failed(sentence, "useless_register"), sentence
+
+
+@pytest.mark.parametrize("sentence", [
+    # A question is fine when it carries the words to say and asks for a fact.
+    "Ask the super when the building was last treated for mice.",
+    "Ask the broker what the hot water temperature is at the tap.",
+    "Ask the managing agent which apartments had the leak repaired.",
+    # Pure observation, the shape the prompt asks for.
+    "Run the hot tap and count the seconds before it turns hot.",
+    "Look at corners, window sills, and areas around pipes for discoloration.",
+    "Check the kitchen cabinets and under the sink for droppings.",
+    # "experience" and "how" in innocent positions.
+    "Look for water stains, which show how far a past leak spread.",
+])
+def test_useless_register_does_not_fire_on_good_sentences(sentence):
+    """These are hard fails, so a false positive silently costs a rule its whole
+    corpus entry — the same reasoning that kept "responsible for" out of the
+    rights patterns."""
+    assert not _failed(sentence, "useless_register"), sentence
+
+
+def test_every_published_sentence_would_pass_the_new_check():
+    """The other four sentences live in `brief_texts` today and are good. The
+    check must not retroactively quarantine work that was already right."""
+    good = [
+        "On a viewing, inspect window sills, door frames, and interior walls "
+        "for paint chips or peeling, especially in kitchens and bathrooms.",
+        "Look at corners, window sills, and areas around pipes for "
+        "discoloration or visible mold.",
+        "Look at window sills, corners, and under the sink for staining, "
+        "discoloration, or soft spots in the walls.",
+        "Check the kitchen cabinets, under the sink, and behind appliances "
+        "for droppings, dead insects, or damage to baseboards.",
+    ]
+    for sentence in good:
+        assert not _failed(sentence, "useless_register"), sentence
+
+
 def test_banned_quantifiers_are_all_named_in_the_prompt():
     """The prompt asks and the validator enforces; they must ban the same words.
 
@@ -1040,7 +1251,7 @@ def test_verdicts_name_the_issue_they_judge():
     failed = validate.failures(verdicts)
     assert len(failed) == 1
     assert "issue 2 (mold)" in failed[0].detail
-    assert len(verdicts) == 6  # three checks × two sentences
+    assert len(verdicts) == len(validate.CHECKS) * 2  # every check × two sentences
 
 
 # --------------------------------------------------------------------------
@@ -1235,6 +1446,81 @@ def test_suppressed_rules_reports_what_it_removed():
     )
     got = {r.id: group for r, group in rules.suppressed_rules(signals)}
     assert got == {"mold": "mold_pests_sanitation", "pests": "mold_pests_sanitation"}
+
+
+# --------------------------------------------------------------------------
+# Reverse suppression — open_class_c dropped when only lead_paint covers it
+# --------------------------------------------------------------------------
+
+def test_open_class_c_is_dropped_when_every_category_is_lead_paint():
+    """BIN 4009581's shape: open class C is entirely LEAD-BASED PAINT.
+
+    open_class_c can never name a hazard area here (lead paint has no
+    taxonomy group), so it would otherwise sit on the page as a permanently
+    abstract duplicate of lead_paint.
+    """
+    signals = _signals(
+        open_class_c_violations=6,
+        lead_paint_violations=6,
+        open_class_c_categories=["LEAD-BASED PAINT"],
+    )
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert ids == ["lead_paint"]
+
+
+def test_open_class_c_is_dropped_when_lead_paint_and_retired_mix():
+    signals = _signals(
+        open_class_c_violations=9,
+        lead_paint_violations=6,
+        open_class_c_categories=["LEAD-BASED PAINT", "RETIRED"],
+    )
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert ids == ["lead_paint"]
+
+
+def test_all_retired_with_no_lead_paint_keeps_open_class_c():
+    """Purely administrative is abstract, not duplicative — a different,
+    already-accepted case. Nothing below it names the same finding, so
+    dropping it here would remove the only signal the building has."""
+    signals = _signals(
+        open_class_c_violations=3,
+        open_class_c_categories=["RETIRED"],
+    )
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert ids == ["open_class_c"]
+
+
+def test_open_class_c_survives_alongside_a_describable_area():
+    """Lead paint plus a nameable area: the sentence has something to say, so
+    open_class_c is not fully covered by lead_paint and both items stay."""
+    signals = _signals(
+        open_class_c_violations=9,
+        lead_paint_violations=6,
+        open_class_c_categories=["LEAD-BASED PAINT", "HEAT AND HOT WATER"],
+    )
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert "open_class_c" in ids
+    assert "lead_paint" in ids
+
+
+def test_class_c_self_suppressed_requires_lead_paint_to_actually_fire():
+    """Guard against dropping open_class_c with nothing left to replace it,
+    even though the two signals should never disagree in practice."""
+    signals = _signals(
+        open_class_c_violations=6,
+        lead_paint_violations=0,
+        open_class_c_categories=["LEAD-BASED PAINT"],
+    )
+    assert rules.class_c_self_suppressed(signals) is False
+    ids = [r.id for r in rules.select_rules(signals)]
+    assert ids == ["open_class_c"]
+
+
+def test_lead_paint_still_never_declares_suppressed_by_class_c_group():
+    """The reverse-suppression fix must not touch the forward mechanism: an
+    inspector's finding is still never weaker evidence for its own claim."""
+    by_id = {r.id: r for r in rules.load_rules()[0]}
+    assert by_id["lead_paint"].suppressed_by_class_c_group is None
 
 
 def test_suppression_needs_the_signal_and_says_so():

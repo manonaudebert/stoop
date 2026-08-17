@@ -75,17 +75,19 @@ You write one field.
 
 watch_for: a LIST of entries, one per issue, for the issues numbered in your input. One entry for issue 1, one for issue 2, in that order. If only one issue is listed, return one entry. If none are listed, return an empty list.
   An entry is ONE sentence, unless your input explicitly asks that issue for two. Then write exactly two sentences in that one entry, still as a single list entry. Never split one issue across two entries — the entry positions are what tie your sentences to the issues.
-  Each sentence names something the reader can look at, ask about, or check for themselves, for THAT issue only. Point at a thing in the physical apartment or a question worth asking a landlord, current tenant, or neighbor.
+  Each sentence names physical evidence the reader can find for themselves, for THAT issue only. Point at a thing in the apartment they can look at, smell, turn on, or open. A question is allowed only with the exact words to say, because the person who would answer it may not be there.
   Each sentence must stand alone. Do not write "also" or "in addition" — they are shown as separate items, not as a paragraph.
   Do not cover two issues in one sentence, and do not repeat the same check twice in different words. If two issues would genuinely produce the same check, find what is distinct about each.
-  Good (issue 1 = heat): "Worth asking how last winter went, and when the boiler was last serviced."
+  Good (issue 1 = heat): "Run the hot tap and count the seconds before it turns hot, and check whether every room has a radiator."
   Good (issue 2 = lead paint): "On a viewing, look at window sills and the paint around them for chips or peeling."
+  Bad: "Ask the current tenant about their experience with heat." (depends on someone who may not be there, wants an opinion rather than evidence, and gives no exact wording)
   Bad: "Call 311 to file a complaint." (that guidance is printed below, written by the city)
   Bad: "You are entitled to heat between October and May." (a legal right, not yours to state)
   Bad: "Check for heat and paint problems." (one sentence covering both issues)
 
 Rules for EVERY sentence you write:
-- Under 200 characters per sentence. One sentence per issue, unless that issue's input asks for two; then each of the two is still its own complete sentence under 200 characters. Never join sentences with a semicolon to dodge this.
+- Under 30 words and under 200 characters per sentence, whichever binds first. One sentence per issue, unless that issue's input asks for two; then each of the two is its own complete sentence under the same limit. Never join sentences with a semicolon to dodge this.
+- Never describe upkeep, prevention, or maintenance as the reader's own responsibility. They do not live there yet, and what a tenant must do is printed below in the city's words.
 - Never write a number, a count, a percentage, an ordinal, or a year — not as digits, not as words.
 - Never use a vague quantifier either: no "a few", "several", "some", "a handful", "a number of", "multiple", "many", "numerous", "isolated", "a couple", "a high number of". These are counts in disguise, and you have not been told the count. A record you are told about may contain one entry or several hundred; you cannot tell, so do not imply it. This rule holds even when strong language about severity is permitted — being allowed to call a record bad is not being allowed to say how large it is.
 - Where you would reach for a quantifier, name the thing instead. "Heat and pest problems appear on this building's record" — not "a few problems appear".
@@ -97,6 +99,54 @@ Rules for EVERY sentence you write:
 - Plain, direct, factual. No reassurance, no alarm, no marketing language, no "renters should be aware".
 
 Return only the structured object."""
+
+
+# The task framing, rewritten 2026-08-14. It sits in the USER turn rather than
+# in SYSTEM even though it is identical every call, because it is the part
+# being iterated on and `smoke.py` prints the user turn in full while
+# collapsing SYSTEM to a character count.
+#
+# What it is fixing: sentences like "When visiting, ask the current tenant
+# about their experience with heat and hot water" — grammatical, on-topic, and
+# useless. It depends on a person who is usually not there, asks for an opinion
+# rather than evidence, and leaves the reader to invent the actual wording. The
+# fix is to name the reader's situation (fifteen minutes, a broker, an empty
+# unit) so that "concrete" has a standard to be concrete against, and to carry
+# one worked GOOD/BAD pair, because the failure is a register the model falls
+# into rather than a rule it breaks.
+#
+# The "one sentence" line carries an exception for the class C rule, which asks
+# for two when the building has two describable hazard areas. Without it the
+# nested per-issue instruction below contradicts this block, and a prompt that
+# argues with itself is resolved by the model rather than by us.
+TASK = '''Write the "Worth checking" line for each issue below. One sentence each, unless an issue below explicitly asks for two.
+A separate paragraph of static text follows each line and already covers
+what the law requires, temperature and timing rules, how to file a 311
+complaint, and what to do once living there. Do not repeat any of that.
+
+Reader: someone at a 15-minute apartment viewing, deciding whether to
+sign. Assume they are alone with a broker, the unit may be empty, and
+the current tenant may not be there.
+
+Each line must name physical evidence they can find themselves in those
+15 minutes — something to look at, smell, turn on, or open. Prefer
+evidence that survives a cleanup or a fresh coat of paint.
+
+If the line asks a question, write the exact words to say, and make it
+one a person answers honestly without feeling accused. Never write
+"ask about their experience with X."
+
+Do not describe upkeep or prevention as the tenant's responsibility.
+
+One sentence, under 30 words, plain language, no preamble. Where an issue
+asks for two, each of the two is its own sentence under 30 words.
+
+GOOD: Run the hot tap and count the seconds before it turns hot, and
+check whether every room has a radiator.
+BAD: When visiting, ask the current tenant about their experience with
+heat and hot water through the winter.
+(depends on a person who may not be there, asks for an opinion instead
+of evidence, and gives no exact wording)'''
 
 
 def severity_language_allowed(percentile: float | None) -> bool:
@@ -165,7 +215,7 @@ def render_context(
         rest = conditions[MAX_WATCH_ITEMS:]
         lines = []
         for i, c in enumerate(top, 1):
-            lines.append(f"  Issue {i}: {c}")
+            lines.append(f"Issue {i}: {c}")
             # Areas belong to the issue they describe, not to the whole list.
             # Rendered flat, they read as a constraint on every sentence, and
             # the model wrote both sentences about class C areas while issue 2
@@ -207,14 +257,15 @@ def render_context(
                         f"about it, omit its sentence."
                     )
         numbered = "\n".join(lines)
-        # "one entry", not "one sentence": an issue carrying two sentences would
-        # otherwise be contradicted by its own lead-in, and a prompt that argues
-        # with itself is resolved by the model rather than by us.
-        block = f"Write one watch_for entry for each of these:\n{numbered}"
+        block = f"{TASK}\n\n{numbered}"
         if rest:
-            others = "\n".join(f"    - {c}" for c in rest)
+            # Unreachable while select_rules' cap equals MAX_WATCH_ITEMS — there
+            # is never a remainder. Kept because it is the guard that stops a
+            # caller passing a longer selection from silently getting sentences
+            # for issues the corpus was never keyed on.
+            others = "\n".join(f"  - {c}" for c in rest)
             block += (
-                "\n\n  Also flagged and shown below, but do NOT write a "
+                "\n\nAlso flagged and shown below, but do NOT write a "
                 f"sentence for these:\n{others}"
             )
         blocks.append(block)
@@ -229,9 +280,11 @@ def render_context(
     if not severity_language_allowed(percentile):
         blocks.append(
             "Language constraint:\n"
-            "  This building does not stand out against its neighbors. Do not "
-            'use "high", "severe", "poor", "significant", "serious", or any '
-            "other word asserting that its condition is bad in absolute terms."
+            "This line is a viewing checklist, not a verdict on the building. "
+            "Stay concrete about what to check and silent on how bad the "
+            'building is. Do not use "high", "severe", "poor", "significant", '
+            '"serious", or any other word asserting its condition is bad in '
+            "absolute terms."
         )
 
     return "\n\n".join(blocks)

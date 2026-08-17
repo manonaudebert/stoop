@@ -115,8 +115,17 @@ class Rule:
         return f"{self.condition.rstrip('.')}, {clause}."
 
     def cite(self, document: str) -> str:
-        """The primary citation as one string. `citations()` is what renders."""
-        return f"{document}, {self.source}"
+        """The primary citation as one string. `citations()` is what renders.
+
+        The page number is NOT rendered as of 2026-08-14. `source` is still
+        required on every rule and still the authoring record — the thing that
+        makes "if a claim cannot be located in the source PDF, it does not go
+        in" auditable — it simply no longer reaches the page. A page reference
+        is precision aimed at someone verifying the text against the PDF, which
+        is the author's job here rather than the renter's, and it read as
+        legal-citation clutter under a two-line item.
+        """
+        return document
 
     def citations(self, document: str) -> list[Citation]:
         """Every source behind this rule, primary first."""
@@ -249,6 +258,60 @@ def suppressed_rules(signals: dict[str, Any]) -> list[tuple[Rule, str]]:
     ]
 
 
+# The one raw HPD category `open_class_c` can never describe by naming a hazard
+# area: lead paint deliberately has no taxonomy group (see taxonomy.py) because
+# it already reads as plain English and has its own rule. RETIRED is
+# administrative, like the rest of `NON_OBSERVABLE_GROUPS`, and never
+# describable either.
+_LEAD_PAINT_CATEGORY = "LEAD-BASED PAINT"
+_RETIRED_CATEGORY = "RETIRED"
+
+
+def class_c_fully_covered_by_lead_paint(signals: dict[str, Any]) -> bool:
+    """True when `open_class_c` has nothing to say that `lead_paint` doesn't.
+
+    Every open class C category maps to no taxonomy group (LEAD-BASED PAINT
+    and/or RETIRED only), so `condition_with_areas` can never extend the class
+    C sentence past "immediately hazardous conditions... on this building's
+    record" — it stays abstract on every page that hits this. Meanwhile
+    `lead_paint`, if it fires, already names the specific finding with its own
+    citation and deadline. Affects 4.1% of class C buildings (3,404 of
+    82,422); BIN 4009581 is an example.
+
+    Requires at least one LEAD-BASED PAINT category, not just an all-RETIRED
+    building — a building whose class C record is purely administrative isn't
+    duplicating anything, it's just abstract, which is accepted elsewhere.
+    """
+    categories = {c.upper() for c in (signals.get(CLASS_C_CATEGORIES_SIGNAL) or ())}
+    if _LEAD_PAINT_CATEGORY not in categories:
+        return False
+    return categories <= {_LEAD_PAINT_CATEGORY, _RETIRED_CATEGORY}
+
+
+def class_c_self_suppressed(signals: dict[str, Any]) -> bool:
+    """True when `open_class_c` should be dropped in favor of `lead_paint`.
+
+    The reverse of `suppressed_by_class_c_group`: there, a *complaint*-keyed
+    rule is dropped because class C already proves the same group with
+    stronger evidence. Here, `open_class_c` itself is dropped, because in this
+    one case it is the item with nothing left to add — see
+    `class_c_fully_covered_by_lead_paint`. `lead_paint` is never suppressed by
+    class C in the normal direction (test_only_complaint_keyed_rules_declare_
+    suppression): an inspector's finding is never weaker evidence for its own
+    claim. This isn't that case — LEAD-BASED PAINT is the same violation both
+    rules are reading, not two independent pieces of evidence for one claim.
+
+    Guarded on `lead_paint` actually firing so `open_class_c` is never dropped
+    with nothing to replace it, even though the two signals should always
+    agree in practice: a LEAD-BASED PAINT category implies lead_paint_violations > 0.
+    """
+    if not class_c_fully_covered_by_lead_paint(signals):
+        return False
+    rules, _ = load_rules()
+    lead_paint_rule = next(r for r in rules if r.id == "lead_paint")
+    return evaluate(lead_paint_rule.when, signals)
+
+
 def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
     """Every rule whose condition holds, in the order it would be shown.
 
@@ -278,6 +341,7 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
             )
 
     groups = class_c_groups(signals)
+    self_suppress_class_c = class_c_self_suppressed(signals)
     hits = []
     for r in rules:
         if not evaluate(r.when, signals):
@@ -289,26 +353,48 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
                 r.id, r.suppressed_by_class_c_group,
             )
             continue
+        if r.id == "open_class_c" and self_suppress_class_c:
+            log.info(
+                "brief: suppressing rule %r — every open class C category is "
+                "lead paint and/or retired, which lead_paint already covers",
+                r.id,
+            )
+            continue
         hits.append(r)
     return sorted(hits, key=lambda r: (r.priority, -r.rank_value(signals), r.id))
 
 
-def select_rules(signals: dict[str, Any], max_items: int = 5) -> list[Rule]:
+def select_rules(signals: dict[str, Any], max_items: int = 3) -> list[Rule]:
     """The rules that go in the brief.
 
     Deterministic: strictly the highest-ranked eligible rules. Two buildings
     with identical signals get identical advice, and the selection is
     reproducible without an API call.
 
-    `max_items` is 5, measured over a random 8,000-building sample with all six
-    rules in place: a cap of 3 truncates an eligible rule on 10.6% of buildings,
-    4 on 5.5%, 5 on 1.8%. It was 4 when there were five rules (3.0% then);
-    adding `smoke_co_detectors` above the complaint rules nearly doubled the
-    loss, and mold and pests absorbed all of it.
+    `max_items` is 3, LOWERED from 5 on 2026-08-14 so that it equals
+    `schema.MAX_WATCH_ITEMS` — every item the brief shows now carries a
+    generated "worth checking" line, instead of the top two of as many as five.
+    An item with a concrete thing to look at is worth more than two more items
+    without one.
+
+    Measured over all 310,400 buildings in `hpd_brief_signals` rather than a
+    sample. Eligible-rule counts are 1: 65,590 buildings, 2: 38,814, 3: 19,427,
+    4: 7,898, 5: 1,518 — so the cap truncates something on 9,416 buildings,
+    7.1% of the 133,247 that flag anything and 3.0% of the city. What it drops
+    is by construction the lowest-priority item on the longest briefs.
+
+    One real cost beyond the truncation: `prompt.py` used to list the unselected
+    conditions unnumbered after the numbered ones, so the model knew the top two
+    were not the building's whole record. With the two caps equal there is never
+    a remainder, and on those 9,416 buildings the model no longer learns the
+    dropped conditions exist. Acceptable because every sentence must stand alone
+    anyway — the prompt forbids "also" and "in addition", and the corpus key
+    deliberately ignores sibling issues — but it is the thing to revisit first
+    if the generated lines start reading as if each building had one problem.
 
     The cap is kept rather than dropped even though six rules is a hard upper
     bound: it is the guard that stops the next authored rule from silently
-    lengthening every brief. Raise it deliberately, with a re-measurement.
+    lengthening every brief. Change it deliberately, with a re-measurement.
 
     The priority ordering in rules.yaml is an editorial judgment, not something
     HPD publishes — it ranks hazard types against each other, which the source

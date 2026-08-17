@@ -12,7 +12,7 @@ from sqlalchemy.exc import ProgrammingError
 
 from main import app
 from database import get_db
-from services.briefs import corpus, rules as rules_mod
+from services.briefs import corpus, rules as rules_mod, schema
 from services.briefs.smoke import to_signals
 from cache import cache_clear
 from tests.conftest import MockRow, MockResult, make_mock_db, db_override
@@ -323,16 +323,17 @@ def test_brief_line_carries_no_digits():
 
 
 def test_prose_fields_carry_no_em_dashes():
-    """`why_it_matters` and `action` are prose; `brief_line` is a label.
-
-    In a full sentence an em dash makes the clause after it read as an aside,
+    """In a full sentence an em dash makes the clause after it read as an aside,
     and in this text that clause is usually the operative fact ("tell the owner
-    in writing — that is what obliges them to inspect annually"). Layer 1 is
-    exempt on purpose: `brief_line` uses the dash as a condition/action
-    separator, which is what makes it scannable at one line.
+    in writing — that is what obliges them to inspect annually").
+
+    `brief_line` was exempt while it used the dash to separate condition from
+    action. It no longer carries an action — `watch_for` renders directly
+    beneath it and says what to look for — so the exemption came off with the
+    clause, and this now pins the headline to a single statement.
     """
     for rule in rules_mod.load_rules()[0]:
-        for field in ("why_it_matters", "action"):
+        for field in ("why_it_matters", "action", "brief_line"):
             value = getattr(rule, field)
             assert "—" not in value, f"{rule.id}.{field}: {value}"
 
@@ -451,12 +452,10 @@ async def test_other_database_errors_are_not_swallowed(client):
     mock_db.rollback.assert_not_awaited()
 
 
-def test_only_the_top_two_rules_are_looked_up():
-    """Only two sentences are ever generated, so only two can ever be stored.
-
-    Looking up the rest would be a guaranteed miss on every building — harmless
-    in itself, and it would make the corpus hit rate useless as a health metric.
-    """
+def test_every_selected_rule_is_looked_up():
+    """`select_rules` and MAX_WATCH_ITEMS are both 3, so every item the page
+    shows gets a corpus lookup — no item can render with a permanently absent
+    "worth checking" line because it fell outside the generation cap."""
     signals = to_signals({
         **SIGNALS_ROW,
         "total_violations": 1, "total_complaints": 1,
@@ -464,10 +463,27 @@ def test_only_the_top_two_rules_are_looked_up():
         "latest_complaint_date": None,
     })
     selected = rules_mod.select_rules(signals)
-    assert len(selected) > 2, "fixture no longer exercises the truncation"
+    assert len(selected) > 1, "fixture no longer exercises multiple rules"
     keys = corpus.keys_for_selection(
         selected,
         categories=SIGNALS_ROW["open_class_c_categories"],
         percentile=SIGNALS_ROW["violations_density_pct"],
     )
-    assert [rule_id for rule_id, _ in keys] == [r.id for r in selected[:2]]
+    assert [rule_id for rule_id, _ in keys] == [r.id for r in selected]
+
+
+def test_lookup_never_exceeds_the_generation_cap():
+    """The guard itself, exercised directly rather than through `select_rules`.
+
+    In production the two caps are equal so this truncation never bites, but it
+    is what stops a corpus lookup for a rule no sentence was ever generated for
+    — a guaranteed miss that would make the hit rate useless as a health metric.
+    """
+    all_rules = rules_mod.load_rules()[0]
+    assert len(all_rules) > schema.MAX_WATCH_ITEMS, "need more rules than the cap"
+    keys = corpus.keys_for_selection(
+        all_rules,
+        categories=SIGNALS_ROW["open_class_c_categories"],
+        percentile=SIGNALS_ROW["violations_density_pct"],
+    )
+    assert len(keys) == schema.MAX_WATCH_ITEMS

@@ -122,6 +122,42 @@ RIGHTS_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 
+# Sentences that are grammatical, on-topic, within every length limit, and
+# useless. The failure this catches was live in the corpus at 17 words and 104
+# characters: "When visiting, ask the current tenant about their experience
+# with heat and hot water through the winter." Nothing lexical was wrong with
+# it. It fails because it leans on a person who is usually not at a viewing,
+# asks for an opinion rather than evidence, and leaves the reader to invent the
+# words to say.
+#
+# The prompt argues against this register at length. This is the stick: the
+# prompt can be ignored, and a sentence that reaches `brief_texts` is served to
+# thousands of buildings sharing that input shape.
+#
+# Deliberately NARROW. These are hard fails, so a false positive silently costs
+# a rule its whole corpus entry — the same reasoning that kept "responsible
+# for" out of RIGHTS_PATTERNS. Each pattern here requires the *asking* frame,
+# not the topic: "ask the super when the building was last treated for mice"
+# passes (a question with concrete words and an answerable fact), while "ask
+# about their experience with pests" does not.
+USELESS_REGISTER_PATTERNS: tuple[tuple[str, str], ...] = (
+    # Asking for an opinion or an impression instead of a fact.
+    ("opinion", r"\bask(?:ing)?\b[^.]{0,40}\babout\s+(?:their|the|his|her|your)\s+"
+                r"(?:experience|thoughts|opinion|impression)"),
+    ("opinion", r"\bask(?:ing)?\b[^.]{0,40}\b(?:how|whether)\s+(?:they|he|she|it)\s+"
+                r"(?:feel|felt|find|found|like[ds]?)\b"),
+    # "How did last winter go" — an invitation to reminisce, not a checkable
+    # question, and the sentence never says what to actually ask.
+    ("vague_question", r"\bask(?:ing)?\b[^.]{0,40}\bhow\s+[^.]{0,30}\b"
+                       r"(?:went|was|has been|holds? up|held up)\b"),
+    # Deferring the check to a time the reader is not being advised about. The
+    # brief is for the viewing; "once you move in" is the landlord's problem or
+    # the tenant's, and the authored `action` covers it with a citation.
+    ("after_signing", r"\b(?:once|after)\s+you(?:'ve|\s+have)?\s+"
+                      r"(?:move[ds]?\s+in|sign(?:ed)?|are\s+living)\b"),
+)
+
+
 @dataclass(frozen=True)
 class Verdict:
     check: str
@@ -178,6 +214,30 @@ def check_rights_language(sentence: str, rule_id: str, index: int) -> Verdict:
     return Verdict("rights_language", True, where)
 
 
+def check_useless_register(sentence: str, rule_id: str, index: int) -> Verdict:
+    """Grammatical, on-topic, within every length limit, and worth nothing.
+
+    The one check here that is about usefulness rather than correctness. Every
+    other check asks "is this claim allowed?"; this one asks "could the reader
+    act on it at a fifteen-minute viewing?" — which is the whole job of the
+    field, and the only failure mode the length and lexical checks cannot see.
+    """
+    lowered = sentence.lower()
+    hits = sorted({
+        kind for kind, pattern in USELESS_REGISTER_PATTERNS
+        if re.search(pattern, lowered)
+    })
+    where = f"issue {index + 1} ({rule_id})"
+    if hits:
+        return Verdict(
+            "useless_register",
+            False,
+            f"{where}: {', '.join(hits)} — names no evidence the reader can "
+            f"find themselves at a viewing",
+        )
+    return Verdict("useless_register", True, where)
+
+
 def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
     """The per-issue character budget, which is not uniform.
 
@@ -211,6 +271,7 @@ def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
 CHECKS: tuple[Callable[[str, str, int], Verdict], ...] = (
     check_vague_quantifiers,
     check_rights_language,
+    check_useless_register,
     check_length,
 )
 

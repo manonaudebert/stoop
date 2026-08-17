@@ -8,11 +8,16 @@ import TooltipIcon from './TooltipIcon'
  * which is exactly what makes it long. The page already carries every count in
  * cards; the brief's job is interpretation, not restatement.
  *
- *   Layer 1  one compact authored line per item — `brief_line` — the generated
- *            `watch_for` sentence when the corpus has one, and, for the class C
- *            item, the bare group labels of its hazard areas.
- *   Layer 2  the full authored block, verbatim and unchanged, behind a
- *            per-item disclosure. Never generated, at any phase.
+ *   Layer 1  one compact authored line per item — `brief_line`, which states the
+ *            condition and nothing else — the generated `watch_for` sentence
+ *            when the corpus has one, and, for the class C item, its hazard
+ *            areas named inside the headline.
+ *   Layer 2  why_it_matters, action and citations, verbatim and unchanged,
+ *            behind a per-item disclosure. Never generated, at any phase.
+ *
+ * Each fact appears once. The headline states the condition, `watch_for` gives
+ * the one thing to look for, and layer 2 explains and cites. `condition` is not
+ * rendered at all — see the note at the disclosure below.
  *
  * NO NUMBERS ANYWHERE. `magnitude` — a per-rule count template — was cut from
  * rules.yaml and the API response on 2026-08-12, after a chip was tried here
@@ -125,21 +130,31 @@ function WatchItem({ item }: { item: BriefWatchItem }) {
       {item.watch_for && <WatchForLine sentence={item.watch_for} />}
 
       <details style={{ marginTop: 5 }}>
+        {/* paddingLeft 12 aligns this with the "Worth checking" label above,
+            whose text starts at 12px (2px rule + 10px padding). The disclosure
+            has no left rule of its own — the alignment is what ties the two
+            secondary lines to the same column under the headline. */}
         <summary
           style={{
             fontFamily: MONO, fontSize: 10, color: '#525252',
-            cursor: 'pointer', listStyle: 'none',
+            cursor: 'pointer', listStyle: 'none', paddingLeft: 12,
           }}
         >
-          details &amp; your rights ▸
+          details ▸
         </summary>
 
         {/* Layer 2 — the authored block, verbatim. The route test that pins
-            this text against rules.yaml passes against exactly these nodes. */}
+            this text against rules.yaml passes against exactly these nodes.
+
+            `condition` is deliberately NOT rendered here. The headline above is
+            its authored compression ("Mold reported." for "Tenants here have
+            reported mold."), so printing both stated one fact twice, the second
+            time at greater length and behind a disclosure the reader had to
+            open. It stays in the API response: it is what the model is shown as
+            the issue text, and it is still the headline fallback for a rule that
+            authors no `brief_line`. In that fallback case nothing is lost by its
+            absence here either, since the headline IS the condition. */}
         <div style={{ marginTop: 10, paddingLeft: 12, borderLeft: '2px solid #F0F0F0' }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#111111', lineHeight: 1.45, marginBottom: 6 }}>
-            {item.condition}
-          </div>
           <p style={{ fontSize: 12.5, color: '#525252', lineHeight: 1.55, margin: '0 0 6px' }}>
             {item.why_it_matters}
           </p>
@@ -228,7 +243,7 @@ function WatchForLine({ sentence }: { sentence: string }) {
       >
         Worth checking · AI-assisted
         <TooltipIcon
-          text="Written by an AI model from this building's HPD violation and complaint record, then checked automatically before it was published. Everything else in this section is written by hand and cited — open “details & your rights” to read it."
+          text="Written by an AI model from this building's HPD violation and complaint record, then checked automatically before it was published. Everything else in this section is written by hand and cited — open “details” to read it."
           align="left"
         />
       </div>

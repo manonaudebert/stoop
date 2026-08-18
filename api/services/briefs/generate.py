@@ -210,11 +210,18 @@ async def generate_context_line(
             # input shape. So the cheap guess is gone.
             expected = min(len(selected_rules), MAX_WATCH_ITEMS)
             if len(context.watch_for) != expected:
+                # Names entries and sentences separately, because conflating
+                # them is the mistake being corrected: an issue asked for three
+                # sentences still returns ONE entry, and the earlier wording
+                # ("takes both in ONE entry") said two after the ask became
+                # per-area.
                 last_error = (
-                    f"- watch_for: expected exactly {expected} entr(y/ies), one "
-                    f"per numbered issue, but got {len(context.watch_for)}. An "
-                    f"issue asked to carry two sentences takes both in ONE "
-                    f"entry; never split one issue across two entries."
+                    f"- watch_for: expected exactly {expected} "
+                    f"{'entry' if expected == 1 else 'entries'}, one per "
+                    f"numbered issue, but got {len(context.watch_for)}. "
+                    f"Sentences are not entries: an issue asked for several "
+                    f"sentences puts ALL of them in its single entry, joined "
+                    f"in one string. Never add an entry for an extra sentence."
                 )
                 record.output_chars = len(raw.text)
                 record.raw_output = raw.text[:1000]

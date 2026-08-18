@@ -1357,6 +1357,36 @@ def test_real_sentences_score_far_below_the_threshold(sentence):
     assert not _failed(sentence, "echoes_example", "mold")
 
 
+@pytest.mark.parametrize("sentence", [
+    # All real output, quarantined by the first corpus run before the exemption.
+    "Turn on the hot water at the sink and feel whether it gets hot within a few seconds.",
+    "Turn on the radiators and check whether warm air comes out within a few minutes.",
+    "Turn on hot water at the sinks and feel the temperature after several seconds.",
+    "Hold your hand a couple of inches from the vent to feel for airflow.",
+])
+def test_a_quantifier_measuring_an_action_is_not_a_record_claim(sentence):
+    """14 of the first 17 drops were this, and all of them were good sentences.
+
+    The ban exists because "a few issues appear on this building's record"
+    invents a count the model was never given. "Run the tap for a few seconds"
+    invents nothing — it is a duration inside an instruction, and the natural
+    way to write a physical check.
+    """
+    assert not _failed(sentence, "vague_quantifiers"), sentence
+
+
+@pytest.mark.parametrize("sentence", [
+    "A few issues appear on this building's record.",
+    "Several tenants have reported problems worth asking about.",
+    "There are multiple areas worth looking at on a viewing.",
+    # Days measure how long a CONDITION lasted, which IS a claim about the
+    # record, so they are deliberately outside the exemption.
+    "Tenants went several days without heat.",
+])
+def test_the_exemption_does_not_reach_claims_about_the_record(sentence):
+    assert _failed(sentence, "vague_quantifiers"), sentence
+
+
 def test_banned_quantifiers_are_all_named_in_the_prompt():
     """The prompt asks and the validator enforces; they must ban the same words.
 

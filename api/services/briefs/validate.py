@@ -168,18 +168,44 @@ class Verdict:
         return self.passed
 
 
+# A quantifier attached to one of these is measuring an ACTION, not the
+# building's record: "run the tap for a few seconds", "hold it a couple of
+# inches away". The ban exists because "a few issues appear on this building's
+# record" invents a count the model was never given — a duration in an
+# instruction invents nothing and is the natural way to write a physical check.
+#
+# Found by reading drops, not by reasoning: 14 of the first 17 quarantined
+# sentences were this, all of them good ("feel whether it gets hot within a few
+# seconds"). At that rate the check was removing more signal than noise.
+#
+# Deliberately excludes days, weeks and months. Those measure how long a
+# CONDITION has lasted, which is a claim about the record, and the model is
+# given no such duration.
+_MEASURED_UNITS = (
+    r"seconds?|minutes?|inches|inch|feet|foot|steps?|turns?|times"
+)
+
+
 def _find_quantifiers(sentence: str) -> list[str]:
     """Banned quantifiers present in one sentence, in list order.
 
     Word-boundaried so "some" does not fire on "something" and "many" does not
     fire on a longer word containing it — the check is a hard fail, so a false
     positive silently costs a rule its whole corpus entry.
+
+    A quantifier immediately measuring a unit of time or distance is exempt;
+    see `_MEASURED_UNITS`.
     """
     lowered = sentence.lower()
-    return [
-        q for q in VAGUE_QUANTIFIERS
-        if re.search(rf"\b{re.escape(q)}\b", lowered)
-    ]
+    hits = []
+    for q in VAGUE_QUANTIFIERS:
+        for m in re.finditer(rf"\b{re.escape(q)}\b", lowered):
+            tail = lowered[m.end():m.end() + 24]
+            if re.match(rf"\s+(?:of\s+)?(?:{_MEASURED_UNITS})\b", tail):
+                continue
+            hits.append(q)
+            break
+    return hits
 
 
 def check_vague_quantifiers(sentence: str, rule_id: str, index: int) -> Verdict:

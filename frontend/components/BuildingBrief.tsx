@@ -53,7 +53,7 @@ type Props = {
 const MONO = 'var(--font-mono)'
 
 export default function BuildingBrief({ brief }: Props) {
-  const { watch_items, confidence_note, no_flags, record_count } = brief
+  const { watch_items, confidence_note, no_flags, has_records, record_count } = brief
 
   return (
     <section
@@ -81,7 +81,11 @@ export default function BuildingBrief({ brief }: Props) {
       </div>
 
       {no_flags ? (
-        <EmptyState recordCount={record_count ?? 0} note={confidence_note} />
+        <EmptyState
+          recordCount={record_count}
+          hasRecords={has_records}
+          note={confidence_note}
+        />
       ) : (
         <>
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -279,19 +283,46 @@ function WatchForLine({ sentence }: { sentence: string }) {
  * never by the model, which is what makes it exempt from the no-numbers rule
  * the watch items follow.
  */
-function EmptyState({ recordCount, note }: { recordCount: number; note: string | null }) {
+function EmptyState({
+  recordCount,
+  hasRecords,
+  note,
+}: {
+  recordCount: number | undefined
+  hasRecords: boolean
+  note: string | null
+}) {
+  // THREE cases, not two, because `record_count` is newer than the cache in
+  // front of it. Server fetches sit in Next's Data Cache for a day
+  // (lib/api.ts), so for a day after this shipped a render could be handed a
+  // payload with no `record_count` at all.
+  //
+  // Defaulting that to 0 was the first version and was a real bug: it printed
+  // "There are no HPD records on file" on a building with 155 of them. A
+  // missing field must cost the reader the NUMBER, never turn into a false
+  // claim about the record. `has_records` predates this and answers the only
+  // question the branch actually needs.
+  if (recordCount != null && recordCount > 0) {
+    return (
+      <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
+        {recordCount.toLocaleString()} HPD{' '}
+        {recordCount === 1 ? 'record' : 'records'} on file; none met the
+        thresholds we flag. That is not the same as no problems. Full violation
+        and complaint history below.
+      </p>
+    )
+  }
+  if (hasRecords) {
+    return (
+      <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
+        Nothing here met the thresholds we flag. That is not the same as no
+        problems. Full violation and complaint history below.
+      </p>
+    )
+  }
   return (
     <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
-      {recordCount > 0 ? (
-        <>
-          {recordCount.toLocaleString()} HPD{' '}
-          {recordCount === 1 ? 'record' : 'records'} on file; none met the
-          thresholds we flag. That is not the same as no problems. Full
-          violation and complaint history below.
-        </>
-      ) : (
-        <>{note ?? 'There are no HPD records on file for this building.'}</>
-      )}
+      {note ?? 'There are no HPD records on file for this building.'}
     </p>
   )
 }

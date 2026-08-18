@@ -41,7 +41,7 @@ import argparse
 import asyncio
 import os
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import asyncpg
@@ -55,6 +55,7 @@ from services.briefs.schema import PROMPT_VERSION  # noqa: E402
 from services.briefs.smoke import (  # noqa: E402
     CORPUS_UPSERT, _execute,
 )
+from services.briefs.telemetry import DropRecord  # noqa: E402
 from services.briefs.validate import failures, is_publishable, validate  # noqa: E402
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[3] / ".env")
@@ -144,7 +145,7 @@ async def plan(conn) -> tuple[list, dict, int]:
     return shapes, existing, flagged
 
 
-def _rows_for(keys, selected, result) -> list[tuple]:
+def _rows_for(keys, selected, result, drops=None) -> list[tuple]:
     """The publishable `brief_texts` rows one generation earns.
 
     Validated PER SENTENCE, the same split `smoke._corpus_rows` makes and for
@@ -165,8 +166,24 @@ def _rows_for(keys, selected, result) -> list[tuple]:
         sentence = result.context.watch_for[i]
         verdicts = validate([sentence], selected_rules=[rules[i]])
         if not is_publishable(verdicts):
-            print(f"    SKIP {rule_id}: "
-                  + "; ".join(v.detail for v in failures(verdicts)))
+            bad = failures(verdicts)
+            # Logged, not just printed. At 3,169 shapes the terminal scrolls,
+            # and a dropped row is indistinguishable from a shape that was
+            # never generated — both are absent from brief_texts and both
+            # render as phase 0.
+            DropRecord(
+                trace_id=record.trace_id,
+                building_id=record.building_id,
+                prompt_version=PROMPT_VERSION,
+                rule_id=rule_id,
+                input_key=input_key,
+                failed_checks=[v.check for v in bad],
+                details=[v.detail for v in bad],
+                sentence=sentence,
+            ).log()
+            if drops is not None:
+                drops.update(v.check for v in bad)
+            print(f"    SKIP {rule_id}: " + "; ".join(v.detail for v in bad))
             continue
         out.append((rule_id, input_key, sentence,
                     PROMPT_VERSION, record.model))
@@ -251,7 +268,8 @@ async def main() -> int:
     )
 
     pending: list[tuple] = []
-    written = failed = 0
+    written = failed = generated = 0
+    drops: Counter = Counter()
     cost = 0.0
 
     for n, (keys, (row, selected), covers) in enumerate(todo, 1):
@@ -275,7 +293,8 @@ async def main() -> int:
             continue
 
         cost += result.record.cost_usd or 0.0
-        pending += _rows_for(keys, selected, result)
+        generated += len(result.context.watch_for)
+        pending += _rows_for(keys, selected, result, drops)
         if n % args.flush_every == 0:
             written += await flush(pending)
             print(f"    ... {written:,} rows written, ${cost:,.2f} spent")
@@ -283,6 +302,19 @@ async def main() -> int:
     written += await flush(pending)
     print(f"\n{written:,} rows written · {cap.used} calls · {failed} failed "
           f"· ${cost:,.2f}")
+    # Drops are the number worth reading. A dropped sentence and a shape that
+    # was never generated are both simply absent from brief_texts, so without
+    # this a quarantined corpus and an incomplete one look identical. A check
+    # taking a large share here is a broken check, not a clean corpus.
+    if drops:
+        total = sum(drops.values())
+        print(f"{total:,} of {generated:,} generated sentences dropped "
+              f"({total / generated:.1%}):")
+        for check, n in drops.most_common():
+            print(f"    {check:20} {n:,}")
+        print("Full text of each in data/brief_calls.jsonl, kind=drop.")
+    else:
+        print(f"no sentences dropped ({generated:,} generated)")
     print("The API caches briefs for an hour and Next caches the fetch for a "
           "day — restart the API and rm -rf .next before reading a page.")
     return 0

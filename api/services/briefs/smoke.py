@@ -601,8 +601,20 @@ def _corpus_rows(row: dict, selected, result) -> list[tuple]:
         sentence = result.context.watch_for[i]
         verdicts = validate([sentence], selected_rules=[rules[i]])
         if not is_publishable(verdicts):
+            bad = failures(verdicts)
+            from services.briefs.telemetry import DropRecord
+            DropRecord(
+                trace_id=record.trace_id,
+                building_id=record.building_id,
+                prompt_version=PROMPT_VERSION,
+                rule_id=rule_id,
+                input_key=input_key,
+                failed_checks=[v.check for v in bad],
+                details=[v.detail for v in bad],
+                sentence=sentence,
+            ).log()
             print(f"  [write] SKIPPED {rule_id}: "
-                  + "; ".join(v.detail for v in failures(verdicts)))
+                  + "; ".join(v.detail for v in bad))
             continue
         rows.append((rule_id, input_key, sentence,
                      record.prompt_version, record.model))

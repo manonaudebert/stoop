@@ -113,6 +113,52 @@ class CallRecord:
     # note in generate.py.
     dropped_watch_for: bool = False
 
+    # Discriminates this row from a DropRecord in the same file. Rows written
+    # before 2026-08-17 have no `kind`; treat a missing one as "call".
+    kind: str = "call"
+
+    def log(self) -> None:
+        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_PATH.open("a") as f:
+            f.write(json.dumps(asdict(self)) + "\n")
+
+
+@dataclass
+class DropRecord:
+    """One sentence that was generated, paid for, and then not published.
+
+    These were invisible until now, and they are the most decision-relevant
+    thing the pipeline produces. `CallRecord.validation_result == "ok"` means
+    SCHEMA-valid, not publishable: it is written inside `generate_context_line`,
+    while the checks in `validate.py` run afterwards in the corpus writer. A
+    sentence could log "ok", fail `on_topic`, and vanish leaving only a line on
+    a terminal that has since scrolled.
+
+    That matters at corpus scale for two reasons. A dropped row is
+    indistinguishable from a shape that was never generated — both are simply
+    absent from `brief_texts`, and both render as phase 0 — so without this
+    there is no way to tell a corpus that is incomplete from one that is
+    complete-but-quarantined. And a check that is silently dropping 30% of one
+    rule's sentences is a broken check, not a clean corpus, which is only
+    visible if the drops are counted.
+
+    Linked to its generation by `trace_id`.
+    """
+
+    trace_id: str
+    building_id: str | None
+    prompt_version: str
+    rule_id: str
+    input_key: str
+    # Which checks failed, and what they said. The check names alone answer
+    # "how often", the details answer "why this sentence".
+    failed_checks: list[str] = field(default_factory=list)
+    details: list[str] = field(default_factory=list)
+    # The sentence itself. A drop log without the text records that something
+    # was rejected but not whether rejecting it was right.
+    sentence: str = ""
+    kind: str = "drop"
+
     def log(self) -> None:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with LOG_PATH.open("a") as f:

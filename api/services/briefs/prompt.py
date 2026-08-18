@@ -78,9 +78,10 @@ watch_for: a LIST of entries, one per issue, for the issues numbered in your inp
   Each sentence names physical evidence the reader can find for themselves, for THAT issue only. Point at a thing in the apartment they can look at, smell, turn on, or open. A question is allowed only with the exact words to say, because the person who would answer it may not be there.
   Each sentence must stand alone. Do not write "also" or "in addition" — they are shown as separate items, not as a paragraph.
   Do not cover two issues in one sentence, and do not repeat the same check twice in different words. If two issues would genuinely produce the same check, find what is distinct about each.
-  Good (issue 1 = heat): "Run the hot tap and count the seconds before it turns hot, and check whether every room has a radiator."
-  Good (issue 2 = lead paint): "On a viewing, look at window sills and the paint around them for chips or peeling."
+  Good (a fire-door issue): "Push the stairwell door and check that it swings shut on its own rather than resting open."
+  Good (issue = lead paint): "On a viewing, look at window sills and the paint around them for chips or peeling."
   Bad: "Ask the current tenant about their experience with heat." (depends on someone who may not be there, wants an opinion rather than evidence, and gives no exact wording)
+  The examples show the FORM. Do not reuse their wording for an issue they do not describe.
   Bad: "Call 311 to file a complaint." (that guidance is printed below, written by the city)
   Bad: "You are entitled to heat between October and May." (a legal right, not yours to state)
   Bad: "Check for heat and paint problems." (one sentence covering both issues)
@@ -141,12 +142,15 @@ Do not describe upkeep or prevention as the tenant's responsibility.
 One sentence, under 30 words, plain language, no preamble. Where an issue
 asks for two, each of the two is its own sentence under 30 words.
 
-GOOD: Run the hot tap and count the seconds before it turns hot, and
-check whether every room has a radiator.
+GOOD: Push the stairwell door and check that it swings shut on its own
+rather than resting open.
 BAD: When visiting, ask the current tenant about their experience with
-heat and hot water through the winter.
+the building's fire doors.
 (depends on a person who may not be there, asks for an opinion instead
-of evidence, and gives no exact wording)'''
+of evidence, and gives no exact wording)
+
+The example shows the FORM, not the content. Do not reuse its wording,
+and do not write about doors unless an issue below is about doors.'''
 
 
 def severity_language_allowed(percentile: float | None) -> bool:

@@ -1012,7 +1012,9 @@ def test_only_the_paired_rule_may_spend_the_larger_budget():
     is not a formatting preference, it is what makes a model that starts listing
     findings run out of room.
     """
-    long_enough_for_two = "x" * (schema.MAX_WATCH_FOR + 1)
+    # Padded with the rule's own subject word so `on_topic` passes and this
+    # test still isolates the length check.
+    long_enough_for_two = "mold " * ((schema.MAX_WATCH_FOR + 5) // 5)
 
     ok = _verdicts(long_enough_for_two, schema.PAIRED_SENTENCE_RULE_ID)
     assert validate.is_publishable(ok)
@@ -1022,7 +1024,7 @@ def test_only_the_paired_rule_may_spend_the_larger_budget():
     assert [v.check for v in validate.failures(too_long)] == ["length"]
 
     # And the paired rule is not unbounded either.
-    over = _verdicts("x" * (schema.MAX_WATCH_FOR_PAIRED + 1),
+    over = _verdicts("mold " * ((schema.MAX_WATCH_FOR_PAIRED + 5) // 5),
                      schema.PAIRED_SENTENCE_RULE_ID)
     assert not validate.is_publishable(over)
 
@@ -1215,6 +1217,67 @@ def test_every_published_sentence_would_pass_the_new_check():
         assert not _failed(sentence, "useless_register"), sentence
 
 
+# --------------------------------------------------------------------------
+# On topic — the only check that holds watch_for[i] to selected_rules[i]
+# --------------------------------------------------------------------------
+
+def test_a_sentence_on_the_wrong_rule_hard_fails():
+    """The observed misattribution, verbatim from `brief_texts`.
+
+    A heat sentence stored against the detector rule, after the model split a
+    paired class C entry into separate list entries and every later sentence
+    slid one rule to the left. Nothing else catches it: the sentence is well
+    formed, in budget, and carries no banned language. It is simply not about
+    detectors.
+    """
+    heat_sentence = (
+        "Turn on the heat and feel whether it warms the radiators or vents; "
+        'if it is winter, ask the broker: "Is the heat on right now?"'
+    )
+    assert _failed(heat_sentence, "on_topic", "smoke_co_detectors")
+    # ... and is fine on the rule it was actually written for.
+    assert not _failed(heat_sentence, "on_topic", "heat_hot_water")
+
+
+@pytest.mark.parametrize("rule_id,sentence", [
+    ("smoke_co_detectors",
+     "Look for a smoke alarm within fifteen feet of the bedroom door."),
+    ("lead_paint",
+     "Inspect window sills and door frames for paint chips or peeling."),
+    ("mold",
+     "Look at corners and around pipes for discoloration or visible mold."),
+    ("pests",
+     "Check under the sink for droppings, dead insects, or gnaw marks."),
+    ("heat_hot_water",
+     "Run the hot tap and count the seconds before it turns hot."),
+])
+def test_on_topic_passes_real_sentences(rule_id, sentence):
+    """Every sentence in the corpus today, plus the shapes the prompt asks for.
+    A hard fail here would cost a rule its entry for being correct."""
+    assert not _failed(sentence, "on_topic", rule_id), sentence
+
+
+def test_class_c_declares_no_topic_terms_and_is_never_checked():
+    """Its subject is whichever hazard areas the building has, so any fixed
+    vocabulary would hard-fail correct sentences about fire escapes one moment
+    and pests the next. It is also the rule that fires most often."""
+    by_id = {r.id: r for r in rules.load_rules()[0]}
+    assert by_id["open_class_c"].topic_terms == ()
+    for sentence in [
+        "Check whether the hallway, stairwell, and fire escape are clear.",
+        "Look under the sink for droppings.",
+        "Run the hot tap and see how long it takes to warm up.",
+    ]:
+        assert not _failed(sentence, "on_topic", "open_class_c"), sentence
+
+
+def test_topic_terms_are_matched_as_stems():
+    """"discolor" has to catch "discoloration", "exterminat" both
+    "exterminate" and "extermination"."""
+    assert not _failed("Look for discoloration on the ceiling.", "on_topic", "mold")
+    assert not _failed("Ask when extermination last happened.", "on_topic", "pests")
+
+
 def test_banned_quantifiers_are_all_named_in_the_prompt():
     """The prompt asks and the validator enforces; they must ban the same words.
 
@@ -1245,7 +1308,8 @@ def test_more_sentences_than_rules_is_a_pairing_failure():
 def test_verdicts_name_the_issue_they_judge():
     """Per-claim, not per-brief: a failure has to say which sentence failed."""
     verdicts = validate.validate(
-        ["Look at the window sills.", "A few issues appear on the record."],
+        ["Look at the window sills for peeling paint.",
+         "A few damp patches appear on the record."],
         selected_rules=[_rule("lead_paint"), _rule("mold")],
     )
     failed = validate.failures(verdicts)

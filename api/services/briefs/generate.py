@@ -181,26 +181,40 @@ async def generate_context_line(
                 continue
 
             # How many watch items are warranted is a fact about the input, not
-            # a judgment: one per flagged issue, capped at two, and none at all
-            # when nothing is flagged. A model asked for a suggestion will
-            # supply a generic one rather than decline, so the prompt asks and
-            # this enforces.
+            # a judgment: one per flagged issue, capped at MAX_WATCH_ITEMS, and
+            # none at all when nothing is flagged. A model asked for a
+            # suggestion will supply a generic one rather than decline, so the
+            # prompt asks and this enforces.
             #
-            # Extras are truncated rather than repaired — the surplus sentence
-            # is simply not wanted, and a round trip to delete it is a round
-            # trip paid for nothing. A SHORT list is different: it means the
-            # model skipped an issue it was asked to address, which is a
-            # contract violation it can fix, so that falls through to repair.
+            # ANY mismatch is repaired. A surplus used to be truncated instead,
+            # on the reasoning that the extra sentence was simply not wanted and
+            # a round trip to delete it was paid for nothing. That is true only
+            # when no entry was supposed to hold two sentences, and it stopped
+            # being true when the class C rule started asking for a paired
+            # entry: the model answered by splitting the pair across two LIST
+            # entries, which is not a surplus but a SHIFT. Truncating then kept
+            # the first N entries and silently slid every later sentence onto
+            # the wrong rule.
+            #
+            # Observed on BIN 1013795: four entries for two issues, three of
+            # them the class C pair split apart, and a sentence about heat was
+            # stored against the smoke-detector rule. Nothing downstream could
+            # catch it — each sentence was individually well formed, and
+            # validate's pairing check only fires when the counts still
+            # disagree, which truncation had already fixed up.
+            #
+            # The two cases are indistinguishable from out here, and they fail
+            # in opposite directions: dropping a spurious sentence costs one
+            # sentence, while mis-shifting a split pair publishes text under a
+            # heading it does not describe, to every building sharing that
+            # input shape. So the cheap guess is gone.
             expected = min(len(selected_rules), MAX_WATCH_ITEMS)
-            if len(context.watch_for) > expected:
-                record.dropped_watch_for = True
-                context = context.model_copy(
-                    update={"watch_for": context.watch_for[:expected]}
-                )
-            elif len(context.watch_for) < expected:
+            if len(context.watch_for) != expected:
                 last_error = (
-                    f"- watch_for: expected {expected} sentence(s), one for each "
-                    f"numbered issue, but got {len(context.watch_for)}"
+                    f"- watch_for: expected exactly {expected} entr(y/ies), one "
+                    f"per numbered issue, but got {len(context.watch_for)}. An "
+                    f"issue asked to carry two sentences takes both in ONE "
+                    f"entry; never split one issue across two entries."
                 )
                 record.output_chars = len(raw.text)
                 record.raw_output = raw.text[:1000]

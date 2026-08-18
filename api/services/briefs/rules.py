@@ -94,6 +94,12 @@ class Rule:
     # tenant's complaint about the same thing is the weaker evidence for the
     # same claim. Only complaint-keyed rules set this.
     suppressed_by_class_c_group: str | None = None
+    # Words a sentence answering this rule should contain at least one of, used
+    # by `validate.check_on_topic` to catch a sentence that landed on the wrong
+    # rule. Optional, and `open_class_c` deliberately declares none: its subject
+    # is whatever hazard areas the building has, so no fixed vocabulary covers
+    # it and a list would hard-fail correct sentences.
+    topic_terms: tuple[str, ...] = ()
 
     def condition_with_areas(self, areas: list[str] | None) -> str:
         """`condition`, with the building's hazard areas named in the sentence.
@@ -176,6 +182,7 @@ def load_rules() -> tuple[list[Rule], str]:
             ),
             rank_by=r.get("rank_by"),
             suppressed_by_class_c_group=r.get("suppressed_by_class_c_group"),
+            topic_terms=tuple(r.get("topic_terms", ())),
         )
         for r in spec["rules"]
     ]

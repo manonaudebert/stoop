@@ -106,6 +106,11 @@ class CallRecord:
     # published — but a standing count of how often the model overshoots an
     # explicit list length is worth having before trusting any other instruction
     # in that prompt.
+    # No longer set: generate.py repaired-not-truncated surplus entries as of
+    # 2026-08-17, so nothing drops a sentence any more. Kept so older rows in
+    # data/brief_calls.jsonl still parse, and because `true` in a historical row
+    # marks a call that may have published a shifted sentence — see the pairing
+    # note in generate.py.
     dropped_watch_for: bool = False
 
     def log(self) -> None:

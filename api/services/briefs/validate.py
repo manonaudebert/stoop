@@ -238,6 +238,46 @@ def check_useless_register(sentence: str, rule_id: str, index: int) -> Verdict:
     return Verdict("useless_register", True, where)
 
 
+def check_on_topic(sentence: str, rule_id: str, index: int) -> Verdict:
+    """The sentence has to be about the rule it was written for.
+
+    Every other check reads the sentence alone. This one is the only thing that
+    holds `watch_for[i]` to `selected_rules[i]` — the positional contract the
+    whole field rests on — and it exists because that contract broke in a way
+    nothing else could see. The model was asked for a paired two-sentence entry
+    on the class C issue, answered with separate list entries instead, and a
+    sentence about heat came to rest against the smoke-detector rule. Every
+    lexical check passed, because there is nothing wrong with the sentence: it
+    is just not about detectors.
+
+    Matched on substrings, not word boundaries, so "discolor" catches
+    "discoloration" and "exterminat" catches both "exterminate" and
+    "extermination" — a rule's terms are stems on purpose.
+
+    A rule declaring no `topic_terms` is not checked. `open_class_c` is the
+    reason: its subject is whichever hazard areas the building has, so a fixed
+    vocabulary would hard-fail correct sentences about fire escapes, pests, or
+    heat in turn. It is also the rule that can least afford a false positive,
+    being the one that fires most often.
+    """
+    from .rules import load_rules
+
+    where = f"issue {index + 1} ({rule_id})"
+    rule = next((r for r in load_rules()[0] if r.id == rule_id), None)
+    if rule is None or not rule.topic_terms:
+        return Verdict("on_topic", True, f"{where}: no topic terms declared")
+
+    lowered = sentence.lower()
+    if any(term in lowered for term in rule.topic_terms):
+        return Verdict("on_topic", True, where)
+    return Verdict(
+        "on_topic",
+        False,
+        f"{where}: names none of this rule's subject terms, so it is likely a "
+        f"sentence for a different issue",
+    )
+
+
 def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
     """The per-issue character budget, which is not uniform.
 
@@ -272,6 +312,7 @@ CHECKS: tuple[Callable[[str, str, int], Verdict], ...] = (
     check_vague_quantifiers,
     check_rights_language,
     check_useless_register,
+    check_on_topic,
     check_length,
 )
 

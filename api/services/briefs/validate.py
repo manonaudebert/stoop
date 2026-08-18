@@ -45,6 +45,7 @@ its rule falls back to the authored `brief_line`. Failing is cheap here.
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Callable, Iterable
 
 from .schema import (
@@ -264,6 +265,33 @@ def check_useless_register(sentence: str, rule_id: str, index: int) -> Verdict:
     return Verdict("useless_register", True, where)
 
 
+@lru_cache(maxsize=None)
+def _topic_patterns(terms: tuple[str, ...]) -> tuple[str, ...]:
+    """Compile a rule's topic terms to word-boundaried patterns.
+
+    A trailing `*` marks a STEM: "discolor*" matches discoloration, and
+    "exterminat*" matches both exterminate and extermination. Everything else
+    is a whole word with an optional plural.
+
+    Substring matching was the first implementation and was too loose in a way
+    that read as fine: "rat" matched *g-rat-es* and *sepa-rat-e*, "tap" matched
+    *tape*. Those were false PASSES, which is the harmless direction for a check
+    that only fails on zero matches, but they meant the term lists constrained
+    less than they appeared to.
+
+    Which terms are stems is a judgement, not a default. "lead" and "rat" stay
+    whole words precisely because "leading" and "rather" would otherwise match,
+    and both belong to rules where a false pass hides a real misattribution.
+    """
+    out = []
+    for term in terms:
+        if term.endswith("*"):
+            out.append(rf"\b{re.escape(term[:-1])}\w*")
+        else:
+            out.append(rf"\b{re.escape(term)}s?\b")
+    return tuple(out)
+
+
 def check_on_topic(sentence: str, rule_id: str, index: int) -> Verdict:
     """The sentence has to be about the rule it was written for.
 
@@ -294,7 +322,7 @@ def check_on_topic(sentence: str, rule_id: str, index: int) -> Verdict:
         return Verdict("on_topic", True, f"{where}: no topic terms declared")
 
     lowered = sentence.lower()
-    if any(term in lowered for term in rule.topic_terms):
+    if any(re.search(pat, lowered) for pat in _topic_patterns(rule.topic_terms)):
         return Verdict("on_topic", True, where)
     return Verdict(
         "on_topic",

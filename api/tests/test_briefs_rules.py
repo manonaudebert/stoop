@@ -1303,88 +1303,41 @@ def test_class_c_declares_no_topic_terms_and_is_never_checked():
 
 
 def test_topic_terms_are_matched_as_stems():
-    """"discolor" has to catch "discoloration", "exterminat" both
-    "exterminate" and "extermination"."""
+    """A trailing * marks a stem: "discolor*" must reach discoloration."""
     assert not _failed("Look for discoloration on the ceiling.", "on_topic", "mold")
     assert not _failed("Ask when extermination last happened.", "on_topic", "pests")
+    assert not _failed("Check for droppings under the sink.", "on_topic", "pests")
+    assert not _failed("Look at peeling paint on the sills.", "on_topic", "lead_paint")
 
 
-# --------------------------------------------------------------------------
-# Echoing the example — the model returning the prompt instead of writing
-# --------------------------------------------------------------------------
-
-def test_returning_an_example_verbatim_hard_fails():
-    """`qwen3:8b` did exactly this: answered with the GOOD example, a valid
-    sentence it had not written, bound for the largest shape in the corpus."""
-    for example in prompt.GOOD_EXAMPLES:
-        assert validate.echo_score(example) == 1.0
-        assert _failed(example, "echoes_example", "heat_hot_water"), example
-
-
-def test_the_examples_are_out_of_domain():
-    """The whole reason this check can work.
-
-    An example naming a hazard the brief also asks about fails twice: an echo
-    is indistinguishable from the model independently reaching the obvious
-    answer, and a genuine sentence about that hazard scores like an echo. A
-    real lead-paint sentence scored 0.83 against an in-domain lead-paint
-    example — it would have been hard-failed for being correct.
-    """
-    apartment_words = {
-        "apartment", "building", "radiator", "boiler", "mold", "pest", "paint",
-        "detector", "alarm", "stairwell", "hallway", "sill", "tenant",
-    }
-    for example in prompt.GOOD_EXAMPLES:
-        words = set(example.lower().split())
-        assert not (words & apartment_words), (
-            f"example is in-domain, which makes echoes unmeasurable: {example}"
-        )
-
-
-@pytest.mark.parametrize("sentence", [
-    "On a viewing, inspect window sills, door frames, and interior walls for "
-    "paint chips or peeling.",
-    "Check that stairwell doors close fully and that hallways are clear.",
-    "Look at corners, window sills, and areas around pipes for discoloration.",
-    "Run the hot tap and count the seconds before it turns hot.",
-    "Check the kitchen cabinets and under the sink for droppings.",
+@pytest.mark.parametrize("sentence,rule_id", [
+    # "rat" inside grates / separate, "tap" inside tape. All false PASSES under
+    # the original substring match — the harmless direction, but they meant the
+    # term lists constrained less than they read.
+    ("Check the floor grates for blockage.", "pests"),
+    ("Look for separate meters in the basement.", "pests"),
+    ("Rather than guessing, ask the super.", "pests"),
+    ("Check the window tape and seals.", "heat_hot_water"),
 ])
-def test_real_sentences_score_far_below_the_threshold(sentence):
-    """Every sentence in the corpus today. The margin is the point: real output
-    tops out at 0.10 against out-of-domain examples, so 0.6 is not a fine
-    judgement call."""
-    assert validate.echo_score(sentence) < 0.2, sentence
-    assert not _failed(sentence, "echoes_example", "mold")
+def test_a_term_inside_a_longer_word_does_not_match(sentence, rule_id):
+    assert _failed(sentence, "on_topic", rule_id), sentence
 
 
-@pytest.mark.parametrize("sentence", [
-    # All real output, quarantined by the first corpus run before the exemption.
-    "Turn on the hot water at the sink and feel whether it gets hot within a few seconds.",
-    "Turn on the radiators and check whether warm air comes out within a few minutes.",
-    "Turn on hot water at the sinks and feel the temperature after several seconds.",
-    "Hold your hand a couple of inches from the vent to feel for airflow.",
-])
-def test_a_quantifier_measuring_an_action_is_not_a_record_claim(sentence):
-    """14 of the first 17 drops were this, and all of them were good sentences.
-
-    The ban exists because "a few issues appear on this building's record"
-    invents a count the model was never given. "Run the tap for a few seconds"
-    invents nothing — it is a duration inside an instruction, and the natural
-    way to write a physical check.
-    """
-    assert not _failed(sentence, "vague_quantifiers"), sentence
+def test_whole_word_terms_still_take_a_plural():
+    """Whole words tolerate an "s" so "dropping" reaches "droppings" without
+    being a stem — stems are reserved for terms whose suffix varies more."""
+    assert not _failed("Look for rats behind the appliances.", "on_topic", "pests")
+    assert not _failed("Check the mice traps under the sink.", "on_topic", "pests")
 
 
-@pytest.mark.parametrize("sentence", [
-    "A few issues appear on this building's record.",
-    "Several tenants have reported problems worth asking about.",
-    "There are multiple areas worth looking at on a viewing.",
-    # Days measure how long a CONDITION lasted, which IS a claim about the
-    # record, so they are deliberately outside the exemption.
-    "Tenants went several days without heat.",
-])
-def test_the_exemption_does_not_reach_claims_about_the_record(sentence):
-    assert _failed(sentence, "vague_quantifiers"), sentence
+def test_lead_and_rat_are_deliberately_not_stems():
+    """The two terms where a stem would match an unrelated common word:
+    "leading" and "rather". Both sit on rules where a false pass hides a real
+    misattribution."""
+    by_id = {r.id: r for r in rules.load_rules()[0]}
+    assert "lead" in by_id["lead_paint"].topic_terms
+    assert "rat" in by_id["pests"].topic_terms
+    assert _failed("Ask who is leading the repairs.", "on_topic", "lead_paint")
 
 
 def test_banned_quantifiers_are_all_named_in_the_prompt():

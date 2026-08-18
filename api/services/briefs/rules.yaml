@@ -171,7 +171,7 @@ rules:
   # a single complaint filed in winter is already evidence that the line was
   # crossed. A renter signing a lease in September is owed that signal.
   - id: heat_hot_water
-    topic_terms: ["heat", "heating", "hot water", "radiator", "boiler", "thermostat", "warm", "cold", "tap"]
+    topic_terms: ["heat", "heating", "hot water", "radiator*", "boiler*", "thermostat*", "warm*", "cold", "tap"]
     brief_line: >-
       Heat or hot water problems reported in the last five years.
     priority: 2
@@ -205,7 +205,7 @@ rules:
   # The pre-1960 fact stays in why_it_matters, where it is background about lead
   # paint generally rather than a claim about this building.
   - id: lead_paint
-    topic_terms: ["paint", "lead", "chip", "peel", "sill", "windowsill", "dust"]
+    topic_terms: ["paint*", "lead", "chip*", "peel*", "sill*", "windowsill*", "dust*"]
     brief_line: >-
       Lead-paint violations on record.
     priority: 3
@@ -260,7 +260,7 @@ rules:
   #     anyway, so the rule would be describing something its own signal cannot
   #     see.
   - id: smoke_co_detectors
-    topic_terms: ["detector", "alarm", "smoke", "carbon monoxide"]
+    topic_terms: ["detector*", "alarm*", "smoke", "carbon monoxide"]
     brief_line: >-
       Detector violations on record.
     priority: 4
@@ -310,7 +310,7 @@ rules:
   # complaint, and an asymmetric floor would show one and hide the other on
   # identical evidence.
   - id: mold
-    topic_terms: ["mold", "mildew", "damp", "moisture", "stain", "discolor", "leak", "water"]
+    topic_terms: ["mold*", "mildew*", "damp*", "moisture", "stain*", "discolor*", "leak*", "water"]
     brief_line: >-
       Mold reported in the last five years.
     priority: 5
@@ -334,7 +334,7 @@ rules:
   # minor-categories offer only PESTS and VERMIN. Bedbug guidance therefore rides
   # along with the general pest rule rather than firing on a false signal.
   - id: pests
-    topic_terms: ["pest", "roach", "cockroach", "rodent", "mice", "mouse", "rat", "bedbug", "dropping", "insect", "gnaw", "exterminat"]
+    topic_terms: ["pest*", "roach*", "cockroach*", "rodent*", "mice", "mouse", "rat", "bedbug*", "dropping*", "insect*", "gnaw*", "exterminat*"]
     brief_line: >-
       Pests reported in the last five years.
     priority: 5

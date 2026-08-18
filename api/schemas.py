@@ -320,6 +320,14 @@ class BuildingBriefResponse(BaseModel):
     # on a building with nothing to check. The frontend must not infer this by
     # matching the text of confidence_note — that copy is expected to change.
     has_records: bool = True
+    # How many HPD records the building has, violations and complaints together.
+    # The one number the brief renders, and an exception to "no numbers
+    # anywhere" made on purpose: that rule exists because a MODEL could misstate
+    # a count, and this is read from the signals row and rendered by code. It
+    # earns its place only in the empty state, where "nothing crossed the
+    # thresholds" leaves a reader unable to tell a thoroughly-checked building
+    # from a barely-recorded one. Never rendered next to a watch item.
+    record_count: int = 0
 
 
 # ── SF (San Francisco) ────────────────────────────────────────────────────────

@@ -630,6 +630,7 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
         confidence_note=confidence_note_from_signals(signals),
         no_flags=not watch_items,
         has_records=bool(signals["hpd_record_count"]),
+        record_count=signals["hpd_record_count"] or 0,
     )
     cache_set(cache_key, result)
     return result

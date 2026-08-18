@@ -346,4 +346,7 @@ export interface BuildingBrief {
   // we flag" implies checking happened, which is untrue of a building with
   // nothing to check. Do not infer this by matching confidence_note's wording.
   has_records: boolean
+  // Violations and complaints together. The only number the brief renders,
+  // and only in the empty state — see EmptyState in BuildingBrief.tsx.
+  record_count: number
 }

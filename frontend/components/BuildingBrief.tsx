@@ -19,10 +19,16 @@ import TooltipIcon from './TooltipIcon'
  * the one thing to look for, and layer 2 explains and cites. `condition` is not
  * rendered at all — see the note at the disclosure below.
  *
- * NO NUMBERS ANYWHERE. `magnitude` — a per-rule count template — was cut from
- * rules.yaml and the API response on 2026-08-12, after a chip was tried here
- * and rejected: the counts sit in cards inches away on the same page, and
+ * NO NUMBERS ON A WATCH ITEM. `magnitude` — a per-rule count template — was cut
+ * from rules.yaml and the API response on 2026-08-12, after a chip was tried
+ * here and rejected: the counts sit in cards inches away on the same page, and
  * suppression now encodes severity structurally.
+ *
+ * The empty state is the one exception, and carries the record count. The rule
+ * above exists because a MODEL could misstate a count; that one is read from
+ * the signals row and rendered by code, and it answers a question the wording
+ * otherwise leaves open — "nothing crossed the thresholds" reads the same on a
+ * building with four records and one with four hundred.
  *
  * Every string here is authored except one. `brief_line`, `condition`,
  * `why_it_matters` and `action` come verbatim from rules.yaml, each carrying the
@@ -47,7 +53,7 @@ type Props = {
 const MONO = 'var(--font-mono)'
 
 export default function BuildingBrief({ brief }: Props) {
-  const { watch_items, confidence_note, no_flags, has_records } = brief
+  const { watch_items, confidence_note, no_flags, record_count } = brief
 
   return (
     <section
@@ -75,7 +81,7 @@ export default function BuildingBrief({ brief }: Props) {
       </div>
 
       {no_flags ? (
-        <EmptyState hasRecords={has_records} note={confidence_note} />
+        <EmptyState recordCount={record_count ?? 0} note={confidence_note} />
       ) : (
         <>
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -265,14 +271,23 @@ function WatchForLine({ sentence }: { sentence: string }) {
  * A building with no HPD record at all gets a different sentence, because
  * "nothing crossed the thresholds we flag" implies checking happened — which is
  * not true of a building with nothing to check.
+ *
+ * The record count is the one number this component renders, and it is here
+ * rather than anywhere else on purpose. "Nothing crossed the thresholds" reads
+ * identically on a building with four records and one with four hundred, and
+ * those are very different reassurances. Rendered by code from the signals row,
+ * never by the model, which is what makes it exempt from the no-numbers rule
+ * the watch items follow.
  */
-function EmptyState({ hasRecords, note }: { hasRecords: boolean; note: string | null }) {
+function EmptyState({ recordCount, note }: { recordCount: number; note: string | null }) {
   return (
     <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
-      {hasRecords ? (
+      {recordCount > 0 ? (
         <>
-          Nothing here crossed the thresholds we flag — which is not the same as
-          no problems. Full violation and complaint history below.
+          {recordCount.toLocaleString()} HPD{' '}
+          {recordCount === 1 ? 'record' : 'records'} on file; none met the
+          thresholds we flag. That is not the same as no problems. Full
+          violation and complaint history below.
         </>
       ) : (
         <>{note ?? 'There are no HPD records on file for this building.'}</>

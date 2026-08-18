@@ -237,6 +237,36 @@ async def test_missing_row_is_treated_exactly_like_a_zero_flag_building(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_record_count_is_sent_for_the_empty_state(client):
+    """The one number the brief renders. "Nothing crossed the thresholds" reads
+    the same on a building with four records and one with four hundred, and the
+    two are very different reassurances."""
+    resp = await _get(client, {**SIGNALS_ROW, "open_class_c_violations": 0,
+                               "lead_paint_violations": 0,
+                               "smoke_co_detector_violations": 0,
+                               "mold_complaints": 0, "pest_complaints": 0,
+                               "heat_hot_water_complaints": 0,
+                               "hpd_record_count": 14})
+    body = resp.json()
+    assert body["no_flags"] is True
+    assert body["record_count"] == 14
+
+
+@pytest.mark.asyncio
+async def test_record_count_is_zero_when_there_is_no_record(client):
+    """Drives the other empty state, and must not render as "0 HPD records"."""
+    resp = await _get(client, {**SIGNALS_ROW, "open_class_c_violations": 0,
+                               "lead_paint_violations": 0,
+                               "smoke_co_detector_violations": 0,
+                               "mold_complaints": 0, "pest_complaints": 0,
+                               "heat_hot_water_complaints": 0,
+                               "hpd_record_count": 0})
+    body = resp.json()
+    assert body["record_count"] == 0
+    assert body["has_records"] is False
+
+
 async def test_has_records_splits_the_two_empty_states(client):
     """A building with records that flagged nothing is NOT an empty building.
 

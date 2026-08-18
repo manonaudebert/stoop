@@ -55,7 +55,7 @@ Verify with count_tokens before assuming cache savings in any cost model.
 
 from typing import Any
 
-from .schema import MAX_WATCH_ITEMS, MIN_AREAS_FOR_PAIRED
+from .schema import MAX_WATCH_ITEMS, MIN_AREAS_FOR_MULTI
 
 # Above this percentile, absolute-severity language describes something real:
 # the building genuinely stands out against its neighbors. Below it, "severe" is
@@ -91,7 +91,7 @@ You will be given the conditions flagged further down the page, numbered.
 You write one field.
 
 watch_for: a LIST of entries, one per issue, for the issues numbered in your input. One entry for issue 1, one for issue 2, in that order. If only one issue is listed, return one entry. If none are listed, return an empty list.
-  An entry is ONE sentence, unless your input explicitly asks that issue for two. Then write exactly two sentences in that one entry, still as a single list entry. Never split one issue across two entries — the entry positions are what tie your sentences to the issues.
+  An entry is ONE sentence, unless your input explicitly asks that issue for more. Then write exactly the number asked for, in that ONE entry, still as a single list entry. Never split one issue across two entries — the entry positions are what tie your sentences to the issues, and an extra entry silently attaches your sentence to the wrong issue.
   Each sentence names physical evidence the reader can find for themselves, for THAT issue only. Point at a thing in the apartment they can look at, smell, turn on, or open. A question is allowed only with the exact words to say, because the person who would answer it may not be there.
   Each sentence must stand alone. Do not write "also" or "in addition" — they are shown as separate items, not as a paragraph.
   Do not cover two issues in one sentence, and do not repeat the same check twice in different words. If two issues would genuinely produce the same check, find what is distinct about each.
@@ -104,7 +104,7 @@ watch_for: a LIST of entries, one per issue, for the issues numbered in your inp
   Bad: "Check for heat and paint problems." (one sentence covering both issues)
 
 Rules for EVERY sentence you write:
-- Under 30 words and under 200 characters per sentence, whichever binds first. One sentence per issue, unless that issue's input asks for two; then each of the two is its own complete sentence under the same limit. Never join sentences with a semicolon to dodge this.
+- Under 30 words and under 200 characters per sentence, whichever binds first. One sentence per issue, unless that issue's input asks for more; then each is its own complete sentence under the same limit. Never join sentences with a semicolon to dodge this.
 - Never describe upkeep, prevention, or maintenance as the reader's own responsibility. They do not live there yet, and what a tenant must do is printed below in the city's words.
 - Never write a number, a count, a percentage, an ordinal, or a year — not as digits, not as words.
 - Never use a vague quantifier either: no "a few", "several", "some", "a handful", "a number of", "multiple", "many", "numerous", "isolated", "a couple", "a high number of". These are counts in disguise, and you have not been told the count. A record you are told about may contain one entry or several hundred; you cannot tell, so do not imply it. This rule holds even when strong language about severity is permitted — being allowed to call a record bad is not being allowed to say how large it is.
@@ -170,6 +170,15 @@ BAD: When visiting, ask the previous owner about their experience with
 the car through the winter.
 (depends on a person who may not be there, asks for an opinion instead
 of evidence, and gives no exact wording)'''
+
+
+_COUNT_WORDS = {2: "TWO", 3: "THREE", 4: "FOUR"}
+
+
+def _count_word(n: int) -> str:
+    """Spelled out, because "Write 2 sentences" reads as data next to a list of
+    areas while "Write TWO sentences" reads as the instruction it is."""
+    return _COUNT_WORDS.get(n, str(n))
 
 
 def severity_language_allowed(percentile: float | None) -> bool:
@@ -252,16 +261,20 @@ def render_context(
                         f"of:\n"
                         f"{areas}\n"
                         + (
-                            # Two areas, two sentences: this issue is the only
-                            # one whose single condition contains several
-                            # distinct things to look at, and naming only the
-                            # largest left the rest unmentioned in layer 1.
-                            f"    Write TWO sentences for Issue {i}, in one "
-                            f"entry. The first is about the FIRST area, the "
-                            f"second about the SECOND area. Do not write about "
-                            f"the same area twice, and do not merge them into "
-                            f"one sentence covering both."
-                            if len(hazard_areas) >= MIN_AREAS_FOR_PAIRED
+                            # One sentence per area listed, and the count is
+                            # spelled out because it used to disagree with the
+                            # list: three areas were shown while two sentences
+                            # were asked for, and the model answered the list
+                            # rather than the instruction — writing three
+                            # entries, which then had to be reconciled against
+                            # an issue count of one. Ask for what is shown.
+                            f"    Write {_count_word(len(hazard_areas))} "
+                            f"sentences for Issue {i}, in ONE entry: one for "
+                            f"each area listed above, in that order. Do not "
+                            f"write about the same area twice, do not merge "
+                            f"them into one sentence, and do not split them "
+                            f"across separate entries."
+                            if len(hazard_areas) >= MIN_AREAS_FOR_MULTI
                             # One area: one sentence. Asking for two here is
                             # asking the model to pad, and padding is what
                             # produced invented nouns before this block existed.

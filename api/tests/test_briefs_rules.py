@@ -834,7 +834,7 @@ def test_only_one_rule_can_ever_carry_two_sentences():
     """Two modules name this rule and they must not drift.
 
     `prompt.HAZARD_AREA_RULE_ID` decides which issue is ASKED for two sentences;
-    `schema.PAIRED_SENTENCE_RULE_ID` decides which is ALLOWED two. They live
+    `schema.MULTI_SENTENCE_RULE_ID` decides which is ALLOWED two. They live
     apart because prompt.py imports schema.py and not the reverse, so the
     constant cannot simply be shared. If they diverge, every class C sentence is
     requested at two sentences and then hard-failed at the one-sentence budget —
@@ -845,16 +845,47 @@ def test_only_one_rule_can_ever_carry_two_sentences():
     a single sentence, which is only true while the paired rule outranks every
     other rule and therefore never lands in position 2.
     """
-    assert schema.PAIRED_SENTENCE_RULE_ID == prompt.HAZARD_AREA_RULE_ID
+    assert schema.MULTI_SENTENCE_RULE_ID == prompt.HAZARD_AREA_RULE_ID
 
     loaded = rules.load_rules()[0]
-    paired = [r for r in loaded if r.id == schema.PAIRED_SENTENCE_RULE_ID]
+    paired = [r for r in loaded if r.id == schema.MULTI_SENTENCE_RULE_ID]
     assert len(paired) == 1, "the paired rule is not in rules.yaml"
-    others = [r for r in loaded if r.id != schema.PAIRED_SENTENCE_RULE_ID]
+    others = [r for r in loaded if r.id != schema.MULTI_SENTENCE_RULE_ID]
     assert all(paired[0].priority < r.priority for r in others), (
         "the paired rule no longer outranks every other rule, so it can appear "
         "as issue 2 — where a two-sentence entry is neither asked for nor capped"
     )
+
+
+def test_the_sentence_count_asked_for_matches_the_areas_shown():
+    """The bug this replaced: three areas listed, two sentences asked for.
+
+    The model answered the list rather than the instruction and returned three
+    entries for one issue, which `generate.py` then had to reconcile against an
+    issue count — and, before the pairing fix, reconciled by sliding later
+    sentences onto the wrong rules. 1,722 of 2,785 paired shapes showed three
+    areas, so this was the majority case, not an edge.
+    """
+    for n in (2, 3):
+        body = _context(
+            conditions=["Hazardous conditions are open."],
+            hazard_areas=[f"Area {i} — Something." for i in range(n)],
+            hazard_issue_index=0,
+        )
+        word = {2: "TWO", 3: "THREE"}[n]
+        assert f"Write {word} sentences for Issue 1" in body, n
+        # And never asks for a count the list cannot support.
+        for other in {"TWO", "THREE"} - {word}:
+            assert f"Write {other} sentences" not in body, n
+
+
+def test_the_area_budget_covers_every_area_that_can_be_shown():
+    """One sentence per area only works if the budget stretches that far.
+    `HAZARD_AREA_LIMIT` caps what SQL supplies; the schema has to match it or a
+    building at the limit fails length validation for obeying the prompt."""
+    from services.briefs.signals import HAZARD_AREA_LIMIT
+    assert schema.MAX_AREA_SENTENCES == HAZARD_AREA_LIMIT
+    assert schema.MAX_WATCH_FOR_MULTI == schema.MAX_WATCH_FOR * HAZARD_AREA_LIMIT
 
 
 def test_two_areas_ask_for_two_sentences_and_one_area_does_not():
@@ -872,7 +903,7 @@ def test_two_areas_ask_for_two_sentences_and_one_area_does_not():
         hazard_issue_index=0,
     )
     assert "Write TWO sentences for Issue 1" in two
-    assert "The first is about the FIRST area, the second about the SECOND" in two
+    assert "one for each area listed above, in that order" in two
     # Order must survive into the rendered block — the instruction is useless
     # if the list itself is reordered on the way in.
     assert two.index("Bldg maintenance") < two.index("Heat / hot water")
@@ -998,9 +1029,9 @@ def test_each_watch_sentence_is_length_capped():
     below.
     """
     with pytest.raises(Exception):
-        schema.GeneratedContext(watch_for=["x" * (schema.MAX_WATCH_FOR_PAIRED + 1)])
+        schema.GeneratedContext(watch_for=["x" * (schema.MAX_WATCH_FOR_MULTI + 1)])
     assert schema.GeneratedContext(
-        watch_for=["x" * schema.MAX_WATCH_FOR_PAIRED]
+        watch_for=["x" * schema.MAX_WATCH_FOR_MULTI]
     ).watch_for
 
 
@@ -1016,7 +1047,7 @@ def test_only_the_paired_rule_may_spend_the_larger_budget():
     # test still isolates the length check.
     long_enough_for_two = "mold " * ((schema.MAX_WATCH_FOR + 5) // 5)
 
-    ok = _verdicts(long_enough_for_two, schema.PAIRED_SENTENCE_RULE_ID)
+    ok = _verdicts(long_enough_for_two, schema.MULTI_SENTENCE_RULE_ID)
     assert validate.is_publishable(ok)
 
     too_long = _verdicts(long_enough_for_two, "mold")
@@ -1024,8 +1055,8 @@ def test_only_the_paired_rule_may_spend_the_larger_budget():
     assert [v.check for v in validate.failures(too_long)] == ["length"]
 
     # And the paired rule is not unbounded either.
-    over = _verdicts("mold " * ((schema.MAX_WATCH_FOR_PAIRED + 5) // 5),
-                     schema.PAIRED_SENTENCE_RULE_ID)
+    over = _verdicts("mold " * ((schema.MAX_WATCH_FOR_MULTI + 5) // 5),
+                     schema.MULTI_SENTENCE_RULE_ID)
     assert not validate.is_publishable(over)
 
 

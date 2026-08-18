@@ -48,7 +48,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable
 
 from .schema import (
-    MAX_WATCH_FOR, MAX_WATCH_FOR_PAIRED, PAIRED_SENTENCE_RULE_ID,
+    MAX_WATCH_FOR, MAX_WATCH_FOR_MULTI, MULTI_SENTENCE_RULE_ID,
 )
 
 # ---------------------------------------------------------------------------
@@ -354,7 +354,7 @@ def check_echoes_example(sentence: str, rule_id: str, index: int) -> Verdict:
 def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
     """The per-issue character budget, which is not uniform.
 
-    Pydantic caps every entry at the LOOSER `MAX_WATCH_FOR_PAIRED`, because the
+    Pydantic caps every entry at the LOOSER `MAX_WATCH_FOR_MULTI`, because the
     schema cannot see which rule an entry answers and one rule legitimately
     reaches it. That leaves the tighter limit unenforced for every other rule,
     which is exactly the gap a validator handed the rule id can close.
@@ -365,7 +365,7 @@ def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
     It is what makes a model that starts listing findings run out of room.
     """
     budget = (
-        MAX_WATCH_FOR_PAIRED if rule_id == PAIRED_SENTENCE_RULE_ID else MAX_WATCH_FOR
+        MAX_WATCH_FOR_MULTI if rule_id == MULTI_SENTENCE_RULE_ID else MAX_WATCH_FOR
     )
     where = f"issue {index + 1} ({rule_id})"
     if len(sentence) > budget:

@@ -20,6 +20,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from .signals import HAZARD_AREA_LIMIT
+
 # Bump when the prompt or the schema changes in a way that invalidates stored
 # briefs. Persisted alongside every generation so a corpus can be traced back to
 # what produced it.
@@ -53,7 +55,7 @@ from pydantic import BaseModel, Field, StringConstraints
 # second, when both are describable. Previously it named only the first, so a
 # building with open violations for pests AND egress AND maintenance got one
 # sentence about pests and the rest went unmentioned in layer 1. Every other
-# issue is still exactly one sentence — see MAX_WATCH_FOR_PAIRED for why this
+# issue is still exactly one sentence — see MAX_WATCH_FOR_MULTI for why this
 # rule is the only one that can carry two.
 #
 # Amended in place because v6 has never backed a corpus: `brief_texts` is empty,
@@ -111,37 +113,52 @@ from pydantic import BaseModel, Field, StringConstraints
 # Out of domain, every real sentence in the corpus scores at most 0.10 and a
 # verbatim echo scores 1.00. That margin is what makes `check_echoes_example`
 # measurable rather than decorative.
-PROMPT_VERSION = "brief-v10"
+# v10 -> v11: the class C issue now asks for ONE SENTENCE PER AREA SHOWN, up to
+# three, instead of always exactly two. The prompt listed up to three areas while
+# asking for two sentences, and the model answered the list — returning three
+# entries for one issue on 1,722 of 2,785 paired shapes (62%). That was the
+# source of the entry-count failures, and it was a contradiction in the prompt
+# rather than a model fault.
+PROMPT_VERSION = "brief-v11"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
 # 200 characters a model that starts listing findings runs out of room and fails
 # validation, which is the intended outcome rather than a tolerated one.
 MAX_WATCH_FOR = 200
 
-# The class C issue may carry TWO sentences in one entry when the building has
-# two describable hazard areas, so its budget is two sentences and nothing more.
+# The class C issue carries ONE SENTENCE PER DESCRIBABLE HAZARD AREA, up to the
+# number of areas the selection layer can supply.
 #
 # It is the only issue that can: every other rule names one condition, and a
 # second sentence about it would either repeat the first or invent a detail. The
 # class C rule is the one whose issue genuinely contains several distinct things
 # — a building can have open violations for pests AND for maintenance AND for
-# egress — and until now the reader heard about only the largest.
+# egress — and the reader used to hear about only the largest.
 #
-# Deliberately a hard multiple rather than a round number: the budget for two
-# sentences is exactly the budget for one, twice. A model given slack per
-# sentence writes longer sentences.
-MAX_WATCH_FOR_PAIRED = MAX_WATCH_FOR * 2
+# WAS EXACTLY TWO until 2026-08-17, while the prompt showed up to three areas.
+# That mismatch was the bug: shown three areas and asked for two sentences, the
+# model wrote three entries, which is the reasonable reading of what it was
+# given. `generate.py` then had a list longer than its issue count and, before
+# the pairing fix, slid later sentences onto the wrong rules. 1,722 of 2,785
+# paired shapes showed three areas — 62%, not an edge case. Asking for as many
+# sentences as areas shown removes the contradiction at its source.
+MAX_AREA_SENTENCES = HAZARD_AREA_LIMIT
 
-# The rule allowed to use MAX_WATCH_FOR_PAIRED. Named here rather than in
+# Deliberately a hard multiple rather than a round number: the budget for three
+# sentences is exactly the budget for one, three times. A model given slack per
+# sentence writes longer sentences.
+MAX_WATCH_FOR_MULTI = MAX_WATCH_FOR * MAX_AREA_SENTENCES
+
+# The rule allowed to use MAX_WATCH_FOR_MULTI. Named here rather than in
 # prompt.py because the schema, the prompt and the validator all have to agree
 # on it, and two of the three already import from this module.
-PAIRED_SENTENCE_RULE_ID = "open_class_c"
+MULTI_SENTENCE_RULE_ID = "open_class_c"
 
 # A second sentence needs a second thing to be about. Below this many
 # describable hazard areas the model is asked for one sentence, because the
 # alternative is padding — and padding a sentence about hazards is how the
 # invented nouns ("water damage or mold") got in before the areas block existed.
-MIN_AREAS_FOR_PAIRED = 2
+MIN_AREAS_FOR_MULTI = 2
 
 # One per issue. A list rather than a paragraph because each entry is
 # answerable to a specific rule: entry i addresses selected_rules[i], which is
@@ -166,7 +183,7 @@ MAX_WATCH_ITEMS = 3
 # enforced by validate.check_length, which is handed the rule id. Schema rejects
 # what is structurally impossible; the validator rejects what is wrong for this
 # issue — the same split as everywhere else in this package.
-WatchSentence = Annotated[str, StringConstraints(max_length=MAX_WATCH_FOR_PAIRED)]
+WatchSentence = Annotated[str, StringConstraints(max_length=MAX_WATCH_FOR_MULTI)]
 
 
 class GeneratedContext(BaseModel):

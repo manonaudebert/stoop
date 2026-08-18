@@ -91,19 +91,27 @@ from pydantic import BaseModel, Field, StringConstraints
 # now, generated under prompts that differ, and reusing v7 would serve those
 # older rows alongside new ones under a version that no longer identifies a
 # single prompt — which is the one thing this field exists to prevent.
-# v8 -> v9: the worked GOOD example moved off heat and onto a self-closing
-# fire door, plus an explicit "the example shows the FORM, not the content".
-# qwen3:8b returned the heat example VERBATIM as its answer for the heat rule —
-# a valid sentence that the model did not write, bound for the single largest
-# shape in the corpus. An example that names a topic the brief also asks about
-# can be copied instead of imitated.
+# v8 -> v9 -> v10: the worked examples left the apartment domain entirely and
+# are now about buying a used car. qwen3:8b returned the old heat example
+# VERBATIM as its answer for the heat rule — a valid sentence it had not
+# written, bound for the largest shape in the corpus.
 #
-# It does not disappear, it shrinks: the taxonomy covers apartment conditions
-# comprehensively, so no concrete example is entirely outside it. Fire doors are
-# reachable only through `open_class_c` when fire safety leads its hazard areas,
-# 633 shapes and 20,113 buildings, against 962 shapes and 66,755 buildings for
-# heat. Measured, not guessed.
-PROMPT_VERSION = "brief-v9"
+# v9 moved the example to a self-closing fire door, which was wrong and is
+# recorded because the reasoning was the interesting part. It reduced exposure
+# (633 shapes vs 962) instead of removing it, and worse, it destroyed the only
+# way to detect the problem: the corpus already contains a stairwell-door
+# sentence written with NO door example in the prompt, so under v9 a door
+# sentence could not be told apart from the model reaching the obvious answer
+# on its own. Every collision here has been caught by reading a row and
+# recognising it; an in-domain example retires that method.
+#
+# In-domain examples also manufacture false positives. A real lead-paint
+# sentence scores 0.83 containment against an in-domain lead-paint example,
+# above `validate.ECHO_CONTAINMENT` — the check would hard-fail correct output.
+# Out of domain, every real sentence in the corpus scores at most 0.10 and a
+# verbatim echo scores 1.00. That margin is what makes `check_echoes_example`
+# measurable rather than decorative.
+PROMPT_VERSION = "brief-v10"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
 # 200 characters a model that starts listing findings runs out of room and fails

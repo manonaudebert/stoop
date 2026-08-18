@@ -64,6 +64,23 @@ from .schema import MAX_WATCH_ITEMS, MIN_AREAS_FOR_PAIRED
 # threshold.
 SEVERITY_LANGUAGE_PERCENTILE = 70
 
+# The worked GOOD examples, in one place so `validate.check_echoes_example` can
+# measure output against them without a second copy to drift. Any sentence in
+# the prompt that models the FORM belongs here — a sentence the model can read
+# is a sentence it can return.
+# Both are deliberately about buying a used CAR, not an apartment. An example
+# naming a hazard the brief also asks about is unusable twice over: the model
+# can return it instead of writing (qwen3 did, verbatim), and a genuine sentence
+# about that hazard cannot be told apart from an echo. Measured — a real
+# lead-paint sentence scored 0.83 against an in-domain lead-paint example, which
+# would hard-fail correct output. Out of domain, every real sentence scores near
+# zero and an echo is unambiguous.
+GOOD_EXAMPLES: tuple[str, ...] = (
+    "Ask the seller to start the car and check whether the dashboard warning "
+    "lights go out after a few seconds.",
+    "Lift the trunk mat and look underneath for damp or rust.",
+)
+
 
 SYSTEM = """You write the opening of a housing-conditions report on one New York City rental building. A prospective renter reads it before signing a lease.
 
@@ -78,10 +95,10 @@ watch_for: a LIST of entries, one per issue, for the issues numbered in your inp
   Each sentence names physical evidence the reader can find for themselves, for THAT issue only. Point at a thing in the apartment they can look at, smell, turn on, or open. A question is allowed only with the exact words to say, because the person who would answer it may not be there.
   Each sentence must stand alone. Do not write "also" or "in addition" — they are shown as separate items, not as a paragraph.
   Do not cover two issues in one sentence, and do not repeat the same check twice in different words. If two issues would genuinely produce the same check, find what is distinct about each.
-  Good (a fire-door issue): "Push the stairwell door and check that it swings shut on its own rather than resting open."
-  Good (issue = lead paint): "On a viewing, look at window sills and the paint around them for chips or peeling."
-  Bad: "Ask the current tenant about their experience with heat." (depends on someone who may not be there, wants an opinion rather than evidence, and gives no exact wording)
-  The examples show the FORM. Do not reuse their wording for an issue they do not describe.
+  The examples are about buying a used CAR, deliberately: they show the FORM of the line and none of its content. Never write about a car, and never reuse their wording.
+  Good (a question, with the exact words to say): "Ask the seller to start the car and check whether the dashboard warning lights go out after a few seconds."
+  Good (pure observation): "Lift the trunk mat and look underneath for damp or rust."
+  Bad: "Ask the previous owner about their experience with the car through the winter." (depends on someone who may not be there, wants an opinion rather than evidence, and gives no exact wording)
   Bad: "Call 311 to file a complaint." (that guidance is printed below, written by the city)
   Bad: "You are entitled to heat between October and May." (a legal right, not yours to state)
   Bad: "Check for heat and paint problems." (one sentence covering both issues)
@@ -142,15 +159,17 @@ Do not describe upkeep or prevention as the tenant's responsibility.
 One sentence, under 30 words, plain language, no preamble. Where an issue
 asks for two, each of the two is its own sentence under 30 words.
 
-GOOD: Push the stairwell door and check that it swings shut on its own
-rather than resting open.
-BAD: When visiting, ask the current tenant about their experience with
-the building's fire doors.
-(depends on a person who may not be there, asks for an opinion instead
-of evidence, and gives no exact wording)
+The examples below are about buying a used CAR, not an apartment. They
+show the FORM of the line and none of its content. Nothing in them is a
+thing to check in an apartment.
 
-The example shows the FORM, not the content. Do not reuse its wording,
-and do not write about doors unless an issue below is about doors.'''
+GOOD: Ask the seller to start the car and check whether the dashboard
+warning lights go out after a few seconds.
+GOOD: Lift the trunk mat and look underneath for damp or rust.
+BAD: When visiting, ask the previous owner about their experience with
+the car through the winter.
+(depends on a person who may not be there, asks for an opinion instead
+of evidence, and gives no exact wording)'''
 
 
 def severity_language_allowed(percentile: float | None) -> bool:

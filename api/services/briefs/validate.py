@@ -278,6 +278,79 @@ def check_on_topic(sentence: str, rule_id: str, index: int) -> Verdict:
     )
 
 
+# Above this share of an example's content words, a sentence is echoing the
+# example rather than imitating it. Calibrated against real output: the verbatim
+# copy scores 1.0, and the highest-scoring genuine sentence in the corpus scores
+# well under this. Set from measurement, not taste — see the calibration in
+# tests/test_briefs_rules.py.
+ECHO_CONTAINMENT = 0.6
+
+# Words carried by nearly every sentence in this field. Left in the comparison
+# they inflate every score toward the threshold, because the examples are the
+# same KIND of sentence as the output and share all of this.
+_ECHO_STOPWORDS = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "check", "for", "from", "has",
+    "have", "in", "is", "it", "its", "look", "of", "on", "or", "own", "rather",
+    "than", "that", "the", "their", "them", "there", "they", "to", "up", "was",
+    "whether", "with", "you", "your", "viewing", "ask",
+})
+
+
+def _content_words(text: str) -> set[str]:
+    return {
+        w for w in re.findall(r"[a-z]+", text.lower())
+        if w not in _ECHO_STOPWORDS and len(w) > 2
+    }
+
+
+def echo_score(sentence: str) -> float:
+    """How much of the nearest example's content this sentence reproduces.
+
+    Containment against the example rather than symmetric similarity: the
+    failure is the model returning the example, so what matters is how much of
+    the EXAMPLE is present, not how alike the two strings are overall. A
+    verbatim copy scores 1.0 whatever else it appends.
+    """
+    from .prompt import GOOD_EXAMPLES
+
+    words = _content_words(sentence)
+    if not words:
+        return 0.0
+    best = 0.0
+    for example in GOOD_EXAMPLES:
+        ex = _content_words(example)
+        if ex:
+            best = max(best, len(ex & words) / len(ex))
+    return best
+
+
+def check_echoes_example(sentence: str, rule_id: str, index: int) -> Verdict:
+    """The model returning the prompt's example instead of writing a sentence.
+
+    Observed: `qwen3:8b` returned the GOOD example verbatim as its answer, a
+    valid sentence it had not written, bound for the largest shape in the
+    corpus. Nothing else catches it — the example is a good sentence, so every
+    quality check passes.
+
+    This is also why the examples are deliberately OUT OF DOMAIN. An example
+    about a hazard the brief also asks about cannot be told apart from the model
+    independently arriving at the obvious answer for that hazard; the corpus
+    already contains a stairwell-door sentence written with no door example in
+    the prompt. Out-of-domain examples make an echo unambiguous, which is what
+    makes this check meaningful rather than decorative.
+    """
+    score = echo_score(sentence)
+    where = f"issue {index + 1} ({rule_id})"
+    if score >= ECHO_CONTAINMENT:
+        return Verdict(
+            "echoes_example",
+            False,
+            f"{where}: reproduces {score:.0%} of a prompt example's content "
+            f"words — returned rather than written",
+        )
+    return Verdict("echoes_example", True, where)
+
+
 def check_length(sentence: str, rule_id: str, index: int) -> Verdict:
     """The per-issue character budget, which is not uniform.
 
@@ -313,6 +386,7 @@ CHECKS: tuple[Callable[[str, str, int], Verdict], ...] = (
     check_rights_language,
     check_useless_register,
     check_on_topic,
+    check_echoes_example,
     check_length,
 )
 

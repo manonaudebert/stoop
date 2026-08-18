@@ -1278,6 +1278,54 @@ def test_topic_terms_are_matched_as_stems():
     assert not _failed("Ask when extermination last happened.", "on_topic", "pests")
 
 
+# --------------------------------------------------------------------------
+# Echoing the example — the model returning the prompt instead of writing
+# --------------------------------------------------------------------------
+
+def test_returning_an_example_verbatim_hard_fails():
+    """`qwen3:8b` did exactly this: answered with the GOOD example, a valid
+    sentence it had not written, bound for the largest shape in the corpus."""
+    for example in prompt.GOOD_EXAMPLES:
+        assert validate.echo_score(example) == 1.0
+        assert _failed(example, "echoes_example", "heat_hot_water"), example
+
+
+def test_the_examples_are_out_of_domain():
+    """The whole reason this check can work.
+
+    An example naming a hazard the brief also asks about fails twice: an echo
+    is indistinguishable from the model independently reaching the obvious
+    answer, and a genuine sentence about that hazard scores like an echo. A
+    real lead-paint sentence scored 0.83 against an in-domain lead-paint
+    example — it would have been hard-failed for being correct.
+    """
+    apartment_words = {
+        "apartment", "building", "radiator", "boiler", "mold", "pest", "paint",
+        "detector", "alarm", "stairwell", "hallway", "sill", "tenant",
+    }
+    for example in prompt.GOOD_EXAMPLES:
+        words = set(example.lower().split())
+        assert not (words & apartment_words), (
+            f"example is in-domain, which makes echoes unmeasurable: {example}"
+        )
+
+
+@pytest.mark.parametrize("sentence", [
+    "On a viewing, inspect window sills, door frames, and interior walls for "
+    "paint chips or peeling.",
+    "Check that stairwell doors close fully and that hallways are clear.",
+    "Look at corners, window sills, and areas around pipes for discoloration.",
+    "Run the hot tap and count the seconds before it turns hot.",
+    "Check the kitchen cabinets and under the sink for droppings.",
+])
+def test_real_sentences_score_far_below_the_threshold(sentence):
+    """Every sentence in the corpus today. The margin is the point: real output
+    tops out at 0.10 against out-of-domain examples, so 0.6 is not a fine
+    judgement call."""
+    assert validate.echo_score(sentence) < 0.2, sentence
+    assert not _failed(sentence, "echoes_example", "mold")
+
+
 def test_banned_quantifiers_are_all_named_in_the_prompt():
     """The prompt asks and the validator enforces; they must ban the same words.
 

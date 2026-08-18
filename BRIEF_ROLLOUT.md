@@ -17,11 +17,17 @@ entry in the project memory index.
 
 ## Start here
 
-**State as of 2026-08-12, commit `429a06f` on `building-brief` (not pushed).**
-Nothing on the page is generated. Every phase-1 *mechanism* now exists — prompt
-verified on Haiku, validator gating, corpus table, key, and route read path —
-but **no corpus has been generated**, so every `watch_for` is null and the page
-renders the same authored brief it did at phase 0.
+**State as of 2026-08-17, commit `d6a094f` on `building-brief` (not pushed).**
+Every phase-1 mechanism exists and is now exercised end to end: the page renders
+generated text, `smoke.py --write` fills rows, and five validator checks gate
+what may be published. **The full corpus has still not been generated** — only a
+handful of test rows exist — so `watch_for` is null on almost every building and
+the page renders the authored brief it did at phase 0.
+
+The generation loop has been run against real buildings, and the output is the
+reason two validator checks and the pairing fix exist. Read *Which validator
+check lands first* before generating: both checks came from published rows that
+looked fine and were not.
 
 **Phase 1's three blockers are cleared. Two steps remain, and both are optional:**
 
@@ -35,15 +41,17 @@ renders the same authored brief it did at phase 0.
    generated text" — that was wrong and it broke the page. See *The missing
    table* below.
 
-**To actually ship generated text, two things are left:**
+**To actually ship generated text, one thing is left:**
 
-- **Generate the corpus.** ~11,850 Haiku calls, **~$24** at the measured rate.
-  Apply `migrate_brief_texts.sql` first. No script exists yet — `smoke.py` runs
-  one building at a time; a batch runner that walks distinct prompt shapes,
-  validates, and writes rows has to be written.
-- **Render `watch_for` in `BuildingBrief.tsx`.** The API field exists and is
-  always null today; the component ignores it. This is where the AI-assisted
-  label gets designed, and it is the only user-visible change.
+- **Generate the corpus.** **3,170 calls, ~$7.29** at the measured rate, or 899
+  calls at the floor. `smoke.py --write --reset` does the writing and validates
+  per sentence, but still walks buildings rather than distinct shapes — a runner
+  that enumerates the 3,170 shapes directly has to be written, or the same rows
+  get regenerated thousands of times.
+- ~~Render `watch_for` in `BuildingBrief.tsx`~~ ✅ 2026-08-13. `WatchForLine`,
+  labelled "Worth checking · AI-assisted" with a tooltip, set apart from the
+  authored line. Null is treated as an ordinary permanent state, not a loading
+  one.
 
 **Stopping here is a coherent choice.** Phase 0 is a complete product: authored,
 cited, no model in the request path. Everything above is additive.
@@ -60,17 +68,23 @@ it, that rule's corpus simply does not ship. No fallback logic to write.
 | `hpd_brief_signals` | materialized view, 310,400 rows. Rebuilt 2026-08-12 with the lead-paint fix |
 | `GET /hpd/building/{bin}/brief` | watch items, citations, hazard areas, confidence note |
 | Refresh | `sync_all.py::_refresh_all_views`, after both summary views |
-| `BuildingBrief.tsx` | two-layer rendering, after the Severity card |
-| Tests | 321, offline, no database and no API key |
-| `brief_texts` | applied to prod 2026-08-12, 0 rows — the phase-1 corpus table |
+| `BuildingBrief.tsx` | two-layer rendering, after the Severity card, with `WatchForLine` |
+| Tests | 361, offline, no database and no API key |
+| `brief_texts` | applied to prod 2026-08-12. Test rows only, no corpus |
 
 Verified against real pages rather than only tests: BIN 2003187 (suppression
 plus three layer-1 lines), BIN 3096715 (three items with citations), BIN 1000041
 (the one-line empty state).
 
-**Every phase 0 decision is settled**: display cap 5, empty state is one muted
-line, rules run server-side, no numbers in layer 1, suppression on by default.
-The reasoning for each is under *Open decisions* and *Frontend rollout*.
+**Every phase 0 decision is settled**: display cap 3 (was 5, see *Display cap*),
+empty state is one muted line, rules run server-side, no numbers in layer 1,
+suppression on by default — now in both directions, since `open_class_c` is
+itself dropped when lead paint is all it could be describing. The reasoning for
+each is under *Open decisions* and *Frontend rollout*.
+
+Changed since phase 0 and worth knowing before reading further: `brief_line`
+states the condition only, `condition` is no longer rendered at all, and
+citations no longer print a page number.
 
 ### What exists
 
@@ -149,11 +163,20 @@ document.
 |---|---|---|
 | Naive — one per eligible NYC building | 463,913 | $940 |
 | Skip zero-flag buildings | 242,858 | $492 |
-| **Deduplicate identical prompts** | ~11,850 | **$24** |
-| Dedup + Batch API (50%) | ~11,850 | **$12** |
+| **Deduplicate identical prompts** | **3,170** | **$7.29** |
+| Dedup + Batch API (50%) | 3,170 | **$3.65** |
 
-Recomputed 2026-08-12 at the measured Haiku rate. The conclusion is unchanged
-and the argument for dedup is unaffected — a 39× reduction either way.
+**Counted, not projected, 2026-08-14.** The dedup row said ~11,850 calls and
+$24 until then, from a two-point power-law fit that carried its own "could be
+off by 2×" caveat. It was off by 3.7×, in the cheap direction: enumerating every
+one of the 310,400 buildings in `hpd_brief_signals` and computing the real key
+for each gives **3,170 distinct prompt shapes and 909 corpus rows**. The fit was
+extrapolating from samples too small to have saturated. A 146× reduction against
+naive.
+
+Numbers here are at the (3, 3) caps — see *Display cap*. At the previous (5, 2)
+the same census gives 2,114 shapes and $4.86, for the same 909 rows: raising
+`MAX_WATCH_ITEMS` added no rows at all, only calls.
 
 **Lever 1 — skip zero-flag buildings.** 47.6% of buildings fire no rule, so
 `watch_for` is `[]` by construction and there is nothing for the model to write.
@@ -168,32 +191,46 @@ fired, which hazard areas, whether severity language is permitted)**. Thousands
 of buildings produce a byte-identical prompt, and a byte-identical prompt needs
 exactly one generation.
 
-Measured on two random samples:
+Counted across all 310,400 buildings, not sampled:
 
-| Sample | Calls needed | Distinct prompts | Collapse |
-|---|---|---|---|
-| 3,000 buildings | 1,606 | 559 | 2.9× |
-| 12,000 buildings | 6,282 | 1,282 | 4.9× |
+| | |
+|---|---|
+| Buildings firing at least one rule | 133,247 (42.9%) |
+| **Distinct prompt shapes — one call each** | **3,170** |
+| **Distinct corpus rows** | **909** |
+| Most common shape covers | 25,173 buildings |
 
-Distinct prompts grow sublinearly — fitting the two points gives an exponent of
-**0.61**, projecting **~11,850 distinct prompts** across all of NYC. A 39×
-reduction against naive.
+**Why 909 rows and not 3,170.** A row is keyed `(rule_id, input_key)`, and only
+`open_class_c` carries hazard areas in its key — it accounts for 899 of the 909.
+Every other rule's key is `rule|sev=0|1|areas=`, so it has exactly **two**
+possible rows no matter how many buildings exist or how many slots the brief
+shows. Shapes outnumber rows because one call fills up to three rows and rows
+are shared between shapes.
 
-Caveats worth carrying: this is a two-point power-law fit and could be off by
-2×, but even at 25,000 distinct prompts the corpus is $33, so the conclusion is
-robust to the estimate being wrong — at 25,000 distinct prompts it is $51. Identical text across buildings is *correct*
-here rather than a bug — `watch_for` says what to look at given a hazard type,
-and every building-specific number is rendered by code around it ("674 currently
-open"). The authored rule text is already identical across buildings, so this
-introduces no new kind of sameness.
+That also sets the floor on calls: a prompt contains at most one `open_class_c`
+key, so covering 899 of them takes at least 899 calls however cleverly they are
+picked. Greedy set cover over the real shapes lands at 899 — the other ten rows
+come free.
+
+Identical text across buildings is *correct* here rather than a bug —
+`watch_for` says what to look at given a hazard type, and every
+building-specific number is rendered by code around it. The authored rule text
+is already identical across buildings, so this introduces no new kind of
+sameness.
 
 ### The review bonus
 
-The 8 most common prompts cover **31%** of all buildings needing a brief. A
-corpus of ~12k where a hundred entries cover most of the site is small enough to
-**hand-review the high-traffic outputs before anything ships**. That is a far
-stronger validation position than sampling 200 rows out of 464k, and it was not
-available under the naive design.
+The single most common shape covers **25,173 buildings** on its own. At the
+counted size — **909 rows** — the whole corpus is small enough to
+**hand-review in full before anything ships**, not just its high-traffic head.
+That is a far stronger validation position than sampling 200 rows out of 464k,
+and it was not available under the naive design.
+
+It is also small enough that the arithmetic changes: at 909 rows, a careless
+sentence is not a rounding error to be caught later by sampling. Each row is
+served to thousands of buildings, so review is proportionate, and two of the
+validator checks exist because a bad row was found by reading rather than by a
+test — see *Which validator check lands first*.
 
 ### Rejected
 
@@ -540,9 +577,10 @@ brief_texts(
 )
 ```
 
-~12,000 rows for all of NYC. A missing key falls back to phase-0 rendering, so a
-partial corpus is a normal state rather than a broken one — and, with the
-per-rule kill-switch above, a deliberate one.
+**909 rows for all of NYC**, counted over every building rather than projected
+(see *Cost*). A missing key falls back to phase-0 rendering, so a partial corpus
+is a normal state rather than a broken one — and, with the per-rule kill-switch
+above, a deliberate one.
 
 **Key on structure, not on a hash of the rendered prompt.** The earlier design
 used `sha1(user turn)`. It works, but it welds the corpus to the exact bytes of
@@ -684,7 +722,34 @@ half the site), which points at a one-line treatment rather than a card: no
 border, no heading, muted — visually close to hidden, qualifier still on the
 page.
 
-### 2. Display cap — SETTLED 2026-08-11, raised 4 → 5
+### 2. Display cap — RESETTLED 2026-08-14, lowered 5 → 3
+
+**Now 3, and equal to `MAX_WATCH_ITEMS`, which moved 2 → 3 to meet it.** The
+two caps were independent and the gap was the problem: the brief showed up to
+five items while only the top two could ever carry a generated line, so three of
+them advertised "worth checking" and had nothing to say. Equal caps mean every
+item shown can carry one.
+
+Counted over all 310,400 buildings rather than sampled. Eligible-rule counts run
+1: 65,590 · 2: 38,814 · 3: 19,427 · 4: 7,898 · 5: 1,518, so a cap of 3 truncates
+something on **9,416 buildings — 7.1% of the 133,247 that flag anything**, and
+what it drops is by construction the lowest-priority item on the longest briefs.
+
+Raising `MAX_WATCH_ITEMS` was free in corpus size — **zero new rows**, because
+only `open_class_c` carries hazard areas in its key and every other rule has two
+possible rows regardless. It cost calls: 2,114 → 3,170 shapes, $4.86 → $7.29.
+
+One real loss, recorded in `select_rules`: the prompt used to list the
+unselected conditions unnumbered, so the model knew the top items were not the
+building's whole record. With the caps equal there is never a remainder, and on
+those 9,416 buildings it no longer learns the dropped conditions exist. First
+thing to revisit if generated lines start reading as if each building had one
+problem.
+
+The superseded measurement is kept below, because the shape of the argument —
+re-measure, do not reason — is the part worth reusing.
+
+#### Superseded: SETTLED 2026-08-11, raised 4 → 5
 
 Re-measured over a fresh random 8,000-building sample with all six rules in
 place. The suspicion was right: adding `smoke_co_detectors` above the complaint
@@ -730,6 +795,30 @@ than against prose. That is also why the check signature takes the rule and not
 just the sentence — the rest of the designed set (numeric, categorical, absence
 claims) needs the record, and a signature that only saw text could never grow
 one.
+
+**Two more landed 2026-08-17, both from output that was already published.**
+Neither was on the planned list, and that is the point: both were found by
+reading rows rather than by reasoning about the taxonomy.
+
+- **`check_useless_register`** — a sentence can pass every other check and still
+  be worthless. *"When visiting, ask the current tenant about their experience
+  with heat and hot water through the winter"* was 17 words, 104 characters, no
+  banned quantifier, no rights claim, and useless: it leans on someone who is
+  usually not at a viewing, asks for an opinion instead of evidence, and never
+  says what words to use. The prompt argues against that register at length;
+  this is the half that cannot be ignored.
+- **`check_on_topic`** — the only check that reads the *pairing* rather than the
+  prose. It requires a sentence to name one of its rule's subject terms, and it
+  exists because `watch_for[i] ↔ selected_rules[i]` broke: the model split a
+  paired class C entry across two list entries, `generate.py` truncated the
+  surplus, and a sentence about heat was published against the smoke-detector
+  rule. Every lexical check passed, because nothing was wrong with the sentence
+  — it was simply not about detectors. `open_class_c` declares no terms on
+  purpose; its subject is whichever hazard areas the building has.
+
+The lesson both share: the checks that mattered were not the ones designed in
+advance from the failure taxonomy, but the ones written after looking at what
+actually came back. Read the corpus before trusting it.
 
 Still unimplemented, in `AI_METHODOLOGY.md`'s order: numeric claims, categorical
 claims, absence claims, causal language, absolute-severity adjectives, rule-id

@@ -253,7 +253,7 @@ function WatchForLine({ sentence }: { sentence: string }) {
       >
         Worth checking · AI-assisted
         <TooltipIcon
-          text="Written by an AI model from this building's HPD violation and complaint record, then checked automatically before it was published. Everything else in this section is written by hand and cited — open “details” to read it."
+          text="Written by an AI model from this building's HPD record. Everything else in this brief is written by hand and cited; open “details” to read it."
           align="left"
         />
       </div>

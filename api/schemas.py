@@ -229,6 +229,107 @@ class ViolationAgeBucketItem(BaseModel):
     count: int
 
 
+# ── Building Brief ────────────────────────────────────────────────────────────
+
+class BriefCitation(BaseModel):
+    """One source behind a watch item. `url` is set for sources that live on the
+    web rather than in the ABCs PDF; `covers` names which claims this source
+    backs, and is only populated when the item cites more than one document."""
+    label: str
+    url: str | None = None
+    covers: str | None = None
+
+
+class BriefWatchItem(BaseModel):
+    """One flagged condition. Every text field here is authored, except one.
+
+    `condition`, `why_it_matters` and `action` are copied verbatim from
+    rules.yaml, and `citation` names the page of HPD's *ABCs of Housing* they
+    came from. No counts are sent at all — `magnitude` was removed 2026-08-12,
+    and the cards on the same page own every number.
+
+    `watch_for` is the single exception and the only generated text on this
+    page — read from the `brief_texts` corpus, where a row exists only if it
+    passed the validator. It is null on every item until a corpus is generated,
+    and null is a normal state for any individual item forever: the rest of the
+    item is unaffected, and the frontend renders the authored `brief_line`.
+    Anything rendering it must carry the AI-assisted label.
+    """
+    rule_id: str
+    # The compact line the page leads with; the fields below sit behind a
+    # disclosure. None when the rule authors none, in which case the frontend
+    # falls back to `condition`.
+    brief_line: str | None = None
+    # The generated sentence for this rule, or null when the corpus has no row
+    # for this input shape. Sits in layer 1 beside `brief_line` and must be
+    # labelled as AI-assisted wherever it renders — it is the only text on the
+    # page a model wrote.
+    watch_for: str | None = None
+    condition: str
+    why_it_matters: str
+    action: str
+    # Every source behind this item, primary first. A list rather than a string
+    # because a rule can make claims from two documents — the class C item takes
+    # its violation classes from the ABCs PDF and its correction deadlines from
+    # HPD's penalties-and-fees page, and citing only the first would put a real
+    # claim behind a reference that does not support it.
+    citations: list[BriefCitation]
+    # Populated only for the class C rule. Empty list and None mean different
+    # things: [] is "flagged, nothing describable" (4.6% of class C buildings),
+    # None is "this rule is not about hazard areas at all".
+    hazard_areas: list[str] | None = None
+    # The same areas as ONE ready-to-interpolate prose phrase for layer 1, e.g.
+    # "mold and pests, and building maintenance". `hazard_areas` pairs each
+    # label with its authored tooltip sentence, which is the right depth for the
+    # expanded block and far too much for a one-line summary — the sentences are
+    # dictionary definitions, not body copy.
+    #
+    # A joined string rather than a list, and prose labels rather than the chart
+    # labels this field used to carry, because layer 1 now names the areas
+    # INSIDE its sentence instead of on a line beneath it. Two things follow.
+    # The chart labels are written for a legend and read badly mid-clause
+    # ("bldg maintenance", "safety & fire"); `prose_label` exists precisely to
+    # expand them, and the taxonomy asserts every hazard-area group declares
+    # one. And the join is not a `join(", ")` — entries contain their own "and",
+    # so the serial-comma rule in `taxonomy.join_prose` is load-bearing, and
+    # sending a list would mean reimplementing that rule in TypeScript where it
+    # could drift. Joining server-side keeps one implementation, the same one
+    # `condition_with_areas` uses for the expanded block.
+    #
+    # None when the rule is not about hazard areas, and None when it is but none
+    # are describable — layer 1 renders the bare authored line in both cases, so
+    # unlike `hazard_areas` the two states need no distinction here.
+    hazard_area_phrase: str | None = None
+
+
+class BuildingBriefResponse(BaseModel):
+    bin: str
+    watch_items: list[BriefWatchItem]
+    # The computed caveat — thin record, stale record — or null when neither
+    # applies. Independent of watch_items: a building can flag nothing and still
+    # warrant "we have very little on this address".
+    confidence_note: str | None = None
+    # True when no rule fired. Explicit rather than left to the reader of an
+    # empty list, because the frontend renders a specific sentence for it and
+    # "empty because nothing fired" must not be confused with "empty because the
+    # lookup failed".
+    no_flags: bool = False
+    # False only when the building has no HPD record whatsoever. Splits the
+    # no_flags case in two, and the two need different sentences: "nothing
+    # crossed the thresholds we flag" implies checking happened, which is a lie
+    # on a building with nothing to check. The frontend must not infer this by
+    # matching the text of confidence_note — that copy is expected to change.
+    has_records: bool = True
+    # How many HPD records the building has, violations and complaints together.
+    # The one number the brief renders, and an exception to "no numbers
+    # anywhere" made on purpose: that rule exists because a MODEL could misstate
+    # a count, and this is read from the signals row and rendered by code. It
+    # earns its place only in the empty state, where "nothing crossed the
+    # thresholds" leaves a reader unable to tell a thoroughly-checked building
+    # from a barely-recorded one. Never rendered next to a watch item.
+    record_count: int = 0
+
+
 # ── SF (San Francisco) ────────────────────────────────────────────────────────
 
 class Sf311ComplaintResponse(BaseModel):

@@ -1,0 +1,161 @@
+# Building Brief — golden dataset
+#
+# Real buildings with hand-reviewed expectations. Each case is here because
+# something was learned from it, and the failing outputs are kept verbatim in
+# `observed_failures` so a regression is recognisable rather than merely
+# detectable.
+#
+# These are NOT unit-test fixtures. The signals below are a snapshot of live
+# HPD data and will drift — counts change, violations close. What is stable is
+# the *shape* of each case: a directional standing, an abstract-only flag, a
+# concrete flag set. Assertions must be written against that shape, never
+# against a count.
+#
+# Run against the deterministic layer for free:
+#     cd api && ../.venv/bin/python -m services.briefs.smoke --bin <bin> --prompt
+#
+# snapshot_date is when the signals were read. If it is far in the past, re-read
+# before trusting any count here.
+
+version: 1
+snapshot_date: 2026-08-07
+model_at_snapshot: "qwen3:8b (local, via Ollama)"
+prompt_version: "brief-v3"
+
+cases:
+  - bin: "3096715"
+    address: 754 MILLER AVENUE, Brooklyn
+    neighborhood: East New York-New Lots
+    verdict: pass
+    why_this_case: >-
+      The reference passing case. It isolates what the model does right, which
+      is what made the other case's failure legible: a mid standing, three
+      concrete flagged conditions, and a correct observable-over-significant
+      choice.
+    signals:
+      hpd_violations_percentile: 31.3
+      open_class_c_violations: 35
+      # Was 1 when this case was first reviewed, read from the summary view's
+      # all-time heat_complaints column. Under the five-year window the rule
+      # requires, it is 0 and heat no longer fires. The case still holds: two
+      # concrete flags rather than three.
+      heat_hot_water_complaints: 0
+      lead_paint_violations: 6
+      construction_year: 1930
+    expected:
+      standing_direction: middle
+      flags: [open_class_c, lead_paint]
+      # Class C ranks higher, but paint is what a renter can see on a viewing,
+      # and the prompt asks for the most observable rather than the most
+      # significant. Choosing lead paint here is correct behaviour.
+      watch_for_should_reference: lead_paint
+    observed_pass: >-
+      "This building's violation record is typical for East New York-New Lots."
+      / "Worth checking: Check for signs of lead-based paint, especially around
+      windows and doors."
+    notes: >-
+      Also correct on the things that are easy to get wrong: preserved the
+      standing's direction without sharpening it, did not copy "adjusted for
+      size" out of the input, and used no numbers, quantifiers, jargon, or legal
+      claims.
+
+      One open question, deliberately not acted on: watch_for names only paint
+      although heat is also flagged, and the prompt's own example shows a
+      two-part ask ("how last winter went, and when the boiler was last
+      serviced") fitting in one sentence. Naming one condition is the instructed
+      behaviour, so this is not a failure. Whether watch_for should prefer an
+      observable *plus* an askable when both exist belongs to the Module 5
+      rubric — not to a prompt change on a hunch.
+
+  - bin: "1061891"
+    address: 530 WEST 144 STREET, Manhattan
+    neighborhood: Hamilton Heights-Sugar Hill
+    verdict: fail
+    why_this_case: >-
+      Fails twice over, for unrelated reasons, and both failures were invisible
+      until this building was compared against 3096715. Keep both.
+    signals:
+      hpd_violations_percentile: 10.5
+      open_class_c_violations: 137
+      heat_hot_water_complaints: 0
+      # Was 0 until 2026-08-12, and that zero was the bug, not the data. 49 of
+      # this building's open violations are lead paint filed under repealed
+      # order numbers (555/610/611/612/614), which carry category RETIRED. The
+      # signal filtered on category = 'LEAD-BASED PAINT' and missed every one,
+      # so the building with 49 open lead violations showed no lead paint item.
+      # See signals.RETIRED_LEAD_ORDER_NUMBERS.
+      lead_paint_violations: 49
+      construction_year: 1910
+      open_class_c_categories: [RETIRED, MAINTENANCE, HEAT AND HOT WATER]
+    expected:
+      standing_direction: better
+      flags: [open_class_c, lead_paint]
+    observed_failures:
+      - failure: invented_nouns
+        status: fixed
+        output: >-
+          "Worth checking: Look for signs of water damage or musty smells, which
+          may indicate hidden mold."
+        diagnosis: >-
+          Neither water damage nor mold appears anywhere in this building's
+          record or in the model's input. The sole flagged condition was the
+          abstract "conditions HPD classifies as immediately hazardous", which
+          names no observable thing — so a prompt demanding concreteness had
+          nothing concrete to work from and the model supplied plausible nouns.
+          Not model unreliability: an input gap that surfaces only when class C
+          is the only flag.
+        fix: >-
+          `open_class_c_categories` now reaches the prompt, mapped through the
+          shared renter-facing taxonomy. Post-fix output referenced building
+          maintenance and heat — both genuinely on this building's record.
+
+      - failure: lead_paint_hidden_by_retired_category
+        status: fixed
+        output: >-
+          No lead paint watch item at all, on a building carrying 49 open
+          lead-based paint violations.
+        diagnosis: >-
+          `hpd_order_numbers.category = 'RETIRED'` means the ORDER NUMBER was
+          repealed, not that the violation was corrected — current_status on
+          these rows is still NOV SENT OUT. The lead signal filtered on
+          category = 'LEAD-BASED PAINT', so every violation filed under the
+          repealed lead orders was invisible to it. The same rows were then
+          dropped from hazard areas as administrative, while still inflating
+          the abstract class C count: wrong twice, and in the direction that
+          costs a renter with a young child the most.
+        fix: >-
+          The signal now also matches the seven repealed lead order numbers.
+          Citywide this moved the lead rule from 15,478 to 17,899 buildings
+          in hpd_violations — 17,582 in hpd_brief_signals, which only covers
+          buildings that have an HPD page — recovering 18,833 open violations
+          across 2,421 buildings that previously showed nothing. Found from a
+          screenshot of this building's violation table, not from a test.
+
+      - failure: direction_flattened
+        status: open
+        output: >-
+          "This building's record is typical for the area, with fewer violations
+          than most nearby buildings."
+        diagnosis: >-
+          The standing says "fewer violations on record than most buildings"
+          (10.5th percentile). The first output erased that entirely and said
+          "typical"; the current output asserts both directions in one sentence.
+          3096715 shows the model copies direction faithfully when the standing
+          is middling, so this is specific to non-neutral standings — regression
+          to the mean under hedging pressure.
+        fix: >-
+          `validate.check_direction` catches both the flattening and the
+          contradiction. Not yet fixed at generation time; the prompt is
+          untouched pending a decision on whether to fix by wording or to let
+          the validator quarantine it.
+
+  # The most common case in the corpus and the least examined: roughly 44% of
+  # buildings flag nothing, so their brief is a context_line alone. No case has
+  # been hand-reviewed yet. Fill this in before generating any corpus — a
+  # failure mode affecting two in five briefs is not one to discover afterwards.
+  - bin: null
+    verdict: todo
+    why_this_case: >-
+      Placeholder for a zero-flag building. Needs: does the context_line carry a
+      brief on its own, and does it avoid implying the building is problem-free
+      when the truth is only that nothing crossed a threshold?

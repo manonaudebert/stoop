@@ -1,187 +1,52 @@
-export const RENTER_FACING_FILTER_GROUPS = {
-  heating_hot_water: [
-    "APARTMENT ONLY",
-    "ENTIRE BUILDING",
-    "HEAT RELATED",
-    "HEAT-PLANT",
-    "RADIATOR",
-    "SPACE HEATER",
-    "BOILER",
-  ],
+// The renter-facing complaint taxonomy is defined once, in
+// ./renter-facing-groups.json, and consumed by both this file and the Python
+// brief generator (api/services/briefs/taxonomy.py), which reads it by path.
+//
+// It lives inside the frontend root deliberately: Turbopack resolves modules
+// relative to the project root and cannot import across it, so a shared file
+// elsewhere in the repo would need turbopack.root AND outputFileTracingRoot —
+// two deploy-affecting config changes to share a category list. Python reading
+// a file by path costs nothing.
+//
+// Everything below is derived from that file. The exported shapes are unchanged
+// from when they were literals here, so consumers need no edits.
+import taxonomy from './renter-facing-groups.json'
 
-  water_damage_plumbing: [
-    "WATER-LEAKS",
-    "DAMP SPOT",
-    "HEAVY FLOW",
-    "SLOW LEAK",
-    "SEWER",
-    "SEWAGE",
-    "WATER SUPPLY",
-    "STEAM PIPE/RISER",
-    "BASIN/SINK",
-    "BATHTUB/SHOWER",
-    "TOILET",
-    "SHOWER-STALL",
-    "ROOF",
-    "ROOFING",
-    "RAIN LEADER",
-    "GUTTER/LEADER",
-    "SKYLIGHT",
-  ],
+export type RenterFacingGroup = keyof typeof taxonomy.groups
 
-  mold_pests_sanitation: [
-    "MOLD",
-    "PESTS",
-    "VERMIN",
-    "RUBBISH",
-    "GARBAGE/RECYCLING STORAGE",
-    "ODOR",
-    "SMOKE-FUMES",
-    "UNSANITARY CONDITION",
-  ],
+const GROUP_ENTRIES = Object.entries(taxonomy.groups) as [
+  RenterFacingGroup,
+  { label: string; description: string; minor_categories: string[] },
+][]
 
-  electrical_power: [
-    "POWER OUTAGE",
-    "WIRING",
-    "OUTLET/SWITCH",
-    "OUTLET COVER",
-    "LIGHTING",
-    "NO LIGHTING",
-    "ELECTRIC-SUPPLY",
-  ],
+export const RENTER_FACING_FILTER_GROUPS = Object.fromEntries(
+  GROUP_ENTRIES.map(([group, def]) => [group, def.minor_categories]),
+) as Record<RenterFacingGroup, string[]>
 
-  safety_fire: [
-    "CARBON MONOXIDE",
-    "CARBON MONOXIDE DETECTOR",
-    "SMOKE DETECTOR",
-    "FIRE ESCAPE",
-    "SPRINKLER",
-    "WINDOW GUARD BROKEN/MISSING",
-    "WINDOW GUARDS",
-    "COOKING GAS",
-    "LINE OF TRAVEL",
-    "COLLAPSING BUILDING",
-  ],
+export const FILTER_GROUP_DESCRIPTIONS = Object.fromEntries(
+  GROUP_ENTRIES.map(([group, def]) => [group, def.description]),
+) as Record<RenterFacingGroup, string>
 
-  elevator_accessibility: [
-    "ELEVATOR",
-    "MAINTENANCE",
-    "STAIRS",
-    "LINE OF TRAVEL",
-  ],
+export const FILTER_GROUP_LABELS = Object.fromEntries(
+  GROUP_ENTRIES.map(([group, def]) => [group, def.label]),
+) as Record<RenterFacingGroup, string>
 
-  building_maintenance_operations: [
-    "JANITOR/SUPER",
-    "MAILBOX",
-    "LOCKS",
-    "DOOR",
-    "DOORS",
-    "DOOR FRAME",
-    "WINDOWS",
-    "WINDOW FRAME",
-    "WINDOW PANE",
-    "FLOOR",
-    "CERAMIC-TILE",
-    "CABINET",
-    "MAINTENANCE",
-    "CLEANING",
-    "BELL-BUZZER/INTERCOM",
-    "BELL/BUZZER/INTERCOM",
-  ],
+// Display order + labels, previously duplicated inline in two page files.
+export const FILTER_GROUP_ORDER: { key: RenterFacingGroup; label: string }[] =
+  GROUP_ENTRIES.map(([key, def]) => ({ key, label: def.label }))
 
-  appliances: [
-    "AIR-CONDITIONER",
-    "DISHWASHER",
-    "ELECTRIC/GAS RANGE",
-    "MICROWAVE",
-    "REFRIGERATOR",
-  ],
-
-  outdoor_structural: [
-    "PAVEMENT",
-    "PORCH/BALCONY",
-    "FENCING",
-    "ROOF DOOR/HATCH",
-    "VACANT APARTMENT",
-    "FIRE-ESCAPE",
-    "SKYLIGHT",
-  ],
-
-  low_priority_admin: [
-    "SIGNAGE",
-    "SIGNAGE MISSING",
-    "SPRINKER CERT",
-    "BOILER ROOM KEY",
-    "STORAGE",
-    "ILLEGAL",
-  ],
-} as const
-
-export type RenterFacingGroup = keyof typeof RENTER_FACING_FILTER_GROUPS
-
-export const FILTER_GROUP_DESCRIPTIONS: Record<RenterFacingGroup, string> = {
-  heating_hot_water:               'Complaints related to building heat, hot water, boilers, and heating systems.',
-  water_damage_plumbing:           'Leaks, plumbing problems, water damage, sewage issues, and roof-related complaints.',
-  mold_pests_sanitation:           'Mold, pests, odors, garbage, and other unsanitary living conditions.',
-  electrical_power:                'Electrical wiring, lighting, outlets, and power outage related issues.',
-  safety_fire:                     'Fire safety, carbon monoxide, smoke detectors, and other hazardous safety concerns.',
-  elevator_accessibility:          'Elevator reliability, stair access, and building accessibility related issues.',
-  building_maintenance_operations: 'General building upkeep, doors, windows, locks, intercoms, and maintenance operations.',
-  appliances:                      'Problems involving in-unit appliances like refrigerators, stoves, microwaves, and AC units.',
-  outdoor_structural:              'Exterior building conditions including roofs, balconies, pavement, and structural concerns.',
-  low_priority_admin:              'Administrative, signage, certification, and lower-impact maintenance issues.',
-}
-
-export const VIOLATION_CATEGORY_TOOLTIPS: Record<string, string> = {
-  'ALTERATIONS':                                    'Unapproved or unsafe construction, renovations, or structural modifications within the building.',
-  'ALTERNATIVE ENFORCEMENT PROGRAM':                "Buildings enrolled in HPD's enhanced enforcement program due to repeated serious violations or poor maintenance.",
-  'ANNUAL PROPERTY REGISTRATION':                   'Requirements for landlords to register ownership and contact information with HPD each year.',
-  'ARTIFICIAL LIGHTING':                            'Insufficient or missing required lighting in apartments, hallways, or common areas.',
-  'CARBON MONOXIDE DETECTING DEVICES':              'Missing, broken, or improperly installed carbon monoxide detectors.',
-  'CLEANING':                                       'Dirty or poorly maintained common areas, garbage accumulation, and inadequate building cleaning services.',
-  'COLLECTION OF WASTE':                            'Improper garbage storage, waste disposal, or failure to remove trash and recycling.',
-  "COMMISSIONER'S ORDER":                           'Violations issued directly under authority of the HPD Commissioner requiring corrective action.',
-  'CONVERSIONS':                                    'Illegal or unsafe apartment conversions, occupancy changes, or room configurations.',
-  'EGRESS':                                         'Blocked, unsafe, or inaccessible exits, hallways, stairs, or fire escape routes.',
-  'EXTERMINATION & RODENT ERADICATION':             'Rodent, cockroach, bedbug, or other pest infestation and extermination related issues.',
-  'FILING: BEDBUGS':                                'Bedbug reporting, filing, and disclosure compliance requirements for landlords.',
-  'FIRE EGRESS AND PROTECTION':                     'Fire safety, exits, alarms, fire escapes, and other fire protection related violations.',
-  'FIREGUARD':                                      'Issues involving required fireguard staffing, supervision, or certifications.',
-  'GAS APPLIANCES':                                 'Unsafe, defective, or improperly maintained gas-powered appliances and gas systems.',
-  'HEAT AND HOT WATER':                             'Lack of heat, hot water, or heating system related issues affecting tenants.',
-  'HEAT SENSOR PROGRAM':                            'Issues involving required heat sensors or heat monitoring devices in residential buildings.',
-  'HOTEL AND CERTAIN OTHER CLASS A & CLASS B DWELLINGS': 'Violations specific to hotels and certain regulated residential building types.',
-  'ILLEGAL OCCUPANCY OF BASEMENT AND CELLARS':      'Unsafe or unlawful residential occupancy in basement or cellar spaces.',
-  'JANITORIAL SERVICES':                            'Failure to provide janitorial, superintendent, cleaning, or required maintenance services.',
-  'KITCHEN AND KITCHENETTES':                       'Kitchen safety, fixtures, appliances, ventilation, or sanitation related issues.',
-  'LEAD-BASED PAINT':                               'Lead paint hazards, unsafe paint conditions, and required lead remediation violations.',
-  'LIGHTS AND VENTILATION ROOMS AND PUBLIC HALLS':  'Insufficient lighting or ventilation in apartments, rooms, hallways, or shared building spaces.',
-  'MAINTENANCE':                                    'General building repair, upkeep, and maintenance related housing code violations.',
-  'MINIMUM ROOM SIZES AND OCCUPANCY REGULATIONS':   'Overcrowding or rooms that do not meet legal occupancy or size requirements.',
-  'MISCELLANEOUS':                                  'General housing code violations that do not fall under another specific category.',
-  'MISCELLANEOUS SERVICES AND FACILITIES':          'Problems involving required building services, shared facilities, or tenant amenities.',
-  'NATURAL GAS DETECTING DEVICES':                  'Missing, broken, or improperly installed natural gas detection devices.',
-  'NOTIFICATION: INTERRUPTION OF SERVICE':          'Failure to notify tenants about planned interruptions to heat, water, elevators, or other services.',
-  'OCCUPANY OF BASEMENT AND CELLARS':               'Improper or unlawful residential use of basement or cellar areas.',
-  'ORDER TO REPAIR/VACATE ORDER':                   'Serious violations requiring emergency repairs or conditions severe enough to potentially vacate the building.',
-  'PAINTING':                                       'Peeling paint, damaged plaster, repainting, or deteriorated wall and ceiling surfaces.',
-  'PAVING AND GRADING':                             'Unsafe pavement, walkways, drainage, grading, or exterior surface conditions.',
-  'POSTING/SIGNAGE':                                'Missing required notices, safety postings, certificates, or building signage.',
-  'PROTECTIVE DEVICES AND FIRE PROTECTION':         'Missing, damaged, or defective fire protection and required safety equipment.',
-  'RECORD-KEEPING: CARBON MONOXIDE DETECTING DEVICES': 'Failure to maintain required compliance records for carbon monoxide detectors.',
-  'RESIDENTIAL BUILDINGS UNDER VACATE ORDER':       'Residential buildings currently subject to official vacate orders due to unsafe conditions.',
-  'RETIRED':                                        'Legacy or inactive violation categories no longer actively used by HPD.',
-  'SANITARY FACILITIES':                            'Problems involving bathrooms, toilets, sinks, showers, or sanitary plumbing fixtures.',
-  'SEWERS AND DRAINAGE':                            'Drainage problems, sewage backups, sewer conditions, or wastewater related issues.',
-  'SHAFTS AND COURTS':                              'Unsafe or poorly maintained air shafts, courts, ventilation shafts, or enclosed spaces.',
-  'SMOKE DETECTING DEVICES':                        'Missing, broken, or improperly installed smoke detectors.',
-  'SPRINKLER SYSTEM':                               'Fire sprinkler installation, maintenance, testing, or operational issues.',
-  'UNDERLYING CONDITIONS PROGRAM ORDER':            'Orders issued for buildings with persistent, recurring, or widespread housing condition problems.',
-  'UNLAWFUL USE':                                   'Illegal, unsafe, or unauthorized use of residential property or apartments.',
-  'VACANT MULTIPLE DWELLINGS':                      'Violations involving vacant apartment buildings or unoccupied residential properties.',
-  'WATER SUPPLY':                                   'Interruptions, leaks, contamination, or deficiencies in building water supply systems.',
-  'WINDOW GUARDS':                                  'Missing, damaged, or improperly installed window guards required for child safety.',
-}
+// Plain-English tooltip per HPD violation category, for the "Top violation
+// categories" chart. Moved out of this file and into the shared taxonomy JSON
+// so the Python brief generator can read the same sentences: the brief needs a
+// concrete description of a hazardous condition ("insufficient or missing
+// required lighting in apartments, hallways, or common areas") rather than only
+// a group label ("Electrical"), and re-authoring 48 sentences in a second place
+// would guarantee the two drift.
+//
+// Keyed by category rather than nested under a group, because it covers
+// categories that belong to no renter-facing group.
+export const VIOLATION_CATEGORY_TOOLTIPS: Record<string, string> =
+  taxonomy.violation_category_tooltips
 
 // minor_category string → group key (upper-cased lookup)
 export const MINOR_TO_GROUP: Record<string, RenterFacingGroup> = Object.fromEntries(

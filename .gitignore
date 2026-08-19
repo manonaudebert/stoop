@@ -3,6 +3,10 @@
 
 # ── Environment / secrets ─────────────────────────────────────────────────────
 .env
+# Neon branch connection strings, written during a migration test. Live
+# credentials with the same access as prod — `.env` alone does NOT match these.
+.env.branch
+.env.*
 !.env.example
 frontend/.env.local
 !frontend/.env.local.example
@@ -29,3 +33,7 @@ data/.last_sync*
 # ── Working / planning docs (local scratch, not shipped) ──────────────────────
 SF_EXPANSION_PLAN.md
 SF_MERGE_TODO.md
+
+# Per-call cost/telemetry log from local brief runs
+data/brief_calls.jsonl
+.claude/

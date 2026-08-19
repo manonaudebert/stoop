@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown, getHpdComplaintMinorBreakdown } from '@/lib/api'
-import { MINOR_TO_GROUP } from '@/lib/constants'
+import { MINOR_TO_GROUP, FILTER_GROUP_ORDER } from '@/lib/constants'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
@@ -153,12 +153,16 @@ export default async function HpdComplaintsBuildingPage({
     return `/hpd-complaints/dob/building/${bin}?${q}#log`
   }
 
-  const BREAKDOWN_GROUPS = [
-    { key: 'heating_hot_water',              label: 'Heat / hot water' },
-    { key: 'water_damage_plumbing',          label: 'Water & plumbing' },
-    { key: 'mold_pests_sanitation',          label: 'Mold & pests' },
-    { key: 'building_maintenance_operations', label: 'Bldg maintenance' },
-  ] as const
+  // Labels and ordering come from the shared taxonomy; this page shows a subset.
+  const SHOWN_GROUPS = [
+    'heating_hot_water',
+    'water_damage_plumbing',
+    'mold_pests_sanitation',
+    'building_maintenance_operations',
+  ]
+  const BREAKDOWN_GROUPS = SHOWN_GROUPS.map(
+    key => FILTER_GROUP_ORDER.find(g => g.key === key)!,
+  )
 
   const groupCounts = minorBreakdown.reduce<Record<string, number>>((acc, item) => {
     const group = MINOR_TO_GROUP[item.minor_category]

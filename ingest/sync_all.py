@@ -123,12 +123,21 @@ async def _upsert_all(
 
 
 async def _refresh_all_views(conn: asyncpg.Connection) -> None:
-    """Refresh all four materialized views in dependency order."""
+    """Refresh all five materialized views in dependency order."""
     log.info("Refreshing hpd_building_summary…")
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_building_summary")
 
     log.info("Refreshing hpd_complaints_building_summary…")
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_complaints_building_summary")
+
+    # Building Brief signals. Reads both summary views above (for the record
+    # count and last-activity date) plus the raw violation and complaint tables,
+    # so it has to come after both. Skipping it does not break a page — it
+    # silently serves last week's watch items against this week's numbers, which
+    # is worse than an error, so it belongs in the same transaction-less
+    # sequence as the rest rather than in a separate job.
+    log.info("Refreshing hpd_brief_signals…")
+    await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY hpd_brief_signals")
 
     # building_summary reads from all three raw tables; refresh after all upserts.
     log.info("Refreshing building_summary…")

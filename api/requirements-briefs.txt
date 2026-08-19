@@ -1,0 +1,14 @@
+# Building Brief corpus generation — batch only, NOT the serving container.
+#
+# Kept out of requirements.txt deliberately. api/Dockerfile installs that file
+# and nothing else, and the serving path never imports these: routes/hpd.py
+# reads finished sentences from `brief_texts`, while providers.py and
+# generate.py are only reached from smoke.py under --with-model. Putting the
+# model SDK in the deploy image would ship a dependency the container cannot
+# use.
+#
+# Install alongside the base file when generating a corpus:
+#   pip install -r requirements.txt -r requirements-briefs.txt
+-r requirements.txt
+anthropic==0.122.0
+httpx==0.27.0

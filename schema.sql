@@ -626,6 +626,145 @@ CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_density_pct_idx
 CREATE INDEX IF NOT EXISTS hpd_complaints_building_summary_risk_level_idx
     ON hpd_complaints_building_summary(risk_level);
 
+-- ── hpd_brief_signals ─────────────────────────────────────────────────────────
+-- The seven signals behind the Building Brief's rules, one row per building.
+-- Generated from `api/services/briefs/signals.py` — see the note there before
+-- editing the category lists, which come from renter-facing-groups.json.
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS hpd_brief_signals AS
+WITH bins AS (
+    -- Every building with an HPD page. Violations and complaints do not cover
+    -- the same set: a building can have complaints and no violations, and the
+    -- page renders for both, so a brief must exist for both.
+    SELECT bin FROM hpd_building_summary
+    UNION
+    SELECT bin FROM hpd_complaints_building_summary
+),
+viol AS (
+    SELECT
+        v.bin,
+        COUNT(*) FILTER (
+            WHERE v.violation_status = 'Open' AND v.violation_class = 'C'
+        )                                                   AS open_class_c_violations,
+        -- Two predicates, not one: the current LEAD-BASED PAINT category, plus
+        -- the repealed order numbers whose category is RETIRED but whose
+        -- violations are open lead paint. See RETIRED_LEAD_ORDER_NUMBERS —
+        -- 22% of open lead violations live under the second branch.
+        COUNT(*) FILTER (
+            WHERE v.violation_status = 'Open'
+              AND (
+                o.category = 'LEAD-BASED PAINT'
+                OR v.order_number = ANY(ARRAY['555', '606', '607', '610', '611', '612', '614'])
+              )
+        )                                                   AS lead_paint_violations,
+        -- Smoke and CO in one signal: the source treats them as one section and
+        -- the guidance is identical. Neither category carries any open class C
+        -- violations, so this cannot be folded into the class C signal.
+        COUNT(*) FILTER (
+            WHERE v.violation_status = 'Open'
+              AND o.category = ANY(ARRAY['SMOKE DETECTING DEVICES', 'CARBON MONOXIDE DETECTING DEVICES'])
+        )                                                   AS smoke_co_detector_violations
+    FROM hpd_violations v
+    -- LEFT, not INNER: a violation whose order number is missing from
+    -- hpd_order_numbers still counts toward the class C signal, which does not
+    -- depend on the category at all.
+    LEFT JOIN hpd_order_numbers o ON v.order_number = o.order_number
+    WHERE v.bin IS NOT NULL
+    GROUP BY v.bin
+),
+hazard AS (
+    -- The categories behind this building's OPEN class C violations, most
+    -- common first. Without these the class C rule is the only abstract one in
+    -- the set: "conditions HPD classifies as immediately hazardous" names no
+    -- observable thing, and a model asked for something concrete anyway
+    -- invented nouns that traced to nothing in its input.
+    --
+    -- Three states must stay distinct downstream and this view preserves them:
+    -- a non-empty array, an empty array (flagged, nothing describable — 4.6% of
+    -- class C buildings), and NULL (not flagged at all). Collapsing the empty
+    -- array into NULL restores the invented-nouns bug.
+    SELECT bin, array_agg(category ORDER BY n DESC, category) AS open_class_c_categories
+    FROM (
+        SELECT
+            v.bin, o.category, COUNT(*) AS n,
+            ROW_NUMBER() OVER (
+                PARTITION BY v.bin ORDER BY COUNT(*) DESC, o.category
+            ) AS rn
+        FROM hpd_violations v
+        JOIN hpd_order_numbers o ON v.order_number = o.order_number
+        WHERE v.violation_status = 'Open'
+          AND v.violation_class = 'C'
+          AND v.bin IS NOT NULL
+          AND o.category IS NOT NULL
+        GROUP BY v.bin, o.category
+    ) ranked
+    WHERE rn <= 3
+    GROUP BY bin
+),
+comp AS (
+    SELECT
+        c.bin,
+        COUNT(*) FILTER (
+            WHERE c.minor_category = ANY(ARRAY['MOLD'])
+        )                                                   AS mold_complaints,
+        COUNT(*) FILTER (
+            WHERE c.minor_category = ANY(ARRAY['PESTS', 'VERMIN'])
+        )                                                   AS pest_complaints,
+        -- Grouped by the shared taxonomy, NOT by major_category. See the note
+        -- on HEAT_CATEGORIES in signals.py before changing this.
+        COUNT(*) FILTER (
+            WHERE c.minor_category = ANY(ARRAY['APARTMENT ONLY', 'ENTIRE BUILDING', 'HEAT RELATED', 'HEAT-PLANT', 'RADIATOR', 'SPACE HEATER', 'BOILER'])
+        )                                                   AS heat_hot_water_complaints
+    FROM hpd_complaints c
+    WHERE c.bin IS NOT NULL
+      AND c.received_date >= CURRENT_DATE - INTERVAL '5 years'
+    GROUP BY c.bin
+)
+SELECT
+    b.bin,
+    COALESCE(viol.open_class_c_violations, 0)       AS open_class_c_violations,
+    COALESCE(viol.lead_paint_violations, 0)         AS lead_paint_violations,
+    COALESCE(viol.smoke_co_detector_violations, 0)  AS smoke_co_detector_violations,
+    -- Deliberately NOT coalesced to an empty array: NULL means "class C never
+    -- fired", [] means "fired, nothing describable". Three states, not two.
+    hazard.open_class_c_categories,
+    COALESCE(comp.mold_complaints, 0)               AS mold_complaints,
+    COALESCE(comp.pest_complaints, 0)               AS pest_complaints,
+    COALESCE(comp.heat_hot_water_complaints, 0)     AS heat_hot_water_complaints,
+    -- The two confidence.py inputs. Read off the existing summary views rather
+    -- than recomputed, so "thin record" and "stale record" mean exactly what
+    -- they mean everywhere else on the site. Both are all-time on purpose: a
+    -- record is not thin because it is old.
+    COALESCE(hv.total_violations, 0)
+        + COALESCE(hc.total_complaints, 0)          AS hpd_record_count,
+    GREATEST(hv.latest_violation_date, hc.latest_complaint_date) AS latest_hpd_activity
+FROM bins b
+LEFT JOIN viol   ON viol.bin   = b.bin
+LEFT JOIN hazard ON hazard.bin = b.bin
+LEFT JOIN comp   ON comp.bin   = b.bin
+LEFT JOIN hpd_building_summary hv            ON hv.bin = b.bin
+LEFT JOIN hpd_complaints_building_summary hc ON hc.bin = b.bin;
+
+CREATE UNIQUE INDEX IF NOT EXISTS hpd_brief_signals_bin_idx
+    ON hpd_brief_signals (bin);
+
+-- ── brief_texts ───────────────────────────────────────────────────────────────
+-- The Building Brief's generated-sentence corpus: one row per (rule, input
+-- shape, prompt version), roughly 12,000 rows for all of NYC. The key is built
+-- by `api/services/briefs/corpus.py::input_key`; a missing row is a normal
+-- state and falls back to the authored `brief_line` in rules.yaml.
+
+CREATE TABLE IF NOT EXISTS brief_texts (
+    rule_id         text        NOT NULL,
+    input_key       text        NOT NULL,
+    watch_for       text        NOT NULL,
+    prompt_version  text        NOT NULL,
+    model           text        NOT NULL,
+    -- A row exists only if it passed services/briefs/validate.py.
+    validated_at    timestamptz NOT NULL,
+    PRIMARY KEY (rule_id, input_key, prompt_version)
+);
+
 -- ── SF (San Francisco) ────────────────────────────────────────────────────────
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

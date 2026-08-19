@@ -1,0 +1,401 @@
+# Building Brief — rules table
+#
+# Config, not code. Each rule maps a computed signal to tenant-facing guidance
+# quoted or closely paraphrased from NYC HPD's "ABCs of Housing 2024 (Tenants'
+# Guide)", with the page recorded.
+#
+# THE MODEL NEVER WRITES THIS TEXT. It selects rule `id`s from the eligible set;
+# the `condition` / `why_it_matters` / `action` strings are copied into the brief
+# verbatim by code. That is a structural guarantee, not a prompt instruction.
+#
+# Authoring rules:
+#   - No HPD jargon. "Class C", "rent-impairing", "NOV" mean nothing to a renter.
+#     Where a legal term is unavoidable, define it in place.
+#   - No absolute-severity language ("high", "severe") — severity belongs to the
+#     percentile, which is neighborhood-relative and stated elsewhere.
+#   - No causal claims.
+#   - If a claim cannot be located in the source PDF, it does not go in.
+#   - No em dashes in `why_it_matters`, `action`, or `brief_line`. The first two
+#     are full sentences read by someone deciding what to do, and an em dash
+#     makes the clause after it look like an aside when it usually carries the
+#     operative fact ("that is what obliges them to inspect annually"). Use a
+#     period, comma, or relative clause. `brief_line` used the dash to separate
+#     condition from action and no longer carries an action at all (see below),
+#     so the exemption it had is gone. Pinned by a test.
+#
+# `when` is a structured predicate, never an eval'd string:
+#   {signal: <name>, op: <">"|">="|"<"|"<="|"=="> , value: <number>}
+#   {all: [<predicate>, ...]}
+#
+# `priority` ranks hazard types against each other and is editorial — the source
+# document never does this. Rules MAY share a priority, which asserts that the
+# source gives no basis for ranking them. Peers are then ordered by `rank_by`,
+# the signal whose magnitude decides which is the bigger problem *at this
+# building*. Without it, a rule that happens to sort first would suppress a
+# strictly larger problem beside it.
+#
+# Signals are supplied by the SQL selection layer. Any signal named here must
+# exist there or the rule is skipped and logged — never silently dropped.
+#
+# `suppressed_by_class_c_group` names the renter-facing taxonomy group a rule
+# describes. When that group already appears among the building's OPEN class C
+# violation categories, the rule is dropped: an inspector confirmed the
+# condition, so a tenant complaint about the same thing is weaker evidence for
+# the same claim, and showing both states one problem twice. Only the
+# complaint-keyed rules carry it — a class C violation cannot supersede itself.
+#
+# Note both mold and pests suppress off the SAME group. That is correct rather
+# than sloppy: the violation taxonomy does not separate them (the categories are
+# EXTERMINATION & RODENT ERADICATION and CLEANING), so the class C item covers
+# whichever of the two the building actually has, and neither complaint rule can
+# add anything the inspection did not already establish.
+#
+# `open_class_c` itself is dropped the one place suppression runs in reverse:
+# `rules.class_c_self_suppressed` removes it when every open class C category
+# is LEAD-BASED PAINT and/or RETIRED, because neither maps to a taxonomy group
+# (lead paint deliberately has none — see taxonomy.py), so its condition line
+# can never say more than "immediately hazardous conditions are open" while
+# `lead_paint` already names the actual finding. This is not the same
+# direction as the field above: `lead_paint` stays undroppable by class C
+# (an inspector's finding is never weaker evidence for its own claim), it is
+# `open_class_c` that has nothing left to say in this one case.
+#
+# `brief_line` is the compact form the page leads with: ONE line stating the
+# condition and nothing else. The full authored block (why_it_matters / action /
+# citation) sits behind a disclosure beneath it, verbatim and unchanged.
+#
+# SHORTENED 2026-08-14 to drop the trailing action clause each of these carried
+# ("Mold reported — look for leaks or persistent damp"). Two things made it
+# redundant. The generated `watch_for` line renders directly beneath the
+# headline and is the concrete thing to look for, in more specific words than a
+# fifteen-word label could reach ("Look at corners, window sills, and areas
+# around pipes for discoloration"). And `condition` — which the headline is a
+# compression of — is no longer rendered in the block below, because it restated
+# the headline in longer form. One statement of the condition, one thing to do,
+# each in one place.
+#
+# It is subject to every authoring rule above, and to one more: it inherits its
+# rule's citation, so it may only compress what the cited text already says. It
+# may not add practical advice the source does not contain, however sensible —
+# "ask how last winter went", "check under the sinks", "ask the current tenants"
+# are all good instincts and none of them are in the ABCs of Housing. Compress,
+# do not extend. If the source gives nothing concrete enough to compress, omit
+# the field: rendering falls back to `condition` alone.
+#
+# REMOVED 2026-08-12: `magnitude`, a per-rule count template ("46 currently
+# open") rendered by code from the same signals. It was already unrendered on
+# the page — a chip was tried in the two-layer rendering and cut — and it is now
+# gone from the smoke output and the API response too, so the brief carries no
+# counts at all.
+#
+# Its original rationale was that the `when` thresholds throw away everything
+# except the yes/no, so "Tenants here have reported mold" reads identically at
+# two complaints and at two hundred. That was true when the brief was the only
+# surface and stopped being true twice over: the counts sit in cards on the same
+# page, inches away, and suppression now encodes severity structurally — a
+# condition an inspector confirmed replaces the complaint rule entirely rather
+# than out-numbering it.
+#
+# `rank_by` is a different field and stays: it orders priority peers by the
+# signal that decides which is the bigger problem, and is never displayed.
+
+version: 1
+source_document: "NYC HPD, ABCs of Housing 2024 (Tenants' Guide)"
+
+rules:
+  - id: open_class_c
+    brief_line: >-
+      Hazardous violations are open.
+    priority: 1
+    when: {signal: open_class_c_violations, op: ">", value: 0}
+    condition: >-
+      Conditions that HPD classifies as immediately hazardous are currently open
+      on this building's record.
+    # Appended to `condition` by code when the building has describable hazard
+    # areas, so the sentence names what the conditions ARE rather than leaving
+    # "immediately hazardous" abstract — the same gap the model's hazard-area
+    # block exists to close, closed for the reader too.
+    #
+    # `{areas}` is filled from the taxonomy's prose labels, in open-count order,
+    # by `taxonomy.describe_hazard_areas_prose`. It is categorical, not a count:
+    # `magnitude` was deleted on the same day this arrived, and the distinction
+    # is that this says WHAT is open, never HOW MUCH. Do not add a number here.
+    #
+    # Only this rule has one. Every other condition already names its own
+    # subject ("Tenants here have reported mold"), so a clause would restate it.
+    areas_clause: "including issues related to {areas}"
+    # The correction deadline is NOT uniformly 24 hours, and this text used to
+    # say it was ("most must be corrected within 24 hours"). It is wrong in the
+    # direction that matters: the carve-outs are among the most common class C
+    # categories there are — lead paint, mold, and pests each have their own
+    # rule in this file — so the buildings where the claim is false are exactly
+    # the ones most likely to see it. Heat and hot water is the sharpest case:
+    # it has no grace period at all, and the old text gave the owner 24 hours.
+    #
+    # The windows below are the point past which civil penalties can be sought
+    # in Housing Court, measured from the date of service, not a promise that
+    # the condition gets fixed by then.
+    # Shortened 2026-08-12. Every figure and both framings — measured from
+    # service, and marking when penalties can be sought rather than promising a
+    # fix — survive the cut, because they are the part that was wrong before.
+    why_it_matters: >-
+      Deadlines vary by condition: immediate for heat and hot water, 14 days
+      for self-closing doors, 21 days for lead paint, window guards, mold, and
+      mice, cockroaches or rats, and 24 hours for everything else. They run from
+      the date the owner is served, and mark when civil penalties can be sought
+      in Housing Court. They are not a promise the condition is fixed by then.
+      If the owner does not fix it, HPD can send its own contractor and bill
+      them.
+    action: >-
+      The violation list below shows which conditions are open and when each was
+      cited. If one in your own apartment is still unaddressed, call 311.
+    # Two sources, because this item makes claims from two documents. The ABCs
+    # guide defines the violation classes; it does NOT carry the correction
+    # timeline. That table is on HPD's penalties-and-fees page, verified against
+    # the live page 2026-08-11 (every figure in why_it_matters matches it,
+    # including the "before civil penalties apply if sought in Housing Court"
+    # framing, which is the column header). Citing only the PDF would put a real
+    # claim behind a reference that does not support it.
+    source: "p.11-12"
+    covers: "violation classes"
+    additional_sources:
+      - label: "NYC HPD, Penalties and Fees"
+        url: "https://www.nyc.gov/site/hpd/services-and-information/penalties-and-fees.page"
+        covers: "correction deadlines"
+
+  # Threshold is > 0 while mold and pests use > 1, deliberately. The peer rules
+  # need a floor because one complaint cannot distinguish an incident from a
+  # building condition — one unit, once, possibly resolved. Heat has no such
+  # ambiguity: the legal minimum is a bright line (68°F between 6am and 10pm,
+  # 62°F overnight, October 1 to May 31), failure is seasonal and immediate, and
+  # a single complaint filed in winter is already evidence that the line was
+  # crossed. A renter signing a lease in September is owed that signal.
+  - id: heat_hot_water
+    topic_terms: ["heat", "heating", "hot water", "radiator*", "boiler*", "thermostat*", "warm*", "cold", "tap"]
+    brief_line: >-
+      Heat or hot water problems reported in the last five years.
+    priority: 2
+    suppressed_by_class_c_group: heating_hot_water
+    when: {signal: heat_hot_water_complaints, op: ">", value: 0}
+    condition: >-
+      Tenants here have reported problems with heat or hot water in the last
+      five years.
+    why_it_matters: >-
+      Heat is required October 1 through May 31: at least 68°F from 6am to 10pm
+      when it is below 55°F outside, and 62°F overnight whatever the temperature
+      outside. Hot water must be at least 120°F, 24 hours a day, all year.
+    action: >-
+      If your apartment is colder than that, file a complaint with 311 and keep
+      the service request number so you can track it. Never use a gas oven or
+      range for heat, which can produce dangerous levels of carbon monoxide.
+    source: "p.9"
+
+  # This rule used to require construction_year < 1960 AND open lead violations.
+  # The year was a proxy for risk and it was gating the direct evidence: HPD does
+  # not issue a lead-based paint violation unless lead was actually found, so an
+  # open violation stands on its own whatever the building's age.
+  #
+  # Measured before removing it: of 15,484 buildings with open lead violations,
+  # the conjunction suppressed 714 (4.6%) carrying 2,594 open violations. 426
+  # were genuinely post-1960. The other 288 were absent from the `buildings`
+  # table, so construction_year resolved to None and the rule silently declined
+  # to fire — a join gap deciding whether a tenant hears about lead. Zero were
+  # blocked by malformed year text, so that risk was theoretical.
+  #
+  # The pre-1960 fact stays in why_it_matters, where it is background about lead
+  # paint generally rather than a claim about this building.
+  - id: lead_paint
+    topic_terms: ["paint*", "lead", "chip*", "peel*", "sill*", "windowsill*", "dust*"]
+    brief_line: >-
+      Lead-paint violations on record.
+    priority: 3
+    when: {signal: lead_paint_violations, op: ">", value: 0}
+    condition: >-
+      This building has lead-based paint violations on record.
+    why_it_matters: >-
+      Buildings built before 1960 may still contain lead-based paint, which
+      causes behavioral and learning problems in young children, who can
+      swallow dust and paint chips from windowsills and floors.
+    action: >-
+      If a child under six lives with you, or spends 10 or more hours a week in
+      your apartment, tell the owner in writing, which is what obliges them to
+      inspect annually. Report peeling paint, and call 311 if it is not fixed or
+      if repair work is raising dust that is not being contained.
+    source: "p.8"
+
+  # Smoke and CO detectors are one rule, not two, because the source treats them
+  # as one section (p.6) and the guidance is identical for both. The signal is
+  # open violations in either detector category.
+  #
+  # The source scopes the requirement to "a building with three or more units
+  # and one- and two-family homes which are not owner occupied". That scope is
+  # omitted here for the same reason the mold >10-unit clause is: no unit count
+  # exists anywhere in the schema, and an open detector violation already proves
+  # the requirement applied to this building — HPD does not cite a building for
+  # a detector it was not required to have.
+  #
+  # Priority 4: below lead paint, above the complaint-driven rules. An open
+  # violation is an inspector's finding, a complaint is a tenant's report, and
+  # this rule also names something a renter can verify in thirty seconds on a
+  # viewing.
+  #
+  # EXPANDED 2026-08-17 against HPD's dedicated detectors page, which carries
+  # detail the ABCs guide does not: the fifteen-foot placement rule, the
+  # reimbursement amounts, and the split of duties stated as a list. Verified
+  # against the live page on that date. Two claims from a suggested rewrite were
+  # NOT taken, and the reasons are worth keeping:
+  #
+  #   - "A chirping alarm is likely a sealed 10-year unit at end of life, which
+  #     the owner must replace; it is not a battery you can swap." The page says
+  #     the opposite of the operative half: "Listen for an alarm sound when the
+  #     battery is low and replace the battery immediately", and it requires
+  #     batteries be replaced twice a year. It does separately require an
+  #     end-of-life alarm and put end-of-life replacement on the owner, so BOTH
+  #     causes are real — but nothing on the page says a chirp usually means end
+  #     of life, and "10-year sealed unit" appears nowhere on it. The text below
+  #     names both causes instead of asserting the one the source does not.
+  #   - Natural gas detectors, now required by Local Law 102 of 2025, are left
+  #     out entirely. Compliance is deferred to 2027-01-01 and may be extended
+  #     again, and `smoke_co_detector_violations` cannot fire on a gas detector
+  #     anyway, so the rule would be describing something its own signal cannot
+  #     see.
+  - id: smoke_co_detectors
+    topic_terms: ["detector*", "alarm*", "smoke", "carbon monoxide"]
+    brief_line: >-
+      Detector violations on record.
+    priority: 4
+    when: {signal: smoke_co_detector_violations, op: ">", value: 0}
+    condition: >-
+      This building has open violations for smoke or carbon monoxide detectors.
+    why_it_matters: >-
+      Responsibility is split: the owner provides, installs,
+      and replaces the detectors, while the tenant tests them monthly and
+      replaces the batteries. An open violation means the owner has not yet
+      certified to HPD that the condition was fixed, so a device may still be
+      missing or dead at move-in. A tenant reimburses the owner for a newly
+      installed device, $25 for a smoke or carbon monoxide detector and $50 for
+      a combined unit, and is responsible for replacing one that goes missing or
+      is damaged during the tenancy.
+    action: >-
+      On a viewing, look for a smoke alarm within fifteen feet of the door of
+      each room used for sleeping, on the ceiling or just below it on the wall,
+      and a carbon monoxide alarm at any height, including one plugged into a
+      hallway outlet. Press the test button, and check that none have been
+      painted over. A chirping alarm usually means a low battery, which is the
+      tenant's to replace, but detectors also sound a separate end-of-life alarm
+      when the device itself has to be replaced by the owner.
+    source: "p.6"
+    covers: "the requirement"
+    additional_sources:
+      - label: "NYC HPD, Smoke, Carbon Monoxide, and Natural Gas Detectors"
+        url: "https://www.nyc.gov/site/hpd/services-and-information/detectors.page"
+        covers: "responsibilities, placement, and reimbursement"
+
+  # The source also describes special requirements for buildings with more than
+  # 10 units and more than 10 square feet of mold (p.9). That clause is omitted
+  # deliberately: no unit count exists anywhere in the schema, so the condition
+  # cannot be evaluated. Asserting an obligation on an unverifiable condition is
+  # worse than staying silent about it.
+  # Mold and pests share priority 4. HPD documents both as health hazards and
+  # ranks neither above the other, so ordering them by editorial fiat put a
+  # single mold complaint ahead of dozens of pest complaints on 4.1% of
+  # buildings sampled. They are peers, ordered by complaint count.
+  #
+  # Both peers use a threshold of >1, and must keep using the same one. A single
+  # complaint over five years is one unit, once — the rules describe building
+  # conditions, and two complaints is the smallest evidence that the problem
+  # recurred or reached more than one apartment. Splitting the thresholds would
+  # reintroduce the ranking these two rules share a priority to disclaim: on 103
+  # of 8,000 buildings sampled, mold and pests each stand at exactly one
+  # complaint, and an asymmetric floor would show one and hide the other on
+  # identical evidence.
+  - id: mold
+    topic_terms: ["mold*", "mildew*", "damp*", "moisture", "stain*", "discolor*", "leak*", "water"]
+    brief_line: >-
+      Mold reported in the last five years.
+    priority: 5
+    rank_by: mold_complaints
+    suppressed_by_class_c_group: mold_pests_sanitation
+    when: {signal: mold_complaints, op: ">", value: 1}
+    condition: >-
+      Tenants here have reported mold in the last five years.
+    why_it_matters: >-
+      Mold can cause allergic reactions and irritation, and can trigger asthma in
+      some people. It needs moisture to grow, so it generally indicates a leak or
+      persistent damp.
+    action: >-
+      Report mold to the owner, who is expected to inspect annually and to
+      respond to complaints, and call 311 if it is not addressed. 
+    source: "p.9"
+
+  # Bedbugs have no distinguishable signal. The `FILING: BEDBUGS` violation
+  # category is the annual bedbug *report filing* requirement — an administrative
+  # violation that says nothing about whether bedbugs are present. Complaint
+  # minor-categories offer only PESTS and VERMIN. Bedbug guidance therefore rides
+  # along with the general pest rule rather than firing on a false signal.
+  - id: pests
+    topic_terms: ["pest*", "roach*", "cockroach*", "rodent*", "mice", "mouse", "rat", "bedbug*", "dropping*", "insect*", "gnaw*", "exterminat*"]
+    brief_line: >-
+      Pests reported in the last five years.
+    priority: 5
+    rank_by: pest_complaints
+    suppressed_by_class_c_group: mold_pests_sanitation
+    when: {signal: pest_complaints, op: ">", value: 1}
+    condition: >-
+      Tenants here have reported pests in the last five years.
+    why_it_matters: >-
+      Roaches, mice, and rats can be hazards for people with respiratory
+      conditions such as asthma. Bedbugs spread between apartments through small
+      cracks in walls and floors, so catching them early matters.
+    action: >-
+      Report pests to the owner and call 311 if they are not dealt with. For
+      bedbugs, an HPD inspector visits, and a violation is issued only if they
+      can visually confirm live bedbugs.
+    source: "p.10"
+
+# ---------------------------------------------------------------------------
+# Deliberately uncovered
+#
+# A rule requires BOTH a computable signal AND citable source text. Everything
+# below has one or neither, and is listed so the gap is a recorded decision
+# rather than something a future reader has to rediscover.
+#
+#   ELECTRICAL (complaints, high volume)
+#     Signal: yes. Source text: none. The ABCs guide has no electrical section,
+#     so there is no citable action to give a tenant. Volume is not a reason to
+#     write advice we cannot attribute. Revisit only if an authoritative source
+#     is added.
+#
+#   WATER & PLUMBING (complaints, high volume)
+#     Same shape as electrical: a clean signal, nothing citable behind it.
+#
+#   GAS LEAKS
+#     The inverse. The source is strong (p.5: recognise by smell, sight, and
+#     hearing; leave the building, call 911 from a safe distance, then the gas
+#     provider) but no complaint or violation category isolates gas leaks. It is
+#     also emergency-response guidance, which is the wrong register for a brief
+#     read before signing a lease — a reader in that situation is not reading
+#     this page.
+#
+#   SELF-CLOSING DOORS
+#     Unlike the entries above, this one has BOTH. The signal is clean: order
+#     numbers 530, 536, 693, and 213 isolate self-closing doors within the
+#     broader EGRESS category, roughly 74,700 open violations across 30,000
+#     buildings. The source is strong (p.5: they stop fire and smoke spreading
+#     between apartments; owner repairs within 14 days; tenants must provide
+#     access; HPD reinspects within 20 days and may fix it through the Emergency
+#     Repair Program; tenants must not prop, tape, or wedge them open). Left out
+#     by decision, not for lack of material — it is the first candidate if this
+#     table grows.
+#
+#   WINDOW GUARDS
+#     A WINDOW GUARDS category exists and p.10 covers the obligation, but the
+#     signal was never investigated. Same status as self-closing doors: deferred,
+#     not ruled out.
+#
+#   BEDBUGS — see the note above the pests rule. No distinguishable signal;
+#   FILING: BEDBUGS is the annual report-filing requirement, not an infestation.
+#
+#   MOLD, >10-unit clause — see the note above the mold rule. No unit count
+#   exists in the schema, so the condition cannot be evaluated.
+# ---------------------------------------------------------------------------

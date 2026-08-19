@@ -90,9 +90,14 @@ stoop/
 
 ## Local dev setup
 
+**See [`RUNBOOK.md`](RUNBOOK.md) for the full command reference** — setup,
+running both servers, tests, the Building Brief corpus, migrations, and the
+caching gotchas that make a change look like it did not apply.
+
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11–3.13. **Not 3.14**: `pydantic-core` has no wheel for it yet and
+  the venv fails to build
 - Node.js 20+
 - A [Neon](https://neon.tech) project
 - A Mapbox token

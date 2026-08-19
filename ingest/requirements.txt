@@ -5,4 +5,10 @@ python-dotenv==1.2.2
 tqdm==4.66.4
 pyarrow>=15.0.0
 tenacity>=8.2.0
+# pandas reads the HPD data dictionary .xlsx in seed_hpd_order_numbers.py.
 openpyxl>=3.1.0
+# Both imported directly by enrich_nta.py. numpy arrived transitively via
+# pandas; shapely was missing outright, so that script could not run from a
+# clean install of this file.
+numpy==1.26.4
+shapely==2.1.2

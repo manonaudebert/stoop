@@ -1,13 +1,18 @@
+import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 
 from database import get_db
 from limiter import limiter
 from cache import cache_get, cache_set
 from schemas import (
+    BriefCitation,
+    BriefWatchItem,
+    BuildingBriefResponse,
     HpdBuildingSummaryResponse,
     HpdBuildingDetailResponse,
     HpdViolationResponse,
@@ -15,8 +20,23 @@ from schemas import (
     ViolationAgeBucketItem,
     TimelinePoint,
 )
+# Imported from the submodules directly, NOT from `services.briefs`. The package
+# __init__ is lazy on purpose and importing the wrong name there drags in the
+# Anthropic SDK — a ~17s cost the API must never pay at startup, for a code path
+# that makes no model calls at all.
+from services.briefs.confidence import confidence_note_from_signals
+from services.briefs.corpus import PROMPT_VERSION, keys_for_selection
+from services.briefs.rules import load_rules, select_rules
+from services.briefs.taxonomy import (
+    describe_hazard_areas, describe_hazard_areas_prose, join_prose,
+)
 
 router = APIRouter(prefix="/hpd", tags=["hpd"])
+
+logger = logging.getLogger(__name__)
+
+# PostgreSQL undefined_table. See _generated_watch_for.
+UNDEFINED_TABLE = "42P01"
 
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
@@ -416,5 +436,201 @@ async def get_hpd_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
         )
         for r in rows
     ]
+    cache_set(cache_key, result)
+    return result
+
+
+async def _generated_watch_for(
+    db: AsyncSession, selected_rules, *, categories, percentile
+) -> dict[str, str]:
+    """rule_id -> the generated sentence for it, for the rules that have one.
+
+    A miss is the normal case and not an error — an absent rule id simply means
+    the page renders that rule's authored `brief_line`. That is what makes a
+    partial corpus a shippable state rather than a broken one, and it is the
+    per-rule kill-switch: deleting a rule's rows turns its generated text off
+    with no code change.
+
+    Skipped entirely when nothing is flagged, which is roughly half of all
+    buildings — there is no rule to look up a sentence for, and this is the
+    hottest route on the site.
+
+    Keyed on (rule_id, input_key, prompt_version), which is the primary key, so
+    a stale corpus from an older prompt is invisible rather than served.
+
+    A MISSING `brief_texts` table is treated as an empty one. This is not
+    defensive padding — it is the difference between a degraded brief and no
+    brief at all, and it has already cost the site once: the read path shipped
+    in 429a06f while `migrate_brief_texts.sql` was deliberately left unapplied,
+    on the reasoning that a missing table and an empty table both mean "no
+    generated text". They do not. An empty table returns zero rows; a missing
+    one raises, and `page.tsx` fetches the brief with `.catch(() => null)`, so
+    the entire section silently disappeared from every building where a rule
+    fired — the ~52% of pages that have something to say. The early return above
+    is why the other 48% looked fine and hid the bug.
+
+    Narrow on purpose: only undefined_table, and only for this optional read.
+    Any other database error is a real fault and still propagates.
+    """
+    keys = keys_for_selection(
+        selected_rules, categories=categories, percentile=percentile
+    )
+    if not keys:
+        return {}
+
+    try:
+        rows = (await db.execute(
+            text("""
+                SELECT rule_id, watch_for
+                FROM brief_texts
+                WHERE prompt_version = :version
+                  AND (rule_id, input_key) IN (
+                      SELECT * FROM unnest(
+                          CAST(:rule_ids AS text[]), CAST(:input_keys AS text[])
+                      )
+                  )
+            """),
+            {
+                "version": PROMPT_VERSION,
+                "rule_ids": [rule_id for rule_id, _ in keys],
+                "input_keys": [key for _, key in keys],
+            },
+        )).all()
+    except ProgrammingError as e:
+        if getattr(e.orig, "sqlstate", None) != UNDEFINED_TABLE:
+            raise
+        # The failed statement aborted the transaction. Nothing downstream reads
+        # the database, but roll back explicitly rather than leave a poisoned
+        # session for the dependency teardown to discover.
+        await db.rollback()
+        logger.warning(
+            "brief_texts is missing — serving authored brief_line only. "
+            "Apply ingest/migration/migrate_brief_texts.sql."
+        )
+        return {}
+    return {r.rule_id: r.watch_for for r in rows}
+
+
+@router.get("/building/{bin}/brief", response_model=BuildingBriefResponse)
+async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
+    """The deterministic Building Brief — no model, no generated text.
+
+    Reads the precomputed signals from `hpd_brief_signals` and runs the same
+    rule evaluation `smoke.py` runs inline. The view exists because that inline
+    computation takes ~2.5s per building against an 11M-row table; here it is a
+    single indexed lookup.
+
+    A building with no row in the view is NOT an error, and NOT a special case.
+    The view covers every building with any HPD record; a BIN outside it has no
+    HPD history at all, which is the same thing to a reader as a building whose
+    signals are all zero. Both go through the identical path below and both come
+    back with `no_flags` set — the only difference is the confidence note, which
+    correctly says "no HPD records on file" for one and nothing for the other.
+    """
+    cache_key = f"hpd_brief:{bin}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    row = (await db.execute(
+        text("""
+            SELECT s.open_class_c_violations, s.lead_paint_violations,
+                   s.smoke_co_detector_violations, s.open_class_c_categories,
+                   s.mold_complaints, s.pest_complaints,
+                   s.heat_hot_water_complaints,
+                   s.hpd_record_count, s.latest_hpd_activity,
+                   -- Not a rule signal, and deliberately not added to
+                   -- hpd_brief_signals: it gates whether severity language was
+                   -- permitted in the prompt, so it is part of the corpus key.
+                   -- Joined here rather than materialized because it is an
+                   -- indexed single-row lookup, and adding a column to the view
+                   -- costs a full recompute for a value the rules never read.
+                   hv.violations_density_pct
+            FROM hpd_brief_signals s
+            LEFT JOIN hpd_building_summary hv ON hv.bin = s.bin
+            WHERE s.bin = :bin
+        """),
+        {"bin": bin},
+    )).first()
+
+    # Exactly the keys rules.yaml and confidence.py reference — built explicitly
+    # so a rule naming a signal nobody supplies raises instead of silently never
+    # firing. Mirrors smoke.to_signals; the two are pinned equal by a test.
+    #
+    # A BIN with no row in the view has no HPD record at all, and is fed through
+    # this same path as all-zero signals rather than short-circuited above. The
+    # two states are indistinguishable to a reader — both are "nothing flagged"
+    # — and an early return would skip confidence_note's dedicated branch for a
+    # zero record count, so the building with the LEAST history would be the one
+    # rendering no caveat at all.
+    signals = {
+        "open_class_c_violations": row.open_class_c_violations if row else 0,
+        "heat_hot_water_complaints": row.heat_hot_water_complaints if row else 0,
+        "mold_complaints": row.mold_complaints if row else 0,
+        "pest_complaints": row.pest_complaints if row else 0,
+        "lead_paint_violations": row.lead_paint_violations if row else 0,
+        "smoke_co_detector_violations": row.smoke_co_detector_violations if row else 0,
+        # Read by the suppression layer, not by any `when` predicate.
+        "open_class_c_categories": row.open_class_c_categories if row else None,
+        "hpd_record_count": row.hpd_record_count if row else 0,
+        "latest_hpd_activity": row.latest_hpd_activity if row else None,
+    }
+
+    selected = select_rules(signals)
+    _, document = load_rules()
+    generated = await _generated_watch_for(
+        db, selected,
+        categories=row.open_class_c_categories if row else None,
+        percentile=row.violations_density_pct if row else None,
+    )
+
+    watch_items = [
+        BriefWatchItem(
+            rule_id=rule.id,
+            brief_line=rule.brief_line,
+            watch_for=generated.get(rule.id),
+            # Authored sentence plus, for the class C rule only, this
+            # building's hazard areas named inside it. Every other rule gets
+            # its `condition` back unchanged — see Rule.condition_with_areas.
+            condition=rule.condition_with_areas(
+                describe_hazard_areas_prose(row.open_class_c_categories)
+                if row else None
+            ),
+            why_it_matters=rule.why_it_matters,
+            action=rule.action,
+            citations=[
+                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                for c in rule.citations(document)
+            ],
+            # Only the class C rule is about hazard areas. For every other rule
+            # this stays None, which is not the same as the empty list the class
+            # C rule gets when nothing it flagged is describable.
+            hazard_areas=(
+                describe_hazard_areas(row.open_class_c_categories)
+                if rule.id == "open_class_c" else None
+            ),  # unreachable when row is None: no rule fires on all-zero signals
+            # Joined here, not on the client: `join_prose` carries a serial-comma
+            # rule that exists because these entries contain their own "and"
+            # ("mold and pests, and building maintenance"), and a second
+            # implementation of it in TypeScript would drift. Empty joins to ""
+            # — falsy on both sides — so "flagged, nothing describable" needs no
+            # special case in the renderer.
+            hazard_area_phrase=(
+                join_prose(describe_hazard_areas_prose(row.open_class_c_categories))
+                or None
+                if rule.id == "open_class_c" else None
+            ),
+        )
+        for rule in selected
+    ]
+
+    result = BuildingBriefResponse(
+        bin=bin,
+        watch_items=watch_items,
+        confidence_note=confidence_note_from_signals(signals),
+        no_flags=not watch_items,
+        has_records=bool(signals["hpd_record_count"]),
+        record_count=signals["hpd_record_count"] or 0,
+    )
     cache_set(cache_key, result)
     return result

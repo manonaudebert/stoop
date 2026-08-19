@@ -9,37 +9,93 @@ Read *The blocker* first. It is not a coding problem and it gates everything.
 
 ---
 
-## The blocker: SF has no ABCs of Housing
+## Sources — the blocker is mostly resolved
 
-Every NYC rule quotes or closely paraphrases HPD's *ABCs of Housing 2024
-(Tenants' Guide)*, with the page recorded in `source:`. That single document is
-what makes the whole feature defensible: the model never writes advice, and
-every claim a tenant can act on is traceable to a page a reader can check.
+Every NYC rule quotes HPD's *ABCs of Housing 2024*, with the page recorded in
+`source:`. That one document is what makes the feature defensible: the model
+never writes advice, and every actionable claim is traceable to a page.
 
-**SF has no single equivalent, and this is the main piece of work.** Candidates
-worth evaluating before any code:
+**There is a direct equivalent, and it is better than expected.** Checked
+against the live documents 2026-08-18.
 
-- SF Rent Board fact sheets (habitability, repairs, harassment)
-- SFDBI Housing Inspection Services guidance
-- SF Housing Code (Chapter 12A) — authoritative but written for inspectors, so
-  it needs heavy translation, which weakens "closely paraphrased"
-- Tenants' rights nonprofits' guides — readable, but not city-published, and
-  citing an advocacy org for a legal claim is a different posture
+### Primary: California Tenants (DRE, 2024)
 
-**Do not start the rules table until this is settled.** Two constraints from
-NYC that will hold here:
+> *California Tenants: A Guide to Residential Tenants' and Landlords' Rights and
+> Responsibilities*, 2024 Edition. **California Department of Real Estate**,
+> Business, Consumer Services and Housing Agency.
 
-- A claim that cannot be located in the source does not go in, however sensible
-  it sounds. Several good instincts ("ask how last winter went", "check under
-  the sinks") were cut for exactly this.
-- One rule may cite two documents. `additional_sources` with a `covers` clause
-  exists because the class C rule takes violation classes from the PDF and
-  correction deadlines from a separate HPD page. Expect to need it more in SF,
-  where the guidance is spread across the Rent Board and DBI.
+147 pages, plain-language, tenant-facing, with internal page numbers it uses for
+its own cross-references ("see pages 47-50"). It has a real text layer, so
+quoting is copy-paste rather than transcription. This is the ABCs analog and
+should be the primary `source_document`.
 
-If no citable source exists for a condition, **the honest move is not to have a
-rule for it.** A brief with four cited rules beats one with eight where half
-are unsourced.
+**Cite the DRE original, not a mirror.** The Berkeley SLS copy is a hosted PDF
+of a state publication; the citation should name the Department of Real Estate,
+and the URL should point at the state's own copy so it survives a mirror moving.
+
+**It is STATE, not city.** Everything in it is true in San Francisco, but it
+carries nothing SF-specific — rent board jurisdiction, local ordinances, SF's
+own inspection process. It mentions San Francisco exactly once. Expect to pair
+it with a city source per rule, using `additional_sources` with a `covers`
+clause, exactly as the NYC class C rule cites the ABCs for violation classes and
+HPD's penalties page for correction deadlines.
+
+### The statutory habitability list is close to a ready-made rules table
+
+Pages 47–48 enumerate what makes a unit legally uninhabitable. It reads almost
+like a rule set someone already wrote for us:
+
+- Effective waterproofing and weather protection, unbroken windows and doors
+- Plumbing in good working order, hot and cold running water
+- Gas facilities in good working order
+- **Heating facilities in good working order**
+- Electrical system, lighting and wiring, in good working order
+- Clean and sanitary, **free from debris, filth, rubbish, garbage, rodents and
+  vermin**
+- **Safe fire or emergency exits**; stairs, hallways and exits kept litter-free
+- Operable dead bolt locks on main entry doors, locking devices on windows
+- **Working smoke detectors in all bedrooms**, and in common stairwells of
+  apartment complexes; **carbon monoxide detectors** wherever there are
+  fossil-fuel appliances or an attached garage
+- A locking mailbox for each unit
+
+Mold gets its own treatment: the guide names mold conditions the landlord has
+notice of, affecting livability or health, as a separate way the implied
+warranty is violated.
+
+Note what this list gives you that NYC's did not: it is **statutory**, so
+"substantially lacks X" is a bright line rather than an editorial judgement
+about severity. It also carries an explicit floor — the warranty is not violated
+"merely because the rental unit is not in perfect, aesthetically pleasing
+condition", nor by minor code violations that stand alone. That sentence is
+worth quoting somewhere in the UI; it is the SF equivalent of the caveat the NYC
+empty state carries.
+
+### City sources for the SF-specific half
+
+- **Keeping your building free of vermin** (sf.gov). Concrete and checkable:
+  seal gaps over ¼ inch, garbage containers that do not overflow, stored piles
+  elevated 6 inches from the ground and 6 inches from any wall. Names shared
+  owner/tenant responsibility for bed bugs, and that owners must respond to bed
+  bug complaints by hiring a licensed pest control operator. Good backing for a
+  pests rule, and unusually specific for `action` text.
+- **Residential habitability / property owner maintenance checklist** (sf.gov).
+  **Scanned, no text layer** — five pages of images. Usable as a source but it
+  must be read by eye and transcribed, and any quote needs checking against the
+  image rather than a copy-paste.
+- **CDPH mold page** (cdph.ca.gov). **JavaScript-rendered**, so it cannot be
+  fetched as text with curl. State rather than city, and the DRE guide already
+  covers mold as a habitability matter. Treat as background, not a citation,
+  unless a rule needs a health claim the DRE guide does not make.
+
+### Consequences for `validate.py`
+
+`RIGHTS_PATTERNS` was written against NYC remedies and will not catch the
+California ones. The guide's own vocabulary, by frequency: **repair and deduct**
+(19), **rent withholding** (12), **small claims** (12), **code enforcement**
+(3), abandonment. `rent withholding` is already banned; the rest are not, and
+"the repair and deduct remedy" is exactly the sort of actionable legal claim
+generated text must never make. Add these before generating anything.
 
 ---
 
@@ -201,7 +257,10 @@ the same state.
 
 ## Suggested order
 
-1. Settle the source document. Nothing else is safe to start.
+1. ~~Settle the source document.~~ Primary is the DRE guide; pair it per
+   rule with an sf.gov page for anything city-specific. Still to do:
+   transcribe the scanned SF checklist, and add the California remedy
+   terms to `RIGHTS_PATTERNS`.
 2. Decide the `brief_texts` city key, and migrate if so.
 3. Build the SF taxonomy: group, `prose_label`, one-sentence description.
 4. Author 3–5 rules against the source. Fewer and cited beats more and vague.

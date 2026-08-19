@@ -122,9 +122,25 @@ from .signals import HAZARD_AREA_LIMIT
 PROMPT_VERSION = "brief-v11"
 
 # One sentence each. Not a paragraph budget with room for a second thought — at
-# 200 characters a model that starts listing findings runs out of room and fails
+# this length a model that starts listing findings runs out of room and fails
 # validation, which is the intended outcome rather than a tolerated one.
-MAX_WATCH_FOR = 200
+#
+# DELIBERATE SLACK, and the one place the prompt and this file are allowed to
+# disagree. The prompt asks for "under 30 words and under 200 characters"; this
+# hard-fails at 215. The gap is intentional and in the safe direction: the
+# instruction aims the model low, and the validator quarantines only genuine
+# overflow rather than a sentence landing a few characters over.
+#
+# Set from the first full corpus run, where all 18 length drops measured
+# 204-214 characters — single sentences a hair past the ask, not the runaway
+# listing this cap exists to catch. Every one of them was a good sentence.
+#
+# Do NOT close the gap by raising the prompt to 215. The prompt text is what
+# `PROMPT_VERSION` tracks, so editing it invalidates the corpus, while the
+# validator can move without a bump. Instruction stricter than enforcement is
+# the posture throughout — the same shape as the prompt banning quantifiers
+# that `validate` exempts when they measure a duration.
+MAX_WATCH_FOR = 215
 
 # The class C issue carries ONE SENTENCE PER DESCRIBABLE HAZARD AREA, up to the
 # number of areas the selection layer can supply.

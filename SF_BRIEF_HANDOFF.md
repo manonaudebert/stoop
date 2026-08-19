@@ -213,6 +213,81 @@ enforcement path behind some of this 311 data.
    was read through browser automation. Any tooling that checks citations
    automatically will not be able to reach it.
 
+### Housing Code Chapter 10 — the citation basis for DBI violations
+
+SF Housing Code **§1001** defines a *substandard building*, and it is the legal
+basis behind a DBI notice of violation. Its enumerated conditions read like a
+rules table, the same way the DRE habitability list does — and being SF's own
+code, it is the right citation for anything derived from `sf_dbi_nov`:
+
+- **§1001(b) Inadequate Sanitation and Safety** — lack of hot and cold running
+  water; **lack of adequate heating facilities or improper operation**; improper
+  ventilation; lack of required electrical illumination; **dampness of habitable
+  rooms**; **infestation of insects, vermin or rodents**; general dilapidation;
+  inadequate garbage storage and removal
+- **§1001(c) Structural Hazards** — deteriorated foundations, floors, walls,
+  ceilings, chimneys
+- **§1001(e)/(f)/(g)** hazardous wiring, plumbing, mechanical equipment
+- **§1001(h) Faulty Weather Protection** — deteriorated or loose plaster,
+  ineffective waterproofing, **broken windows or doors**, lack of paint
+- **§1001(i) Fire Hazard**, **(m) Inadequate Exit**, **(n) Inadequate Fire
+  Protection Equipment**
+- **§1001(k) Hazardous or Insanitary Premises** — debris, garbage, rat
+  harborages, stagnant water
+
+Note §1001(a) ties this to California Health & Safety Code §17920.3 (State
+Housing Law), and §1001(d) folds in nuisance by reference — so the Housing Code,
+the Health Code and the DRE guide are describing one overlapping body of law
+rather than three unrelated sources.
+
+### The violations data has no usable condition taxonomy
+
+**This is the biggest architectural difference from NYC, and it should be
+settled before any rule is written.**
+
+NYC's brief is violation-led. `open_class_c` is priority 1, and its abstractness
+("conditions HPD classifies as immediately hazardous") is fixed by naming hazard
+*areas* drawn from `hpd_order_numbers.category` — 48 clean categories, each with
+an authored one-sentence tooltip. That machinery is why the class C item can
+point at something.
+
+SF's violation data cannot do this. Measured on `sf_dbi_nov` (516,064 rows):
+
+| Field | Problem |
+|---|---|
+| `nov_category_description` | 10 values, and **52.7% of rows** (236,786 of 449,431) are in `building section` or `other section` — section labels, not conditions |
+| `nov_item_description` | **287,254 distinct values** over 419,539 rows. Free text, not a category |
+
+The usable half is coarse but real: `fire section` (61,775), `interior surfaces`
+(69,737), `plumbing and electrical` (33,213), `security requirements` (18,909),
+`smoke detection` (14,825), `sanitation` (12,653), `lead` (1,388).
+
+The free-text field is worse than merely unstructured. Its most common values
+are procedural boilerplate, not conditions:
+
+> "it is the property owner's responsibility to be present or direct…" (27,330)
+> · "this notice includes violations of the san francisco housing code." ·
+> "inspector comments regarding 'follow up' reinspection: i have sche…"
+
+**and it contains inspector names and narrative** ("inspector yee investigated
+the complaint at the subject property…"). Never render it, and never put it in a
+prompt. It is a free-text operational log that happens to sit in a violations
+table.
+
+**Two consequences.**
+
+1. **A violations rule can say that open violations exist, and not what they
+   are** — on more than half of them. That is precisely the abstractness NYC's
+   `areas_clause` exists to cure, with no equivalent cure available. Consider
+   whether a violations rule should fire only for the categories that do name a
+   condition, and stay silent on `building`/`other`, rather than producing an
+   item that points at nothing.
+2. **SF's brief may be complaint-led, inverting NYC.** The 311 side is
+   well-categorized and maps cleanly onto Health Code §581(b); the violations
+   side is not. In NYC the inspector's finding outranks the tenant's report, and
+   suppression encodes that. In SF the better-structured signal is the tenant
+   report. Do not port NYC's priority ordering without re-deciding it.
+
 ### Consequences for `validate.py`
 
 `RIGHTS_PATTERNS` was written against NYC remedies and will not catch the

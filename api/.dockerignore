@@ -1,7 +1,0 @@
-__pycache__
-*.pyc
-*.pyo
-.env
-tests/
-pytest.ini
-requirements-dev.txt

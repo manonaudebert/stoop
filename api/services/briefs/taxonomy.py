@@ -28,11 +28,17 @@ project root, so a copy elsewhere in the repo would require turbopack.root and
 outputFileTracingRoot — deploy-affecting config, to share a category list.
 Reading it by path from here is free.
 
-That does mean this module needs the repo checkout, not just the api/ build
-context. Brief generation is a batch job that runs from a checkout (as the
-weekly sync does), and the request-serving API never imports this — it reads
-finished briefs from the database. If that ever changes, the taxonomy has to be
-vendored into the container or moved into the database.
+That does mean this module needs the repo checkout, not just the api/ directory.
+It is imported at startup by routes/hpd.py, which renders a stored brief's
+hazard areas into renter-facing words at request time, so the deployed image
+must carry the JSON — api/Dockerfile builds from the repo root and copies it in
+alongside api/, preserving the layout the parent-walk below assumes.
+
+An earlier version of this note claimed the request-serving API never imported
+this module. That stopped being true when the brief route landed, and the first
+sign of it was an import-time crash on deploy. If the layout ever needs to
+change, the constraint is that TAXONOMY_PATH must resolve in three places: a
+checkout, the container, and the batch job that runs from a checkout.
 """
 
 import json

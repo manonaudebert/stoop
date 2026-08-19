@@ -1,0 +1,40 @@
+# Build context for api/Dockerfile. Lives at the repo root because that is the
+# build context now (see the note at the top of api/Dockerfile); Docker reads
+# only the .dockerignore at the context root, so rules placed in api/ would be
+# silently ignored.
+
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# Secrets. .env.branch holds live Neon credentials with prod-equivalent access.
+.env
+.env.*
+!.env.example
+
+.git/
+.github/
+.claude/
+.venv/
+.pytest_cache/
+
+# Not served by the API: the ingest jobs, the data dumps, the docs.
+ingest/
+data/
+*.md
+schema.sql
+weekly_sync.sh
+
+# The frontend is deployed separately. One file is exempt: the renter-facing
+# taxonomy, which the API imports at startup. Docker needs the directory
+# re-included before a file inside it can be, hence the two-step negation.
+frontend/*
+!frontend/lib/
+frontend/lib/*
+!frontend/lib/renter-facing-groups.json
+
+# Tests and dev-only deps are not installed in the image.
+api/tests/
+api/pytest.ini
+api/requirements-dev.txt

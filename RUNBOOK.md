@@ -230,6 +230,40 @@ update `schema.sql` and `METRICS.md` to match.
 
 ---
 
+## Deploying the API
+
+Railway builds `api/Dockerfile` with **BuildKit**. The build context is the
+whole repo, not `api/` — `services/briefs/taxonomy.py` reads
+`frontend/lib/renter-facing-groups.json` at import time, and `routes/hpd.py`
+imports it, so an image built from `api/` alone crashes on startup with
+`FileNotFoundError` before uvicorn binds a port.
+
+Railway settings (**Settings → Source**, not the Build tab):
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `/` (empty) |
+| Dockerfile Path | `api/Dockerfile` |
+| Watch Paths | `api/**`, `frontend/lib/renter-facing-groups.json` |
+
+The image mirrors the repo layout (`/app/api`, `/app/frontend/lib`) so the
+parent-walk in `taxonomy.py` resolves the same number of levels up in the
+container as in a checkout. `.dockerignore` lives at the repo root for the same
+reason — Docker reads only the one at the context root, so rules under `api/`
+are silently ignored.
+
+Verify a build locally before pushing:
+
+```bash
+docker build -f api/Dockerfile -t stoop-api .
+docker run --rm -e DATABASE_URL=postgresql://fake:fake@localhost/fakedb stoop-api
+```
+
+`tests/test_dockerfile_taxonomy.py` replays the path arithmetic offline and
+fails if WORKDIR, the COPY destinations, or `TAXONOMY_PATH` stop agreeing.
+
+---
+
 ## Blocked, not slow
 
 If `pytest`, `tsc`, `git` or `rsync` hang at **0% CPU** with `fileproviderd`

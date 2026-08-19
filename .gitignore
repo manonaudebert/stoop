@@ -36,3 +36,4 @@ SF_MERGE_TODO.md
 
 # Per-call cost/telemetry log from local brief runs
 data/brief_calls.jsonl
+.claude/

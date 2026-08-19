@@ -5,10 +5,9 @@ the Building Brief is *built* and why the architecture is shaped the way it is.
 This one covers what it costs to run, how it reaches the frontend, and which
 decisions are still open.
 
-Status: **phase 0 ships — the rules-only brief renders on every HPD building
-page.** No corpus has been generated. The prompt has now been verified against
-`claude-haiku-4-5` — 10 calls, $0.02 — so the cost figures below are measured on
-the real model rather than extrapolated from Ollama.
+Status: **phase 1 ships — the NYC corpus is generated and generated text
+renders on the page.** 903 of 909 rows at `brief-v11`, $8.02. Cost figures below
+are measured on `claude-haiku-4-5`, not extrapolated.
 
 Branch: `building-brief` (not pushed). Companion memory: the Building Brief
 entry in the project memory index.
@@ -17,17 +16,18 @@ entry in the project memory index.
 
 ## Start here
 
-**State as of 2026-08-17, commit `d6a094f` on `building-brief` (not pushed).**
-Every phase-1 mechanism exists and is now exercised end to end: the page renders
-generated text, `smoke.py --write` fills rows, and five validator checks gate
-what may be published. **The full corpus has still not been generated** — only a
-handful of test rows exist — so `watch_for` is null on almost every building and
-the page renders the authored brief it did at phase 0.
+**State as of 2026-08-18, on `building-brief` (not pushed).** **The NYC corpus
+is generated.** 903 of 909 rows at `brief-v11`, 2,733 calls, **$8.02**. Six rows
+remain, covering four buildings each; rerunning `build_corpus` picks them up.
 
-The generation loop has been run against real buildings, and the output is the
-reason two validator checks and the pairing fix exist. Read *Which validator
-check lands first* before generating: both checks came from published rows that
-looked fine and were not.
+Generated text is live on the page for every building whose input shape has a
+row — which, because rows are keyed by shape rather than by building, is most of
+the ~52% that flag anything.
+
+Five validator checks gate publication. Three of them, plus the pairing fix,
+exist because of output this pipeline produced: read *Which validator check
+lands first* before changing anything, because the checks that mattered were
+found by reading rows, not by reasoning about failure modes in advance.
 
 **Phase 1's three blockers are cleared. Two steps remain, and both are optional:**
 
@@ -41,13 +41,12 @@ looked fine and were not.
    generated text" — that was wrong and it broke the page. See *The missing
    table* below.
 
-**To actually ship generated text, one thing is left:**
+**Generated text now ships.**
 
-- **Generate the corpus.** **3,170 calls, ~$7.29** at the measured rate, or 899
-  calls at the floor. `smoke.py --write --reset` does the writing and validates
-  per sentence, but still walks buildings rather than distinct shapes — a runner
-  that enumerates the 3,170 shapes directly has to be written, or the same rows
-  get regenerated thousands of times.
+- ~~Generate the corpus~~ ✅ 2026-08-18. `build_corpus.py` walks distinct prompt
+  shapes rather than buildings. 2,733 calls, 5,229 sentences, 903 rows, **$8.02**
+  — over the $7.29 estimate because that figure assumed no repairs, and the call
+  cap counts them.
 - ~~Render `watch_for` in `BuildingBrief.tsx`~~ ✅ 2026-08-13. `WatchForLine`,
   labelled "Worth checking · AI-assisted" with a tooltip, set apart from the
   authored line. Null is treated as an ordinary permanent state, not a loading
@@ -69,8 +68,8 @@ it, that rule's corpus simply does not ship. No fallback logic to write.
 | `GET /hpd/building/{bin}/brief` | watch items, citations, hazard areas, confidence note |
 | Refresh | `sync_all.py::_refresh_all_views`, after both summary views |
 | `BuildingBrief.tsx` | two-layer rendering, after the Severity card, with `WatchForLine` |
-| Tests | 361, offline, no database and no API key |
-| `brief_texts` | applied to prod 2026-08-12. Test rows only, no corpus |
+| Tests | 371, offline, no database and no API key |
+| `brief_texts` | **903 of 909 rows at `brief-v11`.** The NYC corpus |
 
 Verified against real pages rather than only tests: BIN 2003187 (suppression
 plus three layer-1 lines), BIN 3096715 (three items with citations), BIN 1000041
@@ -98,11 +97,12 @@ All under `api/services/briefs/`:
 | `taxonomy.py` | the three HPD vocabularies and the renter-facing labels |
 | `confidence.py` | the computed caveat (thin record / stale record) |
 | `prompt.py` | what the model is allowed to see. It gets no numbers |
-| `schema.py` | `GeneratedContext` — `watch_for: list[str]`, max 2, nothing else |
+| `schema.py` | `GeneratedContext` — `watch_for: list[str]`, max 3, nothing else |
 | `generate.py` | retry vs repair vs fatal, token accounting, call cap |
-| `validate.py` | the publish gate — two lexical checks, both hard fails |
+| `validate.py` | the publish gate — five checks, all hard fails |
 | `corpus.py` | the structured `input_key` a stored sentence is looked up by |
 | `smoke.py` | signals in, brief out. Also `--check-view` |
+| `build_corpus.py` | the corpus runner. Walks shapes, resumable, logs drops |
 | `golden.yaml` | hand-reviewed cases, failing outputs kept verbatim |
 
 Tests: `test_briefs_rules.py` (engine), `test_briefs_route.py` (the API seam),
@@ -217,6 +217,82 @@ Identical text across buildings is *correct* here rather than a bug —
 building-specific number is rendered by code around it. The authored rule text
 is already identical across buildings, so this introduces no new kind of
 sameness.
+
+### What the corpus run actually produced — 2026-08-18
+
+| | |
+|---|---|
+| Calls | 2,733 (27 failed, all `invalid_schema`; 1 truncated) |
+| Sentences generated | 5,229 |
+| Sentences dropped by validation | 111 (**2.1%**) |
+| Rows written | 903 of 909 |
+| Cost | **$8.02** |
+
+Drops by check: `on_topic` 85, `length` 18, `vague_quantifiers` 5,
+`useless_register` 2, `rights_language` 1.
+
+**Every `on_topic` drop was checked by hand and every one was correct.** 68 of
+89 matched a *different* rule's vocabulary — genuine cross-contamination, and
+the flows are lopsided in a way worth knowing: `lead_paint → mold` 14,
+`heat_hot_water → mold` 9, `lead_paint → heat_hot_water` 7,
+`smoke_co_detectors → lead_paint` 7. Some runs produced perfect swaps, a
+detector sentence filed under lead paint and a lead-paint sentence filed under
+detectors. The remaining 21 matched no rule at all: the model had drifted to
+conditions no rule covers — window guards, light fixtures, fire escapes, range
+hood venting. Also correct to reject.
+
+**Read that number carefully. 111 drops is a floor, not a ceiling.** `on_topic`
+only fires on ZERO vocabulary overlap, so a subtler drift sharing one word with
+its rule publishes silently. The true misattribution rate is higher than 2.1%
+and is not currently measurable.
+
+The 18 `length` drops were all 204–214 characters — single sentences a hair over
+the 200 cap, not the three-sentence budget. That risk did not materialise.
+
+### The corpus is self-healing under validation
+
+**127 dropped sentences landed on only 19 distinct rows, and all 19 were filled
+anyway** by a different shape that produced a passing sentence for the same key.
+Zero rows were lost to validation.
+
+That falls out of keying by shape: 3,169 shapes fill 909 rows, so a row is
+reachable from several prompts and a drop in one is covered by another. The cost
+of a drop is a redundant generation, not a gap on the page. It also means the
+drop RATE and the row LOSS rate are different numbers, and only the second one
+affects a reader.
+
+### The sibling coupling nobody records
+
+A row can be written by many different prompts, because `input_key` deliberately
+ignores which *other* issues were flagged on the building:
+
+| Rows reachable from | Count |
+|---|---|
+| 1 shape only | 266 |
+| 2–10 shapes | 588 |
+| more than 10 | 55 |
+
+`mold|sev=0|areas=` can be written by **148 different prompts** — `mold` alone,
+`mold + pests`, `heat_hot_water + mold + pests`, and so on. Writes are upserts,
+so the stored sentence is whichever prompt the runner reached last.
+
+`corpus.py` justifies ignoring siblings on the grounds that every sentence must
+stand alone. **But one prompt instruction quietly contradicts that**: *"do not
+repeat the same check twice in different words. If two issues would genuinely
+produce the same check, find what is distinct about each."* A mold sentence
+written alongside pests was steered away from the check pests would also produce
+— and that steered sentence is now served to buildings where mold is the only
+flag, where the avoided check may have been the better one.
+
+**643 of 909 rows were written in a sibling context that is not recorded
+anywhere.** `brief_texts` stores the rule, key, sentence, model and timestamp,
+not the shape. So this is invisible after the fact and its effect is unmeasured.
+
+Not acted on, deliberately: it is a real coupling but a speculative harm, and
+the sampled output reads well. The cheap fix if it ever matters is one more
+column recording the producing shape, which makes the question answerable
+without changing the corpus. Keying on siblings is the expensive fix and is
+rejected above on cost.
 
 ### The review bonus
 

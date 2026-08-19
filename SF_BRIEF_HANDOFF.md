@@ -157,6 +157,62 @@ empty state carries.
   covers mold as a habitability matter. Treat as background, not a citation,
   unless a rule needs a health claim the DRE guide does not make.
 
+### SF Health Code Article 11 — the signal and the citation are the same taxonomy
+
+`codelibrary.amlegal.com/codes/san_francisco/latest/sf_health/0-0-0-1890`
+(Article 11: Nuisances, version 2026 S-96). **§581(b) declares specific
+conditions to be public health nuisances**, and they line up with the 311
+`service_subtype` values already in `sf_311_housing`:
+
+| 311 subtype | rows | Health Code |
+|---|---|---|
+| `infestation_rodent_insect` | 5,456 | §581(b)(7) pest harborage or infestation |
+| `mold_and_mildew` | 3,369 | §581(b)(6) visible or demonstrable mold or mildew |
+| `infestation_bed_bugs` | 1,569 | §581(b)(8) noxious insect harborage; also Article 11A |
+| `garbage_receptacles` | 1,056 | §581(b)(1) accumulation of filth, garbage |
+| `paint_lead_violating_safe_practices` | 857 | §581(b)(10) lead hazards |
+
+This is a better position than NYC has. There, the signal comes from HPD data and
+the citation comes from a separate tenant guide, and keeping them aligned is
+manual. Here **the complaint category and the legal basis are the same
+taxonomy** — a mold complaint is a complaint about the thing §581(b)(6) names.
+Each complaint rule can cite the specific subsection its own signal is derived
+from.
+
+Two clauses worth using directly:
+
+- **§581(b)(6)** makes *visible or otherwise demonstrable* mold a nuisance in
+  its own right. That is a firmer basis than the DRE guide's framing, which
+  requires the landlord to have notice and the mold to affect livability.
+- **§581(b)(10)**: *"any paint, whether interior or exterior, found on buildings
+  and other structures built before 1979 is presumed to be lead-based paint"*, a
+  rebuttable presumption, with "children" defined as up to 72 months. NYC's lead
+  rule once used construction year < 1960 as a risk proxy and it was **removed**
+  for gating the direct evidence. SF's 1979 line is different in kind: it is a
+  legal presumption, not a proxy, so a rule may lean on it — but re-read that
+  NYC note before reintroducing any year test.
+
+Also worth reading: **Article 11A** (bed bug prevention, treatment, disclosure
+and reporting) and **Article 11B** (Healthy Buildings). §609 establishes the
+Vector Control and Healthy Housing Inspection Program, which is plausibly the
+enforcement path behind some of this 311 data.
+
+**Three cautions.**
+
+1. **It is code, not tenant prose.** The authoring rules require renter-facing
+   language with legal terms defined in place. Quoting §581(b)(8)'s list of
+   "cockroaches, bed bugs, fleas, scabies, lice, spiders or other arachnids"
+   verbatim is accurate and unreadable. Expect to cite the code as the *basis*
+   while the prose comes from the DRE guide or sf.gov.
+2. **American Legal Publishing disclaims authority** on every page: the posted
+   code "may not reflect the most current legislation" and "should not be relied
+   upon as the definitive authority". For a citation a reader may act on, link
+   the city's official copy where one exists, or at minimum record the version
+   (2026 S-96) alongside the section.
+3. **The site is Cloudflare-protected.** `curl` and WebFetch both get 403; it
+   was read through browser automation. Any tooling that checks citations
+   automatically will not be able to reach it.
+
 ### Consequences for `validate.py`
 
 `RIGHTS_PATTERNS` was written against NYC remedies and will not catch the

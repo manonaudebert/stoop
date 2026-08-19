@@ -40,6 +40,75 @@ it with a city source per rule, using `additional_sources` with a `covers`
 clause, exactly as the NYC class C rule cites the ABCs for violation classes and
 HPD's penalties page for correction deadlines.
 
+### Prefer the HTML guidebook over the PDF for citations
+
+The same content is published as HTML chapters at
+`dre.ca.gov/publications/ResourceGuidebook/`, and that form is better for us:
+
+- **Canonical.** It is the publisher's own site, not a hosted copy.
+- **Deep-linkable.** Chapters carry named anchors per subsection
+  (`gb09_dealingwith.html#uninhabitable`, `gb05_lookingfor.html#inspect`), so a
+  `Citation.url` points at the exact passage. `rules.py` renders web sources as
+  real links, on the principle that a citation nobody can follow is decoration.
+- **The page-number problem disappears.** NYC's `source: "p.6"` was a page ref,
+  and page numbers are no longer rendered anyway — `source` is now purely the
+  authoring record. A section anchor serves that better than a page.
+
+Relevant chapters: `gb05_lookingfor` (inspecting, applications), `gb08_living`,
+`gb09_dealingwith` (habitability, repairs, remedies), `gb10_movingout`.
+
+**Caution: the HTML and the PDF do not share footnote numbering** — the same
+habitability sentence is footnote 190 in the 2024 PDF and 198 in the HTML. They
+are probably different editions. Pick one as `source_document` and stay on it;
+do not cite them interchangeably or quote from one and cite the other.
+
+### The thing that may remove the model from this feature
+
+`gb05_lookingfor.html#inspect` — **"Inspecting before you rent"** — is a
+state-published, citable checklist of what to look for at a viewing:
+
+> Cracks or holes in the floor, walls, or ceiling · Signs of leaking water or
+> water damage; dry or wet spots, flaking, bubbling, or a damp or moldy smell ·
+> The presence of mold, which may appear as dark spots on a wall or floor ·
+> Signs of rust in water appearing near the faucet · Leaks in bathroom or
+> kitchen fixtures · Windows and doors that do not open all the way or fail to
+> shut securely · Inadequate lighting or insufficient electrical outlets ·
+> Inadequate heating or air conditioning · Inadequate ventilation or offensive
+> odors · Defects in electrical wiring and fixtures · Signs of insects, vermin,
+> or rodents · Inadequate trash and garbage receptacles · Chipping paint,
+> especially in older buildings
+
+**Read that against why `watch_for` exists in NYC.** The entire generated field
+was built because the ABCs of Housing contains no viewing checklist. The
+authoring rule is that a `brief_line` may compress cited text and never extend
+it, and good instincts — "check under the sinks", "ask how last winter went" —
+were cut precisely because they are not in the source. A model was brought in to
+write the one thing the citable source could not supply.
+
+**SF's source supplies it.** Each of those bullets maps onto a rule:
+
+| Rule | Authored viewing line, from the checklist |
+|---|---|
+| mold | dark spots on a wall or floor; damp or mouldy smell; flaking or bubbling |
+| pests | signs of insects, vermin, or rodents; trash receptacles |
+| heat | inadequate heating; ventilation |
+| lead / paint | chipping paint, especially in older buildings |
+| electrical | defects in wiring and fixtures; insufficient outlets |
+
+So the honest question for SF is not "how do we run the corpus" but **"do we
+need generated text at all?"** An authored, cited viewing line is strictly
+better than a generated one on every axis that matters here: it is checkable, it
+is free, it needs no corpus, no prompt version, no five validators, and no
+"AI-assisted" label. The NYC machinery exists to solve a problem SF may not
+have.
+
+Where a model could still earn its place: the checklist is generic, and the
+brief knows *which* condition was flagged on *this* building. Sharpening a
+generic bullet into a building-specific one is a real but much smaller job than
+NYC's — and worth deciding deliberately rather than by momentum, because
+everything downstream (corpus table, prompt versioning, drop telemetry,
+validation calibration) exists only to serve generated text.
+
 ### The statutory habitability list is close to a ready-made rules table
 
 Pages 47–48 enumerate what makes a unit legally uninhabitable. It reads almost
@@ -267,6 +336,13 @@ the same state.
 5. Generate `sf_brief_signals` + the parity test.
 6. Route, then phase 0 render — authored only, no model. **Ship and stop here
    if you want.** NYC treats phase 0 as a complete product.
-7. Only then: prompt, corpus run, validation calibration.
+7. **Decide whether there is a model at all** — see *The thing that may remove
+   the model*. If the authored viewing lines from `gb05#inspect` carry the
+   feature, stop here: no corpus, no prompt version, no validators, no
+   AI-assisted label.
+8. Only if that decision is yes: prompt, corpus run, validation calibration,
+   and the `brief_texts` city key from step 2 becomes load-bearing.
 
-Steps 1–6 involve no model at all, and are most of the work.
+Steps 1–6 involve no model at all, and are most of the work. NYC treats phase 0
+as a complete product; SF has a better authored source than NYC does, so its
+phase 0 is stronger than NYC's phase 0 was.

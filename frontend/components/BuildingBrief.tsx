@@ -251,7 +251,6 @@ function WatchItem({
                 ) : (
                   c.label
                 )}
-                {c.covers && <span> — {c.covers}</span>}
               </li>
             ))}
           </ul>

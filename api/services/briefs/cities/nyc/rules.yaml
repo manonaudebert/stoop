@@ -100,7 +100,7 @@
 # signal that decides which is the bigger problem, and is never displayed.
 
 version: 1
-source_document: "NYC HPD, ABCs of Housing 2024 (Tenants' Guide)"
+source_document: "ABCs of Housing"
 
 rules:
   - id: open_class_c

@@ -302,7 +302,6 @@ export interface BriefCitation {
   url: string | null
   // Which claims this source backs. Only populated when an item cites more than
   // one document, where the reader needs to know which to check for what.
-  covers: string | null
 }
 
 export interface BriefWatchItem {

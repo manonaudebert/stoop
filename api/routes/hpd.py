@@ -535,7 +535,7 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
             why_it_matters=rule.why_it_matters,
             action=rule.action,
             citations=[
-                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                BriefCitation(label=c.label, url=c.url)
                 for c in rule.citations(document)
             ],
             # Only the class C rule is about hazard areas. For every other rule

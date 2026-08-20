@@ -239,7 +239,6 @@ class BriefCitation(BaseModel):
     backs, and is only populated when the item cites more than one document."""
     label: str
     url: str | None = None
-    covers: str | None = None
 
 
 class BriefWatchItem(BaseModel):

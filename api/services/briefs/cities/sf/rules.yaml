@@ -90,10 +90,7 @@
 # signal deciding which is the bigger problem at this property.
 
 version: 1
-source_document: >-
-  California Department of Real Estate, California Tenants: A Guide to
-  Residential Tenants' and Landlords' Rights and Responsibilities
-  (Resource Guidebook)
+source_document: "California Tenant Guide"
 
 # The HTML guidebook, NOT the PDF of the same name. They carry different
 # footnote numbering for the same sentence (198 in the PDF, 206 in the HTML),

@@ -759,7 +759,7 @@ async def get_sf_building_brief(mapblklot: str, db: AsyncSession = Depends(get_d
             why_it_matters=rule.why_it_matters,
             action=rule.action,
             citations=[
-                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                BriefCitation(label=c.label, url=c.url)
                 for c in rule.citations(document, SF)
             ],
         )

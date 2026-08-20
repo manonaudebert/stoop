@@ -64,7 +64,11 @@ class Citation:
     covers: str | None = None
 
     def render(self) -> str:
-        return f"{self.label} — {self.covers}" if self.covers else self.label
+        # `covers` is NOT rendered as of 2026-08-20, the same treatment `source`
+        # page numbers got: still the authoring record, no longer on the page.
+        # Under a two-line item it read as apparatus, and a reader following a
+        # citation wants the document, not a restatement of the claim.
+        return self.label
 
 
 @dataclass(frozen=True)

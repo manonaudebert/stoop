@@ -1,13 +1,13 @@
 -- GENERATED FILE — do not edit by hand.
 --
--- Written by `api/services/briefs/signals.py::render_migration`, which reads
+-- Written by `api/services/briefs/cities/nyc/signals.py::render_migration`, which reads
 -- the complaint categories from `frontend/lib/renter-facing-groups.json` via
 -- the shared taxonomy. Editing this file directly forks the heat definition
 -- away from the building page's "Heat / hot water" card, which is the exact
 -- bug the taxonomy alignment fixed.
 --
--- To change it: edit `signals.py` (or the JSON), then regenerate with
---     cd api && ../.venv/bin/python -m services.briefs.signals
+-- To change it: edit `cities/nyc/signals.py` (or the JSON), then regenerate with
+--     cd api && ../.venv/bin/python -m services.briefs.cities.nyc.signals
 -- `tests/test_briefs_signals_sql.py` fails if this file and the generator
 -- disagree, and if `schema.sql` has drifted from either.
 --

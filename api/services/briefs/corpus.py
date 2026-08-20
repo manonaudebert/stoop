@@ -31,12 +31,14 @@ taxonomy. The key encodes identifiers, so none of those change it.
 
 from typing import Iterable
 
+from .cities import NYC, CityBriefConfig
 from .schema import MAX_WATCH_ITEMS, PROMPT_VERSION
 
-# The class C rule is the only one whose input carries hazard areas — see
-# prompt.HAZARD_AREA_RULE_ID. For every other rule the areas segment is empty,
-# which is a fact about the rule rather than about the building.
-from .prompt import HAZARD_AREA_RULE_ID, severity_language_allowed
+# Only a city's hazard-area rule carries areas in its input — see
+# `CityBriefConfig.hazard_area_rule_id`. For every other rule, and for every rule
+# in a city that declares none, the areas segment is empty. That is a fact about
+# the rule rather than about the building.
+from .prompt import severity_language_allowed
 from .taxonomy import hazard_area_keys
 
 
@@ -62,7 +64,13 @@ def input_key(
     return f"{rule_id}|sev={int(severity_allowed)}|areas={areas}"
 
 
-def key_for(rule_id: str, *, categories, percentile: float | None) -> str:
+def key_for(
+    rule_id: str,
+    *,
+    categories,
+    percentile: float | None,
+    config: CityBriefConfig = NYC,
+) -> str:
     """`input_key` from the two raw values a page already holds.
 
     `categories` is the building's `open_class_c_categories`; `percentile` its
@@ -73,13 +81,21 @@ def key_for(rule_id: str, *, categories, percentile: float | None) -> str:
     return input_key(
         rule_id,
         hazard_areas=(
-            hazard_area_keys(categories) if rule_id == HAZARD_AREA_RULE_ID else ()
+            hazard_area_keys(categories, config)
+            if rule_id == config.hazard_area_rule_id
+            else ()
         ),
         severity_allowed=severity_language_allowed(percentile),
     )
 
 
-def keys_for_selection(selected_rules, *, categories, percentile: float | None):
+def keys_for_selection(
+    selected_rules,
+    *,
+    categories,
+    percentile: float | None,
+    config: CityBriefConfig = NYC,
+):
     """[(rule_id, input_key)] for the rules that can carry a generated sentence.
 
     Only the first `MAX_WATCH_ITEMS` are looked up, because only those were ever
@@ -89,7 +105,15 @@ def keys_for_selection(selected_rules, *, categories, percentile: float | None):
     corpus hit rate unreadable as a health metric.
     """
     return [
-        (rule.id, key_for(rule.id, categories=categories, percentile=percentile))
+        (
+            rule.id,
+            key_for(
+                rule.id,
+                categories=categories,
+                percentile=percentile,
+                config=config,
+            ),
+        )
         for rule in list(selected_rules)[:MAX_WATCH_ITEMS]
     ]
 

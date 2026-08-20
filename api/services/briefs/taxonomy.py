@@ -43,33 +43,39 @@ checkout, the container, and the batch job that runs from a checkout.
 
 import json
 from functools import lru_cache
-from pathlib import Path
 
-TAXONOMY_PATH = (
-    Path(__file__).resolve().parents[3] / "frontend" / "lib" / "renter-facing-groups.json"
-)
+from services.briefs.cities import NYC, CityBriefConfig
+
+# NYC's taxonomy, which is the one that lives OUTSIDE api/ and therefore needs an
+# explicit Dockerfile COPY. Kept as a module constant because
+# tests/test_dockerfile_taxonomy.py replays the parent-walk against it — that
+# test exists because this relationship already broke a deploy. Other cities keep
+# their taxonomy inside the package, where `COPY api/ .` ships it for free.
+TAXONOMY_PATH = NYC.taxonomy_path
 
 
-@lru_cache(maxsize=1)
-def _load() -> dict:
-    if not TAXONOMY_PATH.exists():
+@lru_cache(maxsize=None)
+def _load(config: CityBriefConfig = NYC) -> dict:
+    path = config.taxonomy_path
+    if not path.exists():
         raise FileNotFoundError(
-            f"renter-facing taxonomy not found at {TAXONOMY_PATH}. This module "
-            "requires the full repo checkout, not just the api/ directory — see "
-            "the note in this file's docstring."
+            f"renter-facing taxonomy for {config.key} not found at {path}. NYC's "
+            "lives on the frontend side, so that one requires the full repo "
+            "checkout rather than just the api/ directory — see the note in this "
+            "file's docstring."
         )
-    with TAXONOMY_PATH.open() as f:
+    with path.open() as f:
         return json.load(f)
 
 
-@lru_cache(maxsize=1)
-def groups() -> dict[str, dict]:
+@lru_cache(maxsize=None)
+def groups(config: CityBriefConfig = NYC) -> dict[str, dict]:
     """group key -> {label, description, minor_categories}."""
-    return _load()["groups"]
+    return _load(config)["groups"]
 
 
-@lru_cache(maxsize=1)
-def minor_to_group() -> dict[str, str]:
+@lru_cache(maxsize=None)
+def minor_to_group(config: CityBriefConfig = NYC) -> dict[str, str]:
     """minor_category -> group key.
 
     MAINTENANCE, LINE OF TRAVEL, and SKYLIGHT each appear in two groups. The
@@ -81,22 +87,22 @@ def minor_to_group() -> dict[str, str]:
     """
     return {
         minor: group
-        for group, spec in groups().items()
+        for group, spec in groups(config).items()
         for minor in spec["minor_categories"]
     }
 
 
-def group_of(minor_category: str | None) -> str | None:
+def group_of(minor_category: str | None, config: CityBriefConfig = NYC) -> str | None:
     if not minor_category:
         return None
-    return minor_to_group().get(minor_category.upper())
+    return minor_to_group(config).get(minor_category.upper())
 
 
-def label(group: str) -> str:
-    return groups()[group]["label"]
+def label(group: str, config: CityBriefConfig = NYC) -> str:
+    return groups(config)[group]["label"]
 
 
-def prose_label(group: str) -> str:
+def prose_label(group: str, config: CityBriefConfig = NYC) -> str:
     """The group's name as it reads inside a sentence.
 
     `label` is a chart legend, written for a constrained axis: "Bldg
@@ -115,20 +121,20 @@ def prose_label(group: str) -> str:
     something sane rather than raising; a test pins that every group carrying
     violation categories declares one explicitly.
     """
-    return groups()[group].get("prose_label") or label(group).lower()
+    return groups(config)[group].get("prose_label") or label(group, config).lower()
 
 
-def description(group: str) -> str:
-    return groups()[group]["description"]
+def description(group: str, config: CityBriefConfig = NYC) -> str:
+    return groups(config)[group]["description"]
 
 
-def minor_categories(group: str) -> list[str]:
-    """The raw HPD strings in a group — for building SQL predicates."""
-    return list(groups()[group]["minor_categories"])
+def minor_categories(group: str, config: CityBriefConfig = NYC) -> list[str]:
+    """The raw complaint-category strings in a group — for building SQL predicates."""
+    return list(groups(config)[group]["minor_categories"])
 
 
-@lru_cache(maxsize=1)
-def violation_category_to_group() -> dict[str, str]:
+@lru_cache(maxsize=None)
+def violation_category_to_group(config: CityBriefConfig = NYC) -> dict[str, str]:
     """HPD violation category -> group key.
 
     A second vocabulary for the same concerns. `minor_categories` are complaint
@@ -144,15 +150,17 @@ def violation_category_to_group() -> dict[str, str]:
     """
     return {
         category: group
-        for group, spec in groups().items()
+        for group, spec in groups(config).items()
         for category in spec.get("violation_categories", ())
     }
 
 
-def group_of_violation_category(category: str | None) -> str | None:
+def group_of_violation_category(
+    category: str | None, config: CityBriefConfig = NYC
+) -> str | None:
     if not category:
         return None
-    return violation_category_to_group().get(category.upper())
+    return violation_category_to_group(config).get(category.upper())
 
 
 # Real violations, but nothing a renter can look at or ask about: expired
@@ -163,8 +171,8 @@ def group_of_violation_category(category: str | None) -> str | None:
 NON_OBSERVABLE_GROUPS = frozenset({"low_priority_admin"})
 
 
-@lru_cache(maxsize=1)
-def violation_category_tooltips() -> dict[str, str]:
+@lru_cache(maxsize=None)
+def violation_category_tooltips(config: CityBriefConfig = NYC) -> dict[str, str]:
     """HPD violation category -> one plain-English sentence, all 48 of them.
 
     The same sentences the "Top violation categories" chart shows on hover, so
@@ -173,16 +181,23 @@ def violation_category_tooltips() -> dict[str, str]:
     than re-written here, because two hand-authored descriptions of the same 48
     categories would drift and the reader would meet both on one page.
     """
-    return _load()["violation_category_tooltips"]
+    # `.get`, not `[...]`: a city with no hazard-area machinery has no tooltip
+    # block, and every caller below already treats a missing sentence as "render
+    # the label alone".
+    return _load(config).get("violation_category_tooltips", {})
 
 
-def violation_category_tooltip(category: str | None) -> str | None:
+def violation_category_tooltip(
+    category: str | None, config: CityBriefConfig = NYC
+) -> str | None:
     if not category:
         return None
-    return violation_category_tooltips().get(category.upper())
+    return violation_category_tooltips(config).get(category.upper())
 
 
-def describe_violation_categories(categories) -> list[str]:
+def describe_violation_categories(
+    categories, config: CityBriefConfig = NYC
+) -> list[str]:
     """Violation categories -> renter-facing labels, deduped, order preserved.
 
     Order is significance (the caller sorts by count), so dedupe must keep the
@@ -196,16 +211,18 @@ def describe_violation_categories(categories) -> list[str]:
     """
     labels: list[str] = []
     for category in categories or ():
-        group = group_of_violation_category(category)
+        group = group_of_violation_category(category, config)
         if group is None or group in NON_OBSERVABLE_GROUPS:
             continue
-        name = label(group)
+        name = label(group, config)
         if name not in labels:
             labels.append(name)
     return labels
 
 
-def _hazard_areas(categories) -> list[tuple[str, str]]:
+def _hazard_areas(
+    categories, config: CityBriefConfig = NYC
+) -> list[tuple[str, str]]:
     """(group, category) for each describable hazard area, most common first.
 
     The category is kept alongside its group because the two public forms below
@@ -221,7 +238,7 @@ def _hazard_areas(categories) -> list[tuple[str, str]]:
     seen: set[str] = set()
     out: list[tuple[str, str]] = []
     for category in categories or ():
-        group = group_of_violation_category(category)
+        group = group_of_violation_category(category, config)
         if group is None or group in NON_OBSERVABLE_GROUPS or group in seen:
             continue
         seen.add(group)
@@ -229,7 +246,7 @@ def _hazard_areas(categories) -> list[tuple[str, str]]:
     return out
 
 
-def describe_hazard_areas(categories) -> list[str]:
+def describe_hazard_areas(categories, config: CityBriefConfig = NYC) -> list[str]:
     """Renter-facing labels paired with the sentence the page shows on hover.
 
     The label alone is a chart legend: "Electrical" tells a reader nothing they
@@ -239,13 +256,17 @@ def describe_hazard_areas(categories) -> list[str]:
     nouns, so the model can point at one instead of guessing.
     """
     out: list[str] = []
-    for group, category in _hazard_areas(categories):
-        tooltip = violation_category_tooltip(category)
-        out.append(f"{label(group)} — {tooltip}" if tooltip else label(group))
+    for group, category in _hazard_areas(categories, config):
+        tooltip = violation_category_tooltip(category, config)
+        out.append(
+            f"{label(group, config)} — {tooltip}" if tooltip else label(group, config)
+        )
     return out
 
 
-def describe_hazard_areas_prose(categories) -> list[str]:
+def describe_hazard_areas_prose(
+    categories, config: CityBriefConfig = NYC
+) -> list[str]:
     """The same areas as sentence-ready names, in the same significance order.
 
     Feeds the class C item's condition line, which names what the hazardous
@@ -254,7 +275,7 @@ def describe_hazard_areas_prose(categories) -> list[str]:
     same admin exclusion — so the sentence, the layer-1 labels, and what the
     model is shown can never describe different sets.
     """
-    return [prose_label(group) for group, _ in _hazard_areas(categories)]
+    return [prose_label(group, config) for group, _ in _hazard_areas(categories, config)]
 
 
 def join_prose(items: list[str]) -> str:
@@ -280,7 +301,7 @@ def join_prose(items: list[str]) -> str:
     return f"{', '.join(items[:-1])}, and {items[-1]}"
 
 
-def hazard_area_keys(categories) -> list[str]:
+def hazard_area_keys(categories, config: CityBriefConfig = NYC) -> list[str]:
     """The same areas as identifiers rather than as prose — `group:CATEGORY`.
 
     This is what the corpus key is built from. It carries the category and not
@@ -296,4 +317,6 @@ def hazard_area_keys(categories) -> list[str]:
     is for. Bump it when the taxonomy's authored sentences change, not only when
     `prompt.py` does.
     """
-    return [f"{group}:{category}" for group, category in _hazard_areas(categories)]
+    return [
+        f"{group}:{category}" for group, category in _hazard_areas(categories, config)
+    ]

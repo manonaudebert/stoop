@@ -20,7 +20,13 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
-from .signals import HAZARD_AREA_LIMIT
+
+# How many hazard areas a city's hazard-area rule can describe. Three is what the
+# model was given and what the rendered brief shows; more crowds the item.
+#
+# Defined here rather than in a signals generator because both the schema and
+# every city's SQL read it, and a shared module must not import from one city.
+HAZARD_AREA_LIMIT = 3
 
 # Bump when the prompt or the schema changes in a way that invalidates stored
 # briefs. Persisted alongside every generation so a corpus can be traced back to

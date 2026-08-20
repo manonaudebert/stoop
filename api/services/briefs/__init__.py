@@ -19,6 +19,7 @@ deterministic layer a dependency on the thing it exists to avoid needing.
 
 from typing import TYPE_CHECKING
 
+from .cities import CITIES, NYC, SF, CityBriefConfig, get_city
 from .confidence import confidence_note, confidence_note_from_signals
 from .rules import MissingSignalError, Rule, eligible_rules, load_rules, select_rules
 from .schema import MAX_WATCH_FOR, MAX_WATCH_ITEMS, PROMPT_VERSION, GeneratedContext
@@ -54,6 +55,12 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
+    # per-city configuration
+    "CITIES",
+    "NYC",
+    "SF",
+    "CityBriefConfig",
+    "get_city",
     # deterministic
     "GeneratedContext",
     "MAX_WATCH_FOR",

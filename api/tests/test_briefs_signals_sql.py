@@ -11,19 +11,19 @@ import re
 
 import pytest
 
-from services.briefs import signals
+from services.briefs.cities.nyc import signals
 from services.briefs.taxonomy import minor_categories
 
 
 def test_checked_in_migration_matches_the_generator():
     """Regenerate and compare. Fails if someone hand-edited the SQL.
 
-    Fix by running: cd api && ../.venv/bin/python -m services.briefs.signals
+    Fix by running: cd api && ../.venv/bin/python -m services.briefs.cities.nyc.signals
     """
     on_disk = signals.MIGRATION_PATH.read_text()
     assert on_disk == signals.render_migration(), (
         "ingest/migration/migrate_hpd_brief_signals.sql is out of date. "
-        "Regenerate it: cd api && ../.venv/bin/python -m services.briefs.signals"
+        "Regenerate it: cd api && ../.venv/bin/python -m services.briefs.cities.nyc.signals"
     )
 
 
@@ -126,7 +126,7 @@ def test_schema_sql_carries_the_same_view_body():
     """
     schema = (signals.MIGRATION_PATH.parents[2] / "schema.sql").read_text()
     assert signals._view_body() in schema, (
-        "schema.sql has drifted from services/briefs/signals.py::_view_body"
+        "schema.sql has drifted from services/briefs/cities/nyc/signals.py::_view_body"
     )
 
 

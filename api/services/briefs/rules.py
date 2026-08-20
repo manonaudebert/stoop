@@ -14,14 +14,16 @@ import logging
 import operator
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 import yaml
 
+from services.briefs.cities import NYC, CityBriefConfig
 from services.briefs.taxonomy import group_of_violation_category, join_prose
 
-RULES_PATH = Path(__file__).resolve().parent / "rules.yaml"
+# NYC's, for the tests and callers that predate the city registry. Every
+# function below takes a `config` and reads `config.rules_path` instead.
+RULES_PATH = NYC.rules_path
 
 log = logging.getLogger(__name__)
 
@@ -94,6 +96,16 @@ class Rule:
     # tenant's complaint about the same thing is the weaker evidence for the
     # same claim. Only complaint-keyed rules set this.
     suppressed_by_class_c_group: str | None = None
+    # The authored "worth checking" line — what a renter can look at or ask
+    # about for this condition, quoted or compressed from a source that
+    # publishes a viewing checklist. NYC has none (the ABCs of Housing contains
+    # no such list, which is the entire reason the generated `watch_for` field
+    # exists); SF's DRE guidebook and sf.gov vermin page do.
+    #
+    # A generated sentence, where a corpus row exists, takes precedence — the
+    # route decides, and marks which one it served so the page can label the
+    # generated one and not this.
+    watch_for: str | None = None
     # Words a sentence answering this rule should contain at least one of, used
     # by `validate.check_on_topic` to catch a sentence that landed on the wrong
     # rule. Optional, and `open_class_c` deliberately declares none: its subject
@@ -133,10 +145,22 @@ class Rule:
         """
         return document
 
-    def citations(self, document: str) -> list[Citation]:
-        """Every source behind this rule, primary first."""
+    def citations(
+        self, document: str, config: CityBriefConfig = NYC
+    ) -> list[Citation]:
+        """Every source behind this rule, primary first.
+
+        The primary citation carries a URL only where the city's source document
+        is deep-linkable and `source` names a section within it. NYC's `source`
+        is a page reference into a PDF, so it stays label-only.
+        """
+        url = (
+            f"{config.source_url_base}{self.source}"
+            if config.source_url_base
+            else None
+        )
         return [
-            Citation(label=self.cite(document), covers=self.covers),
+            Citation(label=self.cite(document), url=url, covers=self.covers),
             *self.additional_sources,
         ]
 
@@ -157,10 +181,10 @@ class Rule:
         return signals[self.rank_by] or 0
 
 
-@lru_cache(maxsize=1)
-def load_rules() -> tuple[list[Rule], str]:
-    """Returns (rules sorted by priority, source document name)."""
-    with RULES_PATH.open() as f:
+@lru_cache(maxsize=None)
+def load_rules(config: CityBriefConfig = NYC) -> tuple[list[Rule], str]:
+    """Returns (rules sorted by priority, source document name) for one city."""
+    with config.rules_path.open() as f:
         spec = yaml.safe_load(f)
     rules = [
         Rule(
@@ -173,6 +197,9 @@ def load_rules() -> tuple[list[Rule], str]:
             source=r["source"],
             brief_line=(
                 " ".join(r["brief_line"].split()) if r.get("brief_line") else None
+            ),
+            watch_for=(
+                " ".join(r["watch_for"].split()) if r.get("watch_for") else None
             ),
             covers=r.get("covers"),
             areas_clause=r.get("areas_clause"),
@@ -188,7 +215,7 @@ def load_rules() -> tuple[list[Rule], str]:
     ]
     ids = [r.id for r in rules]
     if len(ids) != len(set(ids)):
-        raise ValueError(f"duplicate rule ids in {RULES_PATH}: {ids}")
+        raise ValueError(f"duplicate rule ids in {config.rules_path}: {ids}")
 
     # Sharing a priority is legal, but only with a rank_by signal to break the tie.
     # Otherwise the ordering falls back to file position, which is exactly the
@@ -237,7 +264,9 @@ def evaluate(predicate: dict[str, Any], signals: dict[str, Any]) -> bool:
 CLASS_C_CATEGORIES_SIGNAL = "open_class_c_categories"
 
 
-def class_c_groups(signals: dict[str, Any]) -> set[str]:
+def class_c_groups(
+    signals: dict[str, Any], config: CityBriefConfig = NYC
+) -> set[str]:
     """Taxonomy groups behind this building's OPEN class C violations.
 
     None (rule never fired) and [] (fired, nothing describable) both mean "no
@@ -246,18 +275,22 @@ def class_c_groups(signals: dict[str, Any]) -> set[str]:
     return {
         group
         for category in (signals.get(CLASS_C_CATEGORIES_SIGNAL) or ())
-        if (group := group_of_violation_category(category)) is not None
+        if (group := group_of_violation_category(category, config)) is not None
     }
 
 
-def suppressed_rules(signals: dict[str, Any]) -> list[tuple[Rule, str]]:
+def suppressed_rules(
+    signals: dict[str, Any], config: CityBriefConfig = NYC
+) -> list[tuple[Rule, str]]:
     """(rule, group) for every otherwise-eligible rule a class C item supersedes.
 
     Exposed separately from `eligible_rules` so the suppression is inspectable —
     from smoke.py, and from tests — rather than being a silent subtraction.
     """
-    rules, _ = load_rules()
-    groups = class_c_groups(signals)
+    if not config.suppression_enabled:
+        return []
+    rules, _ = load_rules(config)
+    groups = class_c_groups(signals, config)
     return [
         (r, r.suppressed_by_class_c_group)
         for r in rules
@@ -295,7 +328,9 @@ def class_c_fully_covered_by_lead_paint(signals: dict[str, Any]) -> bool:
     return categories <= {_LEAD_PAINT_CATEGORY, _RETIRED_CATEGORY}
 
 
-def class_c_self_suppressed(signals: dict[str, Any]) -> bool:
+def class_c_self_suppressed(
+    signals: dict[str, Any], config: CityBriefConfig = NYC
+) -> bool:
     """True when `open_class_c` should be dropped in favor of `lead_paint`.
 
     The reverse of `suppressed_by_class_c_group`: there, a *complaint*-keyed
@@ -312,14 +347,18 @@ def class_c_self_suppressed(signals: dict[str, Any]) -> bool:
     with nothing to replace it, even though the two signals should always
     agree in practice: a LEAD-BASED PAINT category implies lead_paint_violations > 0.
     """
+    if not config.suppression_enabled:
+        return False
     if not class_c_fully_covered_by_lead_paint(signals):
         return False
-    rules, _ = load_rules()
+    rules, _ = load_rules(config)
     lead_paint_rule = next(r for r in rules if r.id == "lead_paint")
     return evaluate(lead_paint_rule.when, signals)
 
 
-def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
+def eligible_rules(
+    signals: dict[str, Any], config: CityBriefConfig = NYC
+) -> list[Rule]:
     """Every rule whose condition holds, in the order it would be shown.
 
     A rule is dropped when the condition it describes ALREADY appears among the
@@ -335,7 +374,7 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
     rule was authored earlier. `id` is the final key, so ordering is total and
     equal counts still resolve the same way on every run.
     """
-    rules, _ = load_rules()
+    rules, _ = load_rules(config)
 
     # Fail loudly rather than silently skipping suppression. Suppression only
     # ever REMOVES an item, so a quiet failure here surfaces as the duplicate
@@ -347,8 +386,8 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
                 f"not supply {CLASS_C_CATEGORIES_SIGNAL!r}"
             )
 
-    groups = class_c_groups(signals)
-    self_suppress_class_c = class_c_self_suppressed(signals)
+    groups = class_c_groups(signals, config) if config.suppression_enabled else set()
+    self_suppress_class_c = class_c_self_suppressed(signals, config)
     hits = []
     for r in rules:
         if not evaluate(r.when, signals):
@@ -360,7 +399,7 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
                 r.id, r.suppressed_by_class_c_group,
             )
             continue
-        if r.id == "open_class_c" and self_suppress_class_c:
+        if r.id == config.hazard_area_rule_id and self_suppress_class_c:
             log.info(
                 "brief: suppressing rule %r — every open class C category is "
                 "lead paint and/or retired, which lead_paint already covers",
@@ -371,7 +410,11 @@ def eligible_rules(signals: dict[str, Any]) -> list[Rule]:
     return sorted(hits, key=lambda r: (r.priority, -r.rank_value(signals), r.id))
 
 
-def select_rules(signals: dict[str, Any], max_items: int = 3) -> list[Rule]:
+def select_rules(
+    signals: dict[str, Any],
+    max_items: int = 3,
+    config: CityBriefConfig = NYC,
+) -> list[Rule]:
     """The rules that go in the brief.
 
     Deterministic: strictly the highest-ranked eligible rules. Two buildings
@@ -408,4 +451,4 @@ def select_rules(signals: dict[str, Any], max_items: int = 3) -> list[Rule]:
     document never does. It is the most arguable thing in this module and the
     right place to look first if the wrong advice keeps surfacing.
     """
-    return eligible_rules(signals)[:max_items]
+    return eligible_rules(signals, config)[:max_items]

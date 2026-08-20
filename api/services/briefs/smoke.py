@@ -67,8 +67,9 @@ from services.briefs.validate import (  # noqa: E402
 # the hpd_brief_signals materialized view and the route that serves it. They
 # were defined here first; they moved when the view was added, because a smoke
 # run that disagrees with the view is a smoke run that proves nothing.
-from services.briefs.signals import (  # noqa: E402,F401
-    COMPLAINT_WINDOW_YEARS, DETECTOR_CATEGORIES, HAZARD_AREA_LIMIT,
+from services.briefs.schema import HAZARD_AREA_LIMIT  # noqa: E402,F401
+from services.briefs.cities.nyc.signals import (  # noqa: E402,F401
+    COMPLAINT_WINDOW_YEARS, DETECTOR_CATEGORIES,
     HEAT_CATEGORIES, MOLD_CATEGORIES, PEST_CATEGORIES,
     RETIRED_LEAD_ORDER_NUMBERS, VIOLATION_CATEGORIES_SCANNED,
 )

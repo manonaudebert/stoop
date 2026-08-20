@@ -507,8 +507,7 @@ rules:
       a leak, ask when it was fixed rather than when the surface was repainted.
     watch_for: >-
       Look for cracks or holes in the walls and ceiling, sagging or broken
-      cabinets, and dry or wet spots, flaking or bubbling, or a damp or moldy
-      smell, especially in corners and below bathrooms.
+      cabinets, loose or deteriorated plaster, and flaking, bubbling, or wet spots.
     source: "gb05_lookingfor.html#inspect"
     covers: "what to look for"
     additional_sources:

@@ -1,0 +1,202 @@
+{
+  "_comment": [
+    "SF renter-facing taxonomy for the Building Brief.",
+    "",
+    "Groups are the STATUTORY elements of habitability, not the A/B/C severity",
+    "tiers in SF_EXPANSION_PLAN.md. Those tiers weight a risk score; this file",
+    "names a hazard for a reader. Keeping them separate is deliberate — a weight",
+    "and a name are different jobs and conflating them produced NYC's worst copy.",
+    "",
+    "`minor_categories` holds DataSF 311 `service_subtype` values, matching the",
+    "key name NYC's taxonomy uses for the same role (complaint category -> group)",
+    "so one loader serves both cities.",
+    "",
+    "`violation_categories` holds `sf_dbi_nov.nov_category_description` values,",
+    "uppercased because `group_of_violation_category` uppercases before lookup.",
+    "Only four appear: they are the NOV categories that name a CONDITION and map",
+    "to exactly one group. Most of the rest are code-section labels ('building",
+    "section', 'other section', blank) covering 52.7% of rows, and a rule built",
+    "on them would point at nothing.",
+    "",
+    "Two NOV categories that look like conditions are still absent, and",
+    "deliberately: 'interior surfaces section' spans peeling paint, weather",
+    "protection and plumbing, and 'plumbing and electrical section' spans two",
+    "groups by its own name. Mapping either to a single group would attribute a",
+    "violation to a condition it may not describe.",
+    "",
+    "'sanitation section' WAS in that list, excluded as spanning pests and",
+    "garbage. It came back in when the garbage group was widened to sanitation:",
+    "the statutory element it cites is one thing — 'clean and sanitary buildings,",
+    "grounds, and appurtenances, free from debris, filth, rubbish, garbage,",
+    "rodents, and vermin' — so filth and refuse are not two groups. A",
+    "rodent-proofing NOV landing here reads as cleanliness rather than pests,",
+    "which under-claims rather than misstates.",
+    "",
+    "There is no `violation_category_tooltips` block. NYC has 48 authored",
+    "sentences because its class C rule covers many conditions at once and needs",
+    "to name which; every SF rule names its own condition, so nothing here is",
+    "abstract enough to need a per-category gloss.",
+    "",
+    "`violation_patterns` is a THIRD way a group gets a signal, alongside 311",
+    "subtypes and NOV categories: a POSIX regex over the violation text. Used",
+    "only where the condition exists in DBI's wording but has no 311 subtype and",
+    "no category of its own — `interior_surfaces` is the case that forced it, at",
+    "647 parcels with no complaint category anywhere in the 311 feed.",
+    "",
+    "A row may match SEVERAL groups' patterns and that is correct, not a bug: one",
+    "NOV item routinely carries multiple orders ('a) locate and repair source of",
+    "water damage b) repair damaged ceilings'). Each group counts independently.",
+    "",
+    "`excluded_subtypes` makes this file a COMPLETE partition of the 37 observed",
+    "service_subtype values rather than a subset. A test asserts that: a subtype",
+    "that is neither grouped nor explicitly excluded is a new DataSF value that",
+    "someone has to make a decision about, and silence would drop it forever."
+  ],
+
+  "groups": {
+    "pests": {
+      "label": "Pests",
+      "prose_label": "pests",
+      "description": "Rodents, insects, or bed bugs reported in the building.",
+      "minor_categories": ["infestation_rodent_insect", "infestation_bed_bugs"]
+    },
+    "mold": {
+      "label": "Mold",
+      "prose_label": "mold",
+      "description": "Mold or mildew reported in the building.",
+      "minor_categories": ["mold_and_mildew"]
+    },
+    "plumbing": {
+      "label": "Plumbing",
+      "prose_label": "plumbing",
+      "description": "Broken or leaking plumbing, or bathroom fixtures that do not work.",
+      "minor_categories": ["plumbing_broken_leaking", "bathroom"]
+    },
+    "weather_windows": {
+      "label": "Exterior & windows",
+      "prose_label": "the building exterior and windows",
+      "description": "Weather protection and exterior upkeep, and windows or doors that do not close properly.",
+      "minor_categories": [
+        "inadequately_maintained_building_exterior",
+        "doors_windows_broken_defective"
+      ],
+      "violation_patterns": [
+        "\\(708",
+        "708 hc",
+        "window (sash|hardware|glazing)",
+        "repair.*window"
+      ]
+    },
+    "heat_hot_water": {
+      "label": "Heat / hot water",
+      "prose_label": "heat and hot water",
+      "description": "No heat, or no hot water.",
+      "minor_categories": ["heat_lack_of_heat", "hot_water_lack_of_hot_water"],
+      "violation_patterns": [
+        "\\(701",
+        "provide heat",
+        "required heat",
+        "minimum room temperature"
+      ]
+    },
+    "fire_safety": {
+      "label": "Fire safety",
+      "prose_label": "fire safety",
+      "description": "Blocked exits, fire hazards, or problems with alarms, sprinklers and extinguishers.",
+      "minor_categories": [
+        "fire_hazard",
+        "fire_alarm_system",
+        "fire_sprinkler_system",
+        "fire_extinguishers_missing_expired",
+        "blocked_exit_common_areas"
+      ],
+      "violation_categories": ["FIRE SECTION"]
+    },
+    "interior_surfaces": {
+      "label": "Walls, ceilings & cabinets",
+      "prose_label": "walls, ceilings and cabinets",
+      "description": "Damaged or deteriorated interior fabric of the unit — walls, ceilings and built-in cabinetry — whether or not a leak is named as the cause.",
+      "minor_categories": [],
+      "violation_patterns": [
+        "damaged (wall|ceiling)",
+        "deteriorated (wall|ceiling|plaster)",
+        "repair damaged (wall|ceiling)"
+      ]
+    },
+    "peeling_paint": {
+      "label": "Peeling paint",
+      "prose_label": "peeling paint",
+      "description": "Paint peeling or flaking inside or outside the building.",
+      "minor_categories": ["paint_peeling"]
+    },
+    "electrical": {
+      "label": "Electrical",
+      "prose_label": "electrical",
+      "description": "Hazardous or faulty wiring and fixtures, or too few outlets.",
+      "minor_categories": ["electrical_hazardous_condition", "electrical_non_hazard"]
+    },
+    "ventilation_light": {
+      "label": "Ventilation & light",
+      "prose_label": "ventilation and light",
+      "description": "Inadequate ventilation, or rooms without enough natural light.",
+      "minor_categories": ["ventilation_inadequate_or_none", "light_wells_dirty_flooded"]
+    },
+    "sanitation": {
+      "label": "Cleanliness & refuse",
+      "prose_label": "cleanliness and refuse",
+      "description": "Accumulated filth or debris in common areas, or trash receptacles missing, overflowing, or in poor repair.",
+      "minor_categories": ["garbage_receptacles"],
+      "violation_categories": ["SANITATION SECTION"]
+    },
+    "lead_paint": {
+      "label": "Lead paint",
+      "prose_label": "lead paint",
+      "description": "Paint work done without the practices required to control lead dust.",
+      "minor_categories": ["paint_lead_violating_safe_practices"],
+      "violation_categories": ["LEAD SECTION"]
+    },
+    "security_locks": {
+      "label": "Locks & security",
+      "prose_label": "locks and building security",
+      "description": "Entry doors or windows that do not lock securely.",
+      "minor_categories": ["security_inadequately_secured_perimeter"],
+      "violation_categories": ["SECURITY REQUIREMENTS SECTION"]
+    },
+    "floors_stairs": {
+      "label": "Floors & stairs",
+      "prose_label": "floors and stairs",
+      "description": "Floors, stairways, decks, or handrails in poor repair.",
+      "minor_categories": ["deck_stairs_handrails"]
+    },
+    "mailbox": {
+      "label": "Mailboxes",
+      "prose_label": "mailboxes",
+      "description": "Mail delivery problems, or mailboxes that do not lock.",
+      "minor_categories": ["mail_service_delivery_problem"]
+    },
+    "smoke_detectors": {
+      "label": "Smoke detectors",
+      "prose_label": "smoke detectors",
+      "description": "Smoke detectors missing or not working.",
+      "minor_categories": [
+        "smoke_detectors_missing_broken_unit_interior",
+        "smoke_detectors_missing_broken_common_areas"
+      ],
+      "violation_categories": ["SMOKE DETECTION SECTION"]
+    }
+  },
+
+  "excluded_subtypes": {
+    "general_maintenance_not_in_list_above": "Opaque bucket. Names no condition, so an item built on it would point at nothing — the same defect as the NOV 'other section'. 1,034 parcels, and excluding it is the single largest judgement in this file.",
+    "clutter_hoarder_unit_interior_storage": "Frequently tenant-caused and inside a unit. Every rule here frames a condition as the owner's to fix; that framing would misattribute this one.",
+    "elevators_everthing_else": "KNOWN GAP, not a judgement. No source among the gathered documents covers elevators. See SF_BRIEF_HANDOFF.md.",
+    "elevators_no_working_elevator_7_or_more_stories": "KNOWN GAP. 388 parcels across both elevator subtypes, larger than heat at the >1 threshold, and a real habitability problem for anyone with limited mobility — but uncitable with the sources in hand.",
+    "second_hand_smoke": "No source among the gathered documents.",
+    "noise_caused_by_building_systems": "Not a habitability element in any gathered source.",
+    "kitchen_community": "Shared SRO kitchens. Plausibly covered by Housing Code §1001(b) sanitation, but not clearly enough to author from.",
+    "illegal_construction_no_permit_exceeds_permit_scope": "Permitting enforcement, not a building condition. Already weight 0 in the risk score.",
+    "illegal_guest_room_conversions": "Regulatory, not a building condition. Already weight 0.",
+    "visitor_policy_violations": "Lease-policy enforcement, not a building condition. Already weight 0.",
+    "building -": "Single junk row in the source data."
+  }
+}

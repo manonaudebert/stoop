@@ -1,0 +1,634 @@
+# SF Building Brief — rules table
+#
+# Config, not code. Each rule maps a computed signal to tenant-facing guidance
+# quoted or closely paraphrased from the source documents, with the section
+# recorded in `source`.
+#
+# NO MODEL WRITES ANY OF THIS, and unlike NYC there is no model in this city's
+# pipeline at all. NYC's generated `watch_for` field exists because the ABCs of
+# Housing publishes no viewing checklist, so "what to look for" had no citable
+# source. California's does — `gb05_lookingfor.html#inspect` — and sf.gov's
+# vermin page supplies the cues the state list leaves circular. So `watch_for`
+# here is authored and cited like every other field, and the page renders it
+# WITHOUT the AI-assisted label. See SF_BRIEF_HANDOFF.md for the measurement
+# behind that decision.
+#
+# ── The spine: rules are derived from the statute ────────────────────────────
+#
+# Every rule below corresponds to an element of the list at
+# `gb09_dealingwith.html#conditions` — "Conditions that make a rental unit
+# legally uninhabitable" — which enumerates what a dwelling "substantially
+# lacks" to breach the implied warranty of habitability. Four rules (mold, lead
+# paint, peeling paint, interior surfaces) are cited elsewhere and say so.
+#
+# That derivation is the answer to "why this rule and not that one". It is a
+# legal bright line rather than an editorial judgement about severity, and it is
+# why a rule firing on 121 parcels (lead paint) sits in the same table as one
+# firing on 1,614 (pests) without special pleading. Do not add a rule because a
+# subtype is common; add it because the statute names the element.
+#
+# ── Authoring rules ──────────────────────────────────────────────────────────
+#
+#   - No jargon. "NOV", "substandard building", "service subtype" mean nothing
+#     to a renter. Where a legal term is unavoidable, define it in place.
+#   - No absolute-severity language ("high", "severe"). Severity belongs to the
+#     percentile, which is neighborhood-relative and stated elsewhere.
+#   - No causal claims.
+#   - If a claim cannot be located in a source document, it does not go in.
+#     Elevators fire on 388 parcels and have NO rule here for exactly this
+#     reason — no gathered source covers them. See SF_BRIEF_HANDOFF.md.
+#   - No em dashes in `why_it_matters`, `action`, `brief_line` or `watch_for`.
+#   - No numbers. The counts sit in cards on the same page.
+#   - Say "property", not "building". A row is one mapblklot, which is a PARCEL
+#     and can carry several buildings. See CityBriefConfig.subject_noun.
+#
+# `watch_for` must name physical evidence someone can find at a viewing. A line
+# that merely restates the condition ("look for signs of vermin" under a heading
+# that already says pests were reported) is worth nothing and should be omitted
+# instead. `heat_hot_water` has no `watch_for` for that reason: neither source
+# offers an observable cue, and "how was last winter" is a question you ask, not
+# a thing you see.
+#
+# `when` is a structured predicate, never an eval'd string:
+#   {signal: <name>, op: <">"|">="|"<"|"<="|"=="|"!="> , value: <number>}
+#   {all: [<predicate>, ...]}   {any: [<predicate>, ...]}
+#
+# EVERY rule fires at `> 0`. One report is enough.
+#
+# The first version used `> 1` on the four high-volume rules (pests, mold,
+# plumbing, weather_windows), reasoning that a single complaint cannot separate
+# an incident from a building condition. That reasoning was NYC's, and it does
+# not survive the change of city: NYC has millions of complaints and SF has 35k,
+# so the same floor bites far harder here. It dropped mold from 1,155 parcels to
+# 264 — 77% of the properties where a tenant reported mold — and took the brief
+# as a whole from 11.4% coverage to 7.1%.
+#
+# The renter-facing argument settles it. A single 311 report of mold IS a fact
+# about the property, and one a prospective tenant would want. The brief never
+# claims a condition is ongoing or severe; it says tenants reported it, which is
+# exactly and only what one complaint supports. Withholding that to protect a
+# statistical distinction the copy does not make is the wrong trade.
+#
+# What this does NOT change: the brief still shows no count, so "reported once"
+# and "reported forty times" read identically in layer 1. `rank_by` uses the
+# magnitude to order rules against each other, so the louder problem still wins
+# the top-3 slot. Revisit this pair together if the ordering starts looking wrong.
+#
+# EVERY rule reads BOTH kinds of evidence, via `any:`. A tenant's 311 report and
+# an inspector's open notice of violation are independent evidence for the same
+# condition, and either alone is enough to be worth telling a renter about. The
+# violation side became usable once the NOV classifier landed: before it, only
+# the four NOV categories that name a condition could contribute, and 52.7% of
+# violations were invisible to the brief. See `nov_patterns.yaml`.
+#
+# Signals come from `sf_brief_signals`, generated by `cities/sf/signals.py` from
+# `taxonomy.json` and `nov_patterns.yaml`. A signal named here that the view does not supply raises
+# MissingSignalError rather than silently disabling the rule.
+#
+# `priority` ranks hazard types against each other and is editorial: no source
+# document does this. Peers sharing a priority are ordered by `rank_by`, the
+# signal deciding which is the bigger problem at this property.
+
+version: 1
+source_document: >-
+  California Department of Real Estate, California Tenants: A Guide to
+  Residential Tenants' and Landlords' Rights and Responsibilities
+  (Resource Guidebook)
+
+# The HTML guidebook, NOT the PDF of the same name. They carry different
+# footnote numbering for the same sentence (198 in the PDF, 206 in the HTML),
+# so they are probably different editions. Everything here is cited to the HTML
+# and quoted from the HTML. Do not mix them.
+
+rules:
+  # ── Priority 1: life safety and the two bright-line utilities ──────────────
+
+  - id: heat_hot_water
+    priority: 1
+    rank_by: heat_hot_water_complaints
+    # The violation branch was added 2026-08-19 from hand-labelled NOV text:
+    # §701 HC carries the actual heat standard ("provide heat to each occupied
+    # habitable room ... capable of maintaining a minimum room temperature of
+    # 70f"), and 323 parcels have one open. Until then this rule was
+    # complaint-only, so a property an inspector had cited for no heat but whose
+    # tenants had not filed a 311 case said nothing at all.
+    when:
+      any:
+        - {signal: heat_hot_water_complaints, op: ">", value: 0}
+        - {signal: open_heat_hot_water_violations, op: ">", value: 0}
+    brief_line: >-
+      Tenants here have reported no heat or no hot water.
+    condition: >-
+      Tenants at this property have reported a lack of heat or hot water in the
+      past five years.
+    why_it_matters: >-
+      California law requires heating facilities in good working order, and
+      plumbing facilities in good working order including hot and cold running
+      water. A rental unit that substantially lacks either may be legally
+      uninhabitable, which is the standard the implied warranty of habitability
+      sets for every residential tenancy in the state.
+    action: >-
+      Ask how heat and hot water are supplied and who pays for them. If either
+      fails once you live here, put the request to the landlord in writing and
+      keep a copy.
+    # No `watch_for` on purpose. The state checklist offers only "Inadequate
+    # heating or air conditioning" and "Lack of hot water", which restate the
+    # condition the line above already names, and the Housing Code is no better.
+    # An omitted line beats a circular one.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "the heating and hot water requirement"
+    additional_sources:
+      - label: "San Francisco Housing Code §701"
+        covers: "the minimum room temperature standard"
+
+  - id: fire_safety
+    priority: 1
+    rank_by: fire_safety_complaints
+    # Either evidence source. The complaint side is well categorized; `fire
+    # section` is one of the five NOV categories that names a condition rather
+    # than a chapter of the code, so it is one of the five that can contribute.
+    when:
+      any:
+        - {signal: fire_safety_complaints, op: ">", value: 0}
+        - {signal: open_fire_safety_violations, op: ">", value: 0}
+    brief_line: >-
+      Fire safety problems have been reported here.
+    condition: >-
+      Fire safety problems at this property have been reported by tenants or
+      cited by inspectors, covering things like blocked exits, fire hazards,
+      alarms, sprinklers and extinguishers.
+    why_it_matters: >-
+      California law requires safe fire or emergency exits leading to a street
+      or hallway, and requires stairs, hallways and exits to be kept litter
+      free. Storage areas, garages and basements must be kept free of
+      combustible materials. San Francisco's Housing Code separately treats
+      inadequate exits and inadequate fire protection equipment as conditions
+      that make a building substandard, which is the finding behind a notice of
+      violation.
+    action: >-
+      Walk the route from the unit to the street and check it is clear. If an
+      exit is blocked once you live here, report it to the Department of
+      Building Inspection.
+    watch_for: >-
+      Walk the exit route from the unit to the street and check the stairs and
+      hallways are clear of stored items, and that fire doors close properly.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "exits and fire safety requirements"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(m), (n)"
+        covers: "inadequate exit and fire protection equipment"
+
+  - id: smoke_detectors
+    priority: 1
+    rank_by: smoke_detectors_complaints
+    when:
+      any:
+        - {signal: smoke_detectors_complaints, op: ">", value: 0}
+        - {signal: open_smoke_detectors_violations, op: ">", value: 0}
+    brief_line: >-
+      Smoke detector problems have been reported here.
+    condition: >-
+      Missing or broken smoke detectors at this property have been reported by
+      tenants or cited by inspectors.
+    why_it_matters: >-
+      California law requires working smoke detectors in all bedrooms and other
+      designated areas of a rental unit, and apartment complexes must also have
+      them in common stairwells. Any unit with appliances that burn fossil fuels
+      such as natural gas, propane or fuel oil, or with an attached garage, must
+      also have working carbon monoxide detectors.
+    action: >-
+      Check the detectors before you sign, and test them once you move in.
+    watch_for: >-
+      Look for a smoke detector in each bedroom and in the common stairwell, and
+      for a carbon monoxide detector if the unit has a gas stove, a gas heater
+      or an attached garage.
+    source: "gb09_dealingwith.html#conditions"
+
+  # ── Priority 2: health hazards ─────────────────────────────────────────────
+
+  - id: mold
+    priority: 2
+    rank_by: mold_complaints
+    when:
+      any:
+        - {signal: mold_complaints, op: ">", value: 0}
+        - {signal: open_mold_violations, op: ">", value: 0}
+    brief_line: >-
+      Tenants here have reported mold.
+    condition: >-
+      Tenants at this property have reported mold or mildew more than once in
+      the past five years.
+    why_it_matters: >-
+      San Francisco's Health Code treats visible or otherwise demonstrable mold
+      or mildew in a residential building as a public health nuisance in its own
+      right. Under state law, mold that the landlord has notice of and that
+      affects livability or health can also breach the implied warranty of
+      habitability.
+    action: >-
+      If you find mold once you live here, tell the landlord in writing and keep
+      a copy. You can also report it to the Department of Public Health.
+    watch_for: >-
+      Look for dark spots on walls, floors and ceilings, and for dry or wet
+      spots, flaking or bubbling, or a damp or moldy smell, especially in
+      bathrooms and closets.
+    source: "gb05_lookingfor.html#inspect"
+    covers: "what to look for"
+    additional_sources:
+      - label: "San Francisco Health Code §581(b)(6)"
+        covers: "mold as a public health nuisance"
+
+  - id: pests
+    priority: 2
+    rank_by: pests_complaints
+    when:
+      any:
+        - {signal: pests_complaints, op: ">", value: 0}
+        - {signal: open_pests_violations, op: ">", value: 0}
+    brief_line: >-
+      Tenants here have reported pests.
+    condition: >-
+      Tenants at this property have reported rodents, insects or bed bugs more
+      than once in the past five years.
+    why_it_matters: >-
+      California law requires buildings and grounds to be kept clean and
+      sanitary and free from debris, filth, rubbish, garbage, rodents and
+      vermin. San Francisco requires property owners to keep their property free
+      of vermin, and requires an owner or manager to respond to a tenant's bed
+      bug complaint by hiring a licensed pest control operator.
+    action: >-
+      If you see pests once you live here, tell the landlord in writing. You can
+      also report the condition to the Department of Public Health.
+    # The state checklist's own pests bullet is "Signs of insects, vermin, or
+    # rodents", which restates the heading above it. The cues below come from
+    # sf.gov instead, which is concrete and checkable.
+    watch_for: >-
+      Look along baseboards and inside low cabinets for droppings, greasy rub
+      marks or tracks, and check whether the bins outside overflow and whether
+      gaps around exterior doors are sealed.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "the landlord's obligation"
+    additional_sources:
+      - label: "SF.gov, Keeping your building free of vermin"
+        url: "https://www.sf.gov/information--keeping-your-building-free-vermin"
+        covers: "what to look for, and bed bug response"
+
+  - id: lead_paint
+    priority: 2
+    rank_by: lead_paint_complaints
+    when:
+      any:
+        - {signal: lead_paint_complaints, op: ">", value: 0}
+        - {signal: open_lead_paint_violations, op: ">", value: 0}
+    brief_line: >-
+      Unsafe work on paint has been reported here.
+    condition: >-
+      Paint work done without lead-safe practices at this property has been
+      reported by tenants or cited by inspectors.
+    why_it_matters: >-
+      San Francisco's Health Code presumes that any paint on a building built
+      before 1979 is lead based unless shown otherwise, and treats lead hazards
+      as a public health nuisance. Disturbing that paint without controlling the
+      dust is what spreads the hazard. California law separately treats a lead
+      hazard that endangers the occupants as a condition that can make a rental
+      unit uninhabitable.
+    action: >-
+      Ask when the building was built and whether any paint work has been done
+      recently. If it was built before 1978, read the federal booklet Protect
+      Your Family From Lead in Your Home.
+    watch_for: >-
+      Look for chipping or flaking paint, especially in older buildings and on
+      window frames, door frames and stair rails, and for paint dust or debris
+      left behind after recent work.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "lead hazards and habitability"
+    additional_sources:
+      - label: "San Francisco Health Code §581(b)(10)"
+        covers: "the pre-1979 lead paint presumption"
+
+  # ── Priority 3: building systems and the weather envelope ──────────────────
+
+  - id: plumbing
+    priority: 3
+    rank_by: plumbing_complaints
+    when:
+      any:
+        - {signal: plumbing_complaints, op: ">", value: 0}
+        - {signal: open_plumbing_violations, op: ">", value: 0}
+    brief_line: >-
+      Tenants here have reported plumbing problems.
+    condition: >-
+      Tenants at this property have reported broken or leaking plumbing, or
+      bathroom fixtures that do not work, more than once in the past five years.
+    why_it_matters: >-
+      California law requires plumbing facilities in good working order,
+      including hot and cold running water connected to a sewage disposal
+      system. Each rental unit must also have a working toilet, wash basin and
+      bathtub or shower, in a room that is ventilated and allows privacy.
+    action: >-
+      Run the taps and flush the toilet before you sign. If a leak appears once
+      you live here, report it in writing and keep a copy.
+    watch_for: >-
+      Run the taps and look under the kitchen and bathroom sinks for leaks, and
+      check whether the water runs rusty or discolored, or smells bad, when you
+      first turn it on.
+    source: "gb09_dealingwith.html#conditions"
+
+  - id: weather_windows
+    priority: 3
+    rank_by: weather_windows_complaints
+    # §708 HC is the windows section, and window repair orders are the single
+    # most common thing hand-labelling turned up that the classifier was
+    # discarding — every one of them because the order also mentions a building
+    # permit. 528 parcels.
+    when:
+      any:
+        - {signal: weather_windows_complaints, op: ">", value: 0}
+        - {signal: open_weather_windows_violations, op: ">", value: 0}
+    brief_line: >-
+      Exterior or window problems have been reported here.
+    condition: >-
+      Tenants at this property have reported poor exterior upkeep, or windows
+      and doors that are broken or do not close, more than once in the past five
+      years.
+    why_it_matters: >-
+      California law requires effective waterproofing and weather protection of
+      the roof and exterior walls, including unbroken windows and doors. San
+      Francisco's Housing Code treats ineffective waterproofing and broken
+      windows or doors as faulty weather protection, one of the conditions that
+      makes a building substandard.
+    action: >-
+      Open and close the windows and doors before you sign, and ask about any
+      recent water damage.
+    watch_for: >-
+      Open and shut every window and exterior door to check they close and
+      latch, and look for cracks or holes in the floor, walls or ceiling and for
+      signs of water damage near windows.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "weather protection requirements"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(h)"
+        covers: "faulty weather protection"
+
+  - id: electrical
+    priority: 3
+    rank_by: electrical_complaints
+    when:
+      any:
+        - {signal: electrical_complaints, op: ">", value: 0}
+        - {signal: open_electrical_violations, op: ">", value: 0}
+    brief_line: >-
+      Electrical problems have been reported here.
+    condition: >-
+      Tenants at this property have reported hazardous or faulty electrical
+      conditions in the past five years.
+    why_it_matters: >-
+      California law requires an electric system, including lighting, wiring and
+      equipment, in good working order. San Francisco's Housing Code treats
+      hazardous wiring as a condition that makes a building substandard.
+    action: >-
+      Ask whether the wiring has been updated. If something sparks or trips once
+      you live here, report it in writing.
+    watch_for: >-
+      Look for defects in wiring and fixtures such as scorch marks, loose
+      sockets or exposed wire, and check whether there are enough outlets in
+      each room for how you would use it.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "the electrical requirement"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(e)"
+        covers: "hazardous wiring"
+
+  # ── Priority 4: security and structure ─────────────────────────────────────
+
+  - id: security_locks
+    priority: 4
+    rank_by: security_locks_complaints
+    when:
+      any:
+        - {signal: security_locks_complaints, op: ">", value: 0}
+        - {signal: open_security_locks_violations, op: ">", value: 0}
+    brief_line: >-
+      Building security problems have been reported here.
+    condition: >-
+      Problems securing the building, such as entry doors or windows that do not
+      lock, have been reported by tenants or cited by inspectors.
+    why_it_matters: >-
+      California law requires operable dead bolt locks on the main entry doors
+      of rental units, and operable locking or security devices on windows.
+    action: >-
+      Try the locks on the entry door and the windows before you sign.
+    watch_for: >-
+      Try the dead bolt on the unit's main entry door and the catches on every
+      window that opens, and check that the building's front door latches shut
+      behind you.
+    source: "gb09_dealingwith.html#conditions"
+
+  - id: floors_stairs
+    priority: 4
+    rank_by: floors_stairs_complaints
+    when:
+      any:
+        - {signal: floors_stairs_complaints, op: ">", value: 0}
+        - {signal: open_floors_stairs_violations, op: ">", value: 0}
+    brief_line: >-
+      Problems with floors, stairs or handrails have been reported here.
+    condition: >-
+      Tenants at this property have reported problems with decks, stairs or
+      handrails in the past five years.
+    why_it_matters: >-
+      California law requires floors, stairways and railings to be kept in good
+      repair. San Francisco's Housing Code treats deteriorated floors and
+      similar structural hazards as conditions that make a building substandard.
+    action: >-
+      Walk the stairs and lean on the handrails before you sign.
+    watch_for: >-
+      Walk the common stairs and press on the handrails, and look for damaged
+      flooring, soft spots or uneven treads.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "floors, stairways and railings"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(c)"
+        covers: "structural hazards"
+
+  # ── Priority 5: sanitation and the remaining statutory elements ────────────
+
+  - id: ventilation_light
+    priority: 5
+    rank_by: ventilation_light_complaints
+    when:
+      any:
+        - {signal: ventilation_light_complaints, op: ">", value: 0}
+        - {signal: open_ventilation_light_violations, op: ">", value: 0}
+    brief_line: >-
+      Ventilation or natural light problems have been reported here.
+    condition: >-
+      Tenants at this property have reported inadequate ventilation, or rooms
+      without enough natural light, in the past five years.
+    why_it_matters: >-
+      California law requires natural lighting in every room through windows or
+      skylights, and requires windows in each room to open at least halfway for
+      ventilation unless a fan provides mechanical ventilation. San Francisco's
+      Housing Code treats improper ventilation and dampness of habitable rooms
+      as conditions that make a building substandard.
+    action: >-
+      Check that the windows open and that the bathroom has a working fan or a
+      window that opens.
+    watch_for: >-
+      Check that the windows in each room open at least halfway, that the
+      bathroom has either a window or a fan that runs, and note any offensive
+      odors.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "lighting and ventilation requirements"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(b)"
+        covers: "improper ventilation and dampness"
+
+  # No 311 subtype exists for this condition anywhere in the feed, so the
+  # complaint-derived taxonomy was structurally blind to it. It surfaced only in
+  # DBI's own wording ("repair damaged ceilings (1001b,h,o hc)"), 647 parcels.
+  #
+  # Framed as the DEFECT, not the cause. An earlier draft of this rule was
+  # `water_damage`, which the data rejects: of the damaged wall and ceiling rows,
+  # only 204 parcels mention water and 520 do not, and among rows that DO name
+  # water damage, 83% say only "locate and repair source of water damage" —
+  # the inspector ordering the landlord to find out. Naming a cause the record
+  # does not know would have been an invention on most of these.
+  #
+  # Walls, ceilings and built-in cabinetry. Floors belong to `floors_stairs`,
+  # which cites the statute's "floors, stairways, and railings in good repair" —
+  # structural integrity, a different concern from a damaged surface.
+  #
+  # Cabinets are in because they are fixed fabric of the unit at comparable
+  # scale to plaster: built in, landlord-maintained, and visible at a viewing.
+  # The line that keeps this from becoming a catch-all is SCALE, not the section
+  # number — a doorbell cites the same §1001(b)(13) and stays out, because it is
+  # a device rather than part of the room. 55 parcels arrive here via cabinets.
+  # Dirty cabinets go to `sanitation` and mouldy ones to `mold`; only
+  # deterioration lands here.
+  - id: interior_surfaces
+    priority: 4
+    rank_by: open_interior_surfaces_violations
+    when: {signal: open_interior_surfaces_violations, op: ">", value: 0}
+    brief_line: >-
+      Damaged walls, ceilings or cabinets have been cited here.
+    condition: >-
+      Inspectors have cited damaged or deteriorated interior surfaces at this
+      property, such as walls, ceilings or built-in cabinets, which remain open.
+    why_it_matters: >-
+      San Francisco's Housing Code treats deteriorated or loose plaster as
+      faulty weather protection, one of the conditions that makes a building
+      substandard. Damage to a wall or ceiling is also how a leak usually shows
+      itself, and persistent damp is what the state guide describes as leading
+      to mold.
+    action: >-
+      Ask what caused the damage and whether the source was repaired. If it was
+      a leak, ask when it was fixed rather than when the surface was repainted.
+    watch_for: >-
+      Look for cracks or holes in the walls and ceiling, sagging or broken
+      cabinets, and dry or wet spots, flaking or bubbling, or a damp or moldy
+      smell, especially in corners and below bathrooms.
+    source: "gb05_lookingfor.html#inspect"
+    covers: "what to look for"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(h)"
+        covers: "deteriorated plaster as faulty weather protection"
+      - label: "San Francisco Housing Code §1001(b)"
+        covers: "general dilapidation and improper maintenance"
+
+  - id: peeling_paint
+    priority: 5
+    rank_by: peeling_paint_complaints
+    when:
+      any:
+        - {signal: peeling_paint_complaints, op: ">", value: 0}
+        - {signal: open_peeling_paint_violations, op: ">", value: 0}
+    brief_line: >-
+      Tenants here have reported peeling paint.
+    condition: >-
+      Tenants at this property have reported peeling or flaking paint in the
+      past five years.
+    why_it_matters: >-
+      San Francisco's Housing Code treats deteriorated or loose plaster and a
+      lack of paint as faulty weather protection, one of the conditions that
+      makes a building substandard. Chipping paint is also one of the things the
+      state guide tells renters to look for, because it can indicate a unit that
+      is poorly maintained.
+    action: >-
+      Ask when the affected areas were last painted. If the building was built
+      before 1979, treat disturbed paint as a possible lead hazard.
+    watch_for: >-
+      Look for chipping paint, especially in older buildings, and note whether
+      it is on surfaces that get opened or knocked often such as window frames
+      and door frames.
+    source: "gb05_lookingfor.html#inspect"
+    covers: "what to look for"
+    additional_sources:
+      - label: "San Francisco Housing Code §1001(h)"
+        covers: "lack of paint as faulty weather protection"
+
+  # Was `garbage`, widened 2026-08-19. The narrow name came from the only 311
+  # subtype that matched (`garbage_receptacles`) and was wrong about the statute
+  # this rule already cited: the element is "clean and sanitary buildings,
+  # grounds, and appurtenances, free from debris, filth, rubbish, garbage,
+  # rodents, and vermin" AND "adequate trash receptacles in good repair" — two
+  # things, of which the old wording covered one.
+  #
+  # The gap was invisible from the 311 side, because SF has no subtype for
+  # general cleanliness at all. It only appears in DBI violation text
+  # ("clean and sanitize the common areas … remove the black marks and filth
+  # along the stairs", §1306), which is 765 parcels — larger than five of the
+  # rules in this file. Nothing about the citation changed; only the scope of
+  # the prose, which had been narrower than the law it quoted.
+  - id: sanitation
+    priority: 5
+    rank_by: sanitation_complaints
+    when:
+      any:
+        - {signal: sanitation_complaints, op: ">", value: 0}
+        - {signal: open_sanitation_violations, op: ">", value: 0}
+    brief_line: >-
+      Problems keeping the building clean have been reported here.
+    condition: >-
+      Problems keeping this property clean and sanitary, such as accumulated
+      filth or debris in common areas or inadequate trash storage, have been
+      reported by tenants or cited by inspectors.
+    why_it_matters: >-
+      California law requires buildings, grounds and appurtenances to be kept
+      clean and sanitary and free from debris, filth, rubbish, garbage, rodents
+      and vermin, and requires adequate trash receptacles in good repair. San
+      Francisco requires containers that keep out rodents and insects, that are
+      watertight with tight fitting lids, and that are emptied often enough that
+      they do not overflow.
+    action: >-
+      Look at the common areas and at where the bins are kept. If common areas
+      are not kept clean once you live here, put the request to the landlord in
+      writing.
+    watch_for: >-
+      Look along the common stairs and hallways for accumulated dirt, marks and
+      debris, and check the bin area for containers with tight fitting lids that
+      are not overflowing.
+    source: "gb09_dealingwith.html#conditions"
+    covers: "the cleanliness and trash receptacle requirements"
+    additional_sources:
+      - label: "SF.gov, Keeping your building free of vermin"
+        url: "https://www.sf.gov/information--keeping-your-building-free-vermin"
+        covers: "container and storage standards"
+
+  - id: mailbox
+    priority: 5
+    rank_by: mailbox_complaints
+    when: {signal: mailbox_complaints, op: ">", value: 0}
+    brief_line: >-
+      Mail or mailbox problems have been reported here.
+    condition: >-
+      Tenants at this property have reported mail delivery or mailbox problems
+      in the past five years.
+    why_it_matters: >-
+      California law requires a locking mailbox for each unit, meeting United
+      States Postal Service standards for apartment housing mailboxes.
+    action: >-
+      Check that the unit has its own mailbox and that it locks.
+    watch_for: >-
+      Find the mailbox for the unit and check that it locks and that the door is
+      not damaged.
+    source: "gb09_dealingwith.html#conditions"

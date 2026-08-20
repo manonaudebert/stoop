@@ -7,6 +7,7 @@ import {
   getSfBuilding,
   getSfComplaintsTimeline,
   getSfViolationsTimeline,
+  getSfBuildingBrief,
   getSfComplaintsBreakdown,
   getSfViolationsBreakdown,
 } from '@/lib/api'
@@ -23,6 +24,7 @@ import FilterPill from '@/components/FilterPill'
 import WindowToggle from '@/components/WindowToggle'
 import Pagination from '@/components/Pagination'
 import HorizontalBarChart from '@/components/HorizontalBarChart'
+import BuildingBrief from '@/components/BuildingBrief'
 import type { Sf311Complaint, SfNov, SfComplaintBreakdownItem, SfViolationBreakdownItem } from '@/lib/types'
 
 // ── row components ──────────────────────────────────────────────────────────
@@ -153,11 +155,16 @@ export default async function SfBuildingPage({
     throw e
   }
 
-  const [complaintTimeline, violationTimeline, complaintBreakdown, violationBreakdown] = await Promise.all([
+  const [complaintTimeline, violationTimeline, complaintBreakdown, violationBreakdown, brief] = await Promise.all([
     getSfComplaintsTimeline(id),
     getSfViolationsTimeline(id),
     getSfComplaintsBreakdown(id, breakdownYears),
     getSfViolationsBreakdown(id, breakdownYears),
+    // Computed server-side from sf_brief_signals. Unlike NYC's there is no model
+    // anywhere in this path: every string, the "worth checking" line included, is
+    // authored in cities/sf/rules.yaml and cited. Failing soft, as NYC does: a
+    // brief that cannot load must not take the rest of the page with it.
+    getSfBuildingBrief(id).catch(() => null),
   ])
 
   // ── derived values ──────────────────────────────────────────────────────────
@@ -371,6 +378,20 @@ export default async function SfBuildingPage({
             </div>
           </InsightCard>
         </div>
+
+        {/* The brief sits directly after the Severity card, the position it
+            holds on the NYC page. It interprets; the cards above and the tables
+            below carry every number, so it deliberately repeats none of them.
+            `recordNoun` and `subjectNoun` are SF's: a mapblklot is a parcel and
+            may carry several buildings, so the copy says "property". */}
+        {brief && (
+          <BuildingBrief
+            brief={brief}
+            recordNoun="DBI and 311"
+            subjectNoun="property"
+            sourceLabel="the California Tenants guide"
+          />
+        )}
 
         {/* KPI row — 311 complaints */}
         <div style={{ marginBottom: 12 }}>

@@ -8,7 +8,13 @@ from limiter import limiter
 from cache import cache_get, cache_set
 from routes.map import RISK_COLORS
 from routes.hpd_complaints import _search_patterns, _normalize
+from services.briefs.cities import SF
+from services.briefs.confidence import confidence_note_from_signals
+from services.briefs.rules import load_rules, select_rules
 from schemas import (
+    BriefCitation,
+    BriefWatchItem,
+    SfBuildingBriefResponse,
     SfBuildingSummaryResponse,
     SfBuildingDetailResponse,
     Sf311ComplaintResponse,
@@ -674,5 +680,91 @@ async def get_sf_violations_breakdown(
         )
         for r in rows
     ]
+    cache_set(cache_key, result)
+    return result
+
+
+# The signal columns the rules read, in the order sf_brief_signals declares them.
+# Built from the generator rather than typed out, so a new group in taxonomy.json
+# reaches the route without anyone remembering to add it here — the same property
+# that makes the view and the rules unable to drift apart.
+def _signal_columns() -> list[str]:
+    from services.briefs.cities.sf.signals import complaint_signals, violation_signals
+
+    return [s for s, _ in violation_signals()] + [s for s, _g, _sub in complaint_signals()]
+
+
+@router.get("/building/{mapblklot}/brief", response_model=SfBuildingBriefResponse)
+async def get_sf_building_brief(mapblklot: str, db: AsyncSession = Depends(get_db)):
+    """SF's deterministic Building Brief. No model, and no corpus to read.
+
+    Every text field, `watch_for` included, is authored in `cities/sf/rules.yaml`
+    and cited. NYC's generated field exists because the ABCs of Housing publishes
+    no viewing checklist; California's guidebook does, so there is nothing here
+    for a model to add. See SF_BRIEF_HANDOFF.md for the measurement.
+
+    A parcel with no row in the view is NOT an error and NOT a special case. The
+    view covers every parcel with any DBI or 311 record, so a mapblklot outside
+    it has no record at all — which reads the same to a tenant as a parcel whose
+    signals are all zero. Both take the identical path below, and the only
+    difference is the confidence note, which correctly says "no records on file"
+    for one and nothing for the other. An early return here would skip
+    `confidence_note`'s zero-record branch, so the property with the LEAST
+    history would be the one rendering no caveat at all. NYC learned this; the
+    shape is copied deliberately.
+    """
+    cache_key = f"sf_brief:{mapblklot}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    columns = _signal_columns()
+    row = (await db.execute(
+        text(f"""
+            SELECT {', '.join('s.' + c for c in columns)},
+                   s.sf_record_count, s.latest_sf_activity
+            FROM sf_brief_signals s
+            WHERE s.mapblklot = :id
+        """),
+        {"id": mapblklot},
+    )).first()
+
+    # Exactly the keys rules.yaml and confidence.py reference, built explicitly
+    # so a rule naming a signal nobody supplies raises MissingSignalError instead
+    # of silently never firing.
+    signals = {c: (getattr(row, c) if row else 0) for c in columns}
+    signals["sf_record_count"] = row.sf_record_count if row else 0
+    signals["latest_sf_activity"] = row.latest_sf_activity if row else None
+
+    selected = select_rules(signals, config=SF)
+    _, document = load_rules(SF)
+
+    watch_items = [
+        BriefWatchItem(
+            rule_id=rule.id,
+            brief_line=rule.brief_line,
+            watch_for=rule.watch_for,
+            # Always "authored" in SF, and never null when a line exists — the
+            # page must not put the AI-assisted label on cited text.
+            watch_for_source="authored" if rule.watch_for else None,
+            condition=rule.condition,
+            why_it_matters=rule.why_it_matters,
+            action=rule.action,
+            citations=[
+                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                for c in rule.citations(document, SF)
+            ],
+        )
+        for rule in selected
+    ]
+
+    result = SfBuildingBriefResponse(
+        mapblklot=mapblklot,
+        watch_items=watch_items,
+        confidence_note=confidence_note_from_signals(signals, config=SF),
+        no_flags=not watch_items,
+        has_records=bool(row),
+        record_count=signals["sf_record_count"],
+    )
     cache_set(cache_key, result)
     return result

@@ -1,0 +1,123 @@
+# SF NOV condition classifier — ordered pattern table.
+#
+# Config, not code. Assigns ONE condition group to a DBI notice of violation by
+# reading its text, so the violations half of the brief can name what is wrong
+# rather than only that something is.
+#
+# ── Why this exists ──────────────────────────────────────────────────────────
+#
+# `nov_category_description` has ten values and 52.7% of rows sit in `building
+# section`, `other section` or blank — labels for a chapter of the code, not for
+# a condition. The conditions ARE in the text, in a canonical phrase DBI reuses
+# ("repair damaged ceilings (1001b,h,o hc)"), so they can be read out.
+#
+# ── How it is ordered ────────────────────────────────────────────────────────
+#
+# FIRST MATCH WINS, so order is the whole design. Two principles, both learned
+# from hand-labelled disagreements rather than reasoned in advance:
+#
+#   1. The LEADING PHRASE beats a supporting section number. "repair stairs and
+#      provide 604 affidavit ... (604, 908, 1001b13)" is a stairs order; the 908
+#      is a cross-reference. Explicit phrases are hoisted above the patterns that
+#      match bare section numbers.
+#   2. The more specific condition wins. A damaged SURFACE outranks the paint on
+#      it (the paint is incidental to the repair); paint-as-subject outranks
+#      weathering; weathering only wins when no paint is named.
+#
+# ── The lead rule, which is the one that matters most ────────────────────────
+#
+# `lead_paint` fires ONLY on an explicit abatement or containment order. It does
+# NOT fire on lead warnings, advisories or §327 references, because San Francisco
+# PRESUMES all peeling paint and its substrate contains lead — so the warning
+# rides along on every paint order and says nothing about whether lead was found.
+# An early version keyed on that text and labelled 1,953 rows `lead_paint`
+# against DBI's own 72 in `lead section`. A false lead flag causes more alarm
+# than it prevents, so lead language with no abatement order resolves to
+# `peeling_paint` instead (the last rule below).
+#
+# ── Regex dialect ────────────────────────────────────────────────────────────
+#
+# POSIX ARE, because these compile into the generated view SQL. Word boundary is
+# `\y`, NOT `\b` — in Postgres `\b` means backspace. `classifier.py` translates
+# `\y` to `\b` for the Python implementation, and a test runs both engines over
+# the same corpus and asserts identical labels.
+#
+# Matching is over `item` + `nov_item_description`, lowercased, with the
+# advisory blocks below stripped first. Neither field is EVER rendered: they
+# carry inspector names, addresses and narrative. Classification only.
+
+# Boilerplate attached to notices as guidance rather than as a finding. Removed
+# before any rule is tried, so it can never decide a label.
+advisory:
+  - "disturbing lead based paint can be extremely dangerous.*?ordinance #\\d+-\\d+\\.?"
+  - "disturbing lead based paint can be extremely dangerous.*"
+  - "it is the property owner'?s responsibility.*"
+  - "this notice includes violations.*"
+  - "inspector comments regarding.*"
+  - "work practice for lead-based paint"
+  - "see attached lead hazard warning\\.?"
+
+rules:
+  - group: smoke_detectors
+    pattern: "smoke (detector|alarm)|carbon monoxide|\\yco alarm\\y|420\\.\\d|central alarm|alarm system"
+
+  - group: heat_hot_water
+    pattern: "\\(701|provide heat|required heat|minimum room temperature|lack of (heat|hot water)|no hot water"
+
+  # Hoisted above fire_safety: these lead the order and would otherwise lose to a
+  # 908 or 801 cited alongside them.
+  - group: floors_stairs
+    pattern: "floor covering|\\yflooring\\y|repair stairs|repair.{0,20}stair(way|case)"
+
+  - group: fire_safety
+    pattern: "egress|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\\y(801|901|904|905|907|908|706)\\y|1001\\s*\\(?\\s*[lmn]\\y"
+
+  # The SOURCE of water damage is plumbing; the damaged surface it produced is
+  # `interior_surfaces`. Placed before mold so an incidental mention downstream
+  # cannot pull a leak-repair order into mold.
+  - group: plumbing
+    pattern: "(repair|locate)[^.]{0,25}source of water damage|garbage disposal"
+
+  - group: mold
+    pattern: "\\ymold|mildew"
+
+  - group: interior_surfaces
+    pattern: "damaged (wall|ceiling)|deteriorated (wall|ceiling|plaster)|damaged cabinet|repair cabinet|repair damaged (wall|ceiling)|patch.*(wall|ceiling)"
+
+  - group: peeling_paint
+    pattern: "peeling|flaking paint|damaged paint|chipping paint|lead (hazard )?warning|remove or cover damaged paint|repaint"
+
+  - group: weather_windows
+    pattern: "\\(708|708 hc|window (sash|hardware|glazing)|repair.*window|insulation|\\yroof|waterproof|weather protection|\\y504\\y|1001\\s*\\(?\\s*[hj]\\y"
+
+  - group: lead_paint
+    pattern: "regulated work area|abate lead hazard|lead abatement|lead hazard evaluation"
+
+  - group: pests
+    pattern: "\\yrodent|\\yvermin|infestation|\\yrats?\\y|cockroach|bed ?bug"
+
+  # `garbage disposal` is a kitchen appliance, already taken by plumbing above;
+  # the lookahead stops it being read as refuse.
+  - group: sanitation
+    pattern: "garbage(?! disposal)|rubbish|remove debris|clean (&|and) (remove|sanitize)|clean up|overgrown|filth|unsanitary|\\y1306\\y|1001\\s*\\(?\\s*[ki]\\y"
+
+  - group: electrical
+    pattern: "electrical|wiring|\\ycircuit\\y|disconnect|1001\\s*\\(?\\s*e\\y"
+
+  - group: plumbing
+    pattern: "water damage|\\yleak|toilet|plumbing|sanitation facilit|\\y(703|505)\\y|1001\\s*\\(?\\s*f\\y"
+
+  - group: floors_stairs
+    pattern: "stairs|handrail|guardrail|structural|\\y(802|604)\\y|1001\\s*\\(?\\s*c\\y"
+
+  - group: ventilation_light
+    pattern: "ventilation|light well|lighting|\\ylights?\\y|\\yduct|mechanical fan|1001\\s*\\(?\\s*g\\y"
+
+  - group: security_locks
+    pattern: "\\ylock\\y|dead ?bolt|secure the (building|premises)|security"
+
+  # LAST. A lead mention with no abatement order means paint work was found, not
+  # that lead was. Only reached when nothing more specific matched, so it can
+  # never override a real condition.
+  - group: peeling_paint
+    pattern: "lead[- ]based paint|disturbs lead|lead ordinance"

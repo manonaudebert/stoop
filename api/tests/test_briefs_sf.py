@@ -329,3 +329,18 @@ def test_the_any_rules_fire_from_either_evidence_source(rules):
             assert evaluate(rule.when, base | {violation: 1}), (
                 f"{rule_id} ignores an inspector's open violation"
             )
+
+
+def test_route_selects_every_signal_the_view_offers():
+    """The route's column list must BE the view's, not a subset of it.
+
+    `routes/sf.py::_signal_columns` once built its violation half from
+    `violation_signals()` — the category-fallback list, five groups DBI names in
+    `nov_category_description` — while the view emits one column per CLASSIFIER
+    group. The route supplied 5 of 15, so every rule reading one of the missing
+    10 raised MissingSignalError at request time. Nothing caught it: the parity
+    test above reads the generator directly, and the route tests mock the DB.
+    """
+    from routes.sf import _signal_columns
+
+    assert set(_signal_columns()) == _available_signals()

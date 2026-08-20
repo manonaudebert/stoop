@@ -689,9 +689,17 @@ async def get_sf_violations_breakdown(
 # reaches the route without anyone remembering to add it here — the same property
 # that makes the view and the rules unable to drift apart.
 def _signal_columns() -> list[str]:
-    from services.briefs.cities.sf.signals import complaint_signals, violation_signals
+    # `classified_violation_signals`, NOT `violation_signals`: the latter is the
+    # category-fallback list (the five groups DBI names in
+    # nov_category_description) and predates the NOV classifier. The view emits
+    # one column per CLASSIFIER group, so selecting the narrow list supplied 5 of
+    # 15 and any rule reading one of the other 10 raised MissingSignalError.
+    from services.briefs.cities.sf.signals import (
+        classified_violation_signals,
+        complaint_signals,
+    )
 
-    return [s for s, _ in violation_signals()] + [s for s, _g, _sub in complaint_signals()]
+    return classified_violation_signals() + [s for s, _g, _sub in complaint_signals()]
 
 
 @router.get("/building/{mapblklot}/brief", response_model=SfBuildingBriefResponse)

@@ -1,4 +1,4 @@
-import type { BuildingBrief as Brief, BriefWatchItem } from '@/lib/types'
+import type { BuildingBriefBase as Brief, BriefWatchItem } from '@/lib/types'
 import TooltipIcon from './TooltipIcon'
 
 /**
@@ -30,12 +30,14 @@ import TooltipIcon from './TooltipIcon'
  * otherwise leaves open — "nothing crossed the thresholds" reads the same on a
  * building with four records and one with four hundred.
  *
- * Every string here is authored except one. `brief_line`, `condition`,
- * `why_it_matters` and `action` come verbatim from rules.yaml, each carrying the
- * page of HPD's "ABCs of Housing" it was written from. `watch_for` is the single
- * generated field, and it is the reason WatchForLine exists as its own labelled
- * block rather than another sentence in the flow: a reader has to be able to
- * tell, without being told twice, which line a model wrote.
+ * Every string here comes verbatim from a city's rules.yaml, each carrying the
+ * source it was written from. `watch_for` is the ONE field that may instead be
+ * model-written, and only in a city whose pipeline generates it: NYC does,
+ * because the ABCs of Housing publishes no viewing checklist, and SF does not,
+ * because California's guidebook does. WatchForLine is its own labelled block
+ * for that reason — a reader has to be able to tell, without being told twice,
+ * which line a model wrote — and `watch_for_source` on the item, never the city,
+ * is what decides whether the label appears.
  *
  * `watch_for` is null on most items and that is permanent, not provisional. Only
  * the top two rules are ever generated, and any rule whose corpus is deleted
@@ -48,11 +50,28 @@ import TooltipIcon from './TooltipIcon'
 
 type Props = {
   brief: Brief
+  /**
+   * The three city-specific strings this component would otherwise hardcode.
+   * Defaults are NYC's, so the existing call site is unchanged.
+   *
+   * Follows the rule stated in `lib/cities.ts`: city-aware pages read the config
+   * and pass primitives down, so leaf components never branch on a city. There
+   * is deliberately no `city` prop — a component that switches on one grows a
+   * second switch every time a string differs.
+   */
+  recordNoun?: string
+  subjectNoun?: string
+  sourceLabel?: string
 }
 
 const MONO = 'var(--font-mono)'
 
-export default function BuildingBrief({ brief }: Props) {
+export default function BuildingBrief({
+  brief,
+  recordNoun = 'HPD',
+  subjectNoun = 'building',
+  sourceLabel = "HPD's ABCs of Housing",
+}: Props) {
   const { watch_items, confidence_note, no_flags, has_records, record_count } = brief
 
   return (
@@ -76,7 +95,7 @@ export default function BuildingBrief({ brief }: Props) {
           }}
         >
           What to watch for
-          <TooltipIcon text="Conditions on this building's HPD record that a prospective or current tenant would want to know about. Each one cites the section of HPD's ABCs of Housing it comes from." />
+          <TooltipIcon text={`Conditions on this ${subjectNoun}'s ${recordNoun} record that a prospective or current tenant would want to know about. Each one cites the section of ${sourceLabel} it comes from.`} />
         </h2>
       </div>
 
@@ -85,12 +104,14 @@ export default function BuildingBrief({ brief }: Props) {
           recordCount={record_count}
           hasRecords={has_records}
           note={confidence_note}
+          recordNoun={recordNoun}
+          subjectNoun={subjectNoun}
         />
       ) : (
         <>
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
             {watch_items.map((item) => (
-              <WatchItem key={item.rule_id} item={item} />
+              <WatchItem key={item.rule_id} item={item} recordNoun={recordNoun} subjectNoun={subjectNoun} />
             ))}
           </ol>
           {confidence_note && <ConfidenceNote note={confidence_note} />}
@@ -100,7 +121,15 @@ export default function BuildingBrief({ brief }: Props) {
   )
 }
 
-function WatchItem({ item }: { item: BriefWatchItem }) {
+function WatchItem({
+  item,
+  recordNoun,
+  subjectNoun,
+}: {
+  item: BriefWatchItem
+  recordNoun: string
+  subjectNoun: string
+}) {
   // brief_line is the authored compact form; condition is the fallback for a
   // rule that authors none. Never a client-side truncation of the long text —
   // a machine-cut sentence is exactly the kind of paraphrase this feature is
@@ -137,7 +166,14 @@ function WatchItem({ item }: { item: BriefWatchItem }) {
         {headlineText}
       </div>
 
-      {item.watch_for && <WatchForLine sentence={item.watch_for} />}
+      {item.watch_for && (
+        <WatchForLine
+          sentence={item.watch_for}
+          generated={item.watch_for_source === 'generated'}
+          recordNoun={recordNoun}
+          subjectNoun={subjectNoun}
+        />
+      )}
 
       <details style={{ marginTop: 5 }}>
         {/* paddingLeft 12 aligns this with the "Worth checking" label above,
@@ -241,7 +277,25 @@ function WatchItem({ item }: { item: BriefWatchItem }) {
  * idiom, distinguishable weight — and the tag stays mono to inherit the card's
  * existing register for machine-generated metadata.
  */
-function WatchForLine({ sentence }: { sentence: string }) {
+function WatchForLine({
+  sentence,
+  generated,
+  recordNoun,
+  subjectNoun,
+}: {
+  sentence: string
+  /**
+   * Drives the label, and it is a fact about THIS ROW rather than about the
+   * city. NYC generates the line because the ABCs of Housing publishes no
+   * viewing checklist; SF authors it, because California's guidebook does. A NYC
+   * rule whose corpus row is deleted also falls back to authored text, so
+   * inferring the label from the city would mislabel cited prose as
+   * AI-assisted — the one error this component must never make.
+   */
+  generated: boolean
+  recordNoun: string
+  subjectNoun: string
+}) {
   return (
     <div style={{ marginTop: 6, paddingLeft: 10, borderLeft: '2px solid #E8E8E8' }}>
       <div
@@ -251,9 +305,13 @@ function WatchForLine({ sentence }: { sentence: string }) {
           textTransform: 'uppercase', color: '#8A8A8A', marginBottom: 2,
         }}
       >
-        Worth checking · AI-assisted
+        {generated ? 'Worth checking · AI-assisted' : 'Worth checking'}
         <TooltipIcon
-          text="Written by an AI model from this building's HPD record. Everything else in this brief is written by hand and cited; open “details” to read it."
+          text={
+            generated
+              ? `Written by an AI model from this ${subjectNoun}'s ${recordNoun} record. Everything else in this brief is written by hand and cited; open “details” to read it.`
+              : 'Written by hand and cited, like the rest of this brief. Open “details” for the source.'
+          }
           align="left"
         />
       </div>
@@ -287,10 +345,14 @@ function EmptyState({
   recordCount,
   hasRecords,
   note,
+  recordNoun,
+  subjectNoun,
 }: {
   recordCount: number | undefined
   hasRecords: boolean
   note: string | null
+  recordNoun: string
+  subjectNoun: string
 }) {
   // THREE cases, not two, because `record_count` is newer than the cache in
   // front of it. Server fetches sit in Next's Data Cache for a day
@@ -305,7 +367,7 @@ function EmptyState({
   if (recordCount != null && recordCount > 0) {
     return (
       <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
-        {recordCount.toLocaleString()} HPD{' '}
+        {recordCount.toLocaleString()} {recordNoun}{' '}
         {recordCount === 1 ? 'record' : 'records'} on file; none met the
         thresholds we flag. That is not the same as no problems. Full violation
         and complaint history below.
@@ -322,7 +384,7 @@ function EmptyState({
   }
   return (
     <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
-      {note ?? 'There are no HPD records on file for this building.'}
+      {note ?? `There are no ${recordNoun} records on file for this ${subjectNoun}.`}
     </p>
   )
 }

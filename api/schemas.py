@@ -1,4 +1,6 @@
 from datetime import date
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -265,6 +267,16 @@ class BriefWatchItem(BaseModel):
     # labelled as AI-assisted wherever it renders — it is the only text on the
     # page a model wrote.
     watch_for: str | None = None
+    # Which kind of text `watch_for` holds, so the page can label a generated
+    # sentence and NOT label an authored one. Null whenever `watch_for` is null.
+    #
+    # This exists because the two cities answer differently and the component is
+    # shared. NYC generates the line, because the ABCs of Housing publishes no
+    # viewing checklist; SF authors it, because California's guidebook does. A
+    # renderer must not infer the label from the city — it is a fact about the
+    # row, and NYC rules whose corpus is deleted fall back to authored text with
+    # no code change.
+    watch_for_source: Literal["authored", "generated"] | None = None
     condition: str
     why_it_matters: str
     action: str
@@ -413,3 +425,24 @@ class SfViolationBreakdownItem(BaseModel):
     category: str
     count: int
     open_count: int
+
+
+class SfBuildingBriefResponse(BaseModel):
+    """SF's Building Brief.
+
+    Deliberately NOT a subclass of `BuildingBriefResponse`: that model's
+    identifier is `bin`, and a mapblklot is not a BIN. It is a PARCEL id, and a
+    parcel can carry several buildings — which is also why every string reaching
+    a reader from here says "property" rather than "building".
+
+    Everything else is shared with NYC, including `BriefWatchItem`, because the
+    two cities differ in their rules and their sources rather than in the shape
+    of an item. `watch_for_source` is always "authored" here: SF has no corpus
+    and no model in its pipeline.
+    """
+    mapblklot: str
+    watch_items: list[BriefWatchItem]
+    confidence_note: str | None = None
+    no_flags: bool = False
+    has_records: bool = True
+    record_count: int | None = None

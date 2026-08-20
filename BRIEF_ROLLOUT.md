@@ -67,7 +67,7 @@ it, that rule's corpus simply does not ship. No fallback logic to write.
 | `hpd_brief_signals` | materialized view, 310,400 rows. Rebuilt 2026-08-12 with the lead-paint fix |
 | `GET /hpd/building/{bin}/brief` | watch items, citations, hazard areas, confidence note |
 | Refresh | `sync_all.py::_refresh_all_views`, after both summary views |
-| `BuildingBrief.tsx` | two-layer rendering, after the Severity card, with `WatchForLine` |
+| `BuildingBrief.tsx` | two-layer rendering, after the Severity card, with `WatchForLine`. Shared with SF since 2026-08-19: city strings arrive as props (`recordNoun`, `subjectNoun`, `sourceLabel`), defaulted to NYC's |
 | Tests | 371, offline, no database and no API key |
 | `brief_texts` | **903 of 909 rows at `brief-v11`.** The NYC corpus |
 
@@ -87,11 +87,22 @@ citations no longer print a page number.
 
 ### What exists
 
-All under `api/services/briefs/`:
+All under `api/services/briefs/`. Since 2026-08-19 the package is
+city-parameterized: `cities/__init__.py` holds a `CityBriefConfig` per city and
+every shared entry point takes `config: CityBriefConfig = NYC`, so the NYC call
+sites below are unchanged. NYC's rules and signals moved to `cities/nyc/`.
+
+**`watch_for` is no longer generated-only.** A rule may author one, and
+`BriefWatchItem.watch_for_source` (`authored` | `generated` | null) is what
+decides whether the AI-assisted label renders. It is a fact about the ROW, not
+about the city — which closes a latent bug here: a NYC rule whose corpus row is
+deleted falls back to its authored line, and would previously have been
+mislabelled as model-written.
+
 
 | File | |
 |---|---|
-| `rules.yaml` | the six rules — `brief_line`, `condition`, `why_it_matters`, `action`, sources, suppression group. Config, not code; most product changes happen here |
+| `cities/nyc/rules.yaml` | the six rules — `brief_line`, `condition`, `why_it_matters`, `action`, sources, suppression group. Config, not code; most product changes happen here |
 | `rules.py` | predicate evaluation, priority + `rank_by` ordering, class C suppression, display cap |
 | `signals.py` | the shared category lists and the generator for the view's SQL |
 | `taxonomy.py` | the three HPD vocabularies and the renter-facing labels |

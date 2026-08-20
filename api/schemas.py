@@ -279,7 +279,9 @@ class BriefWatchItem(BaseModel):
     watch_for_source: Literal["authored", "generated"] | None = None
     condition: str
     why_it_matters: str
-    action: str
+    # Optional: omitted where the only honest action is the generic advice that
+    # applies to every condition alike. See services/briefs/rules.py::Rule.
+    action: str | None = None
     # Every source behind this item, primary first. A list rather than a string
     # because a rule can make claims from two documents — the class C item takes
     # its violation classes from the ABCs PDF and its correction deadlines from

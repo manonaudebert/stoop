@@ -498,7 +498,8 @@ def _print_full_brief(context, selected, signals, note, document, *,
         if i < len(watch):
             print(_wrap(watch[i], indent="    Worth checking: ", hang="    "))
         print(_wrap(rule.why_it_matters, indent="    "))
-        print(_wrap(rule.action, indent="    "))
+        if rule.action:
+            print(_wrap(rule.action, indent="    "))
         print(f"    Source: {rule.cite(document)}")
 
     if not selected:

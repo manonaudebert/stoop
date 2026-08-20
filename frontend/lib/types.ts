@@ -323,7 +323,9 @@ export interface BriefWatchItem {
   watch_for_source: 'authored' | 'generated' | null
   condition: string
   why_it_matters: string
-  action: string
+  // Optional: omitted where the only honest action is generic advice that
+  // applies to every condition alike. See api/services/briefs/rules.py::Rule.
+  action?: string | null
   citations: BriefCitation[]
   // Only populated for the class C rule. [] and null differ: [] means flagged
   // but nothing describable, null means this rule is not about hazard areas.

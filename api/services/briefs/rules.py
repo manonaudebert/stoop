@@ -74,8 +74,13 @@ class Rule:
     when: dict[str, Any]
     condition: str
     why_it_matters: str
-    action: str
     source: str
+    # Optional. Omitted where the only honest action is the generic "tell the
+    # landlord in writing, then report it" that applies to every condition
+    # alike: repeated under every rule it read as filler and crowded out
+    # `watch_for`, which is the field that names something specific. Present
+    # only where it says something this condition and no other calls for.
+    action: str | None = None
     # The compact one-line form the page leads with. Falls back to `condition`
     # when absent. Compresses the cited text; never extends it — see rules.yaml.
     brief_line: str | None = None
@@ -193,8 +198,8 @@ def load_rules(config: CityBriefConfig = NYC) -> tuple[list[Rule], str]:
             when=r["when"],
             condition=" ".join(r["condition"].split()),
             why_it_matters=" ".join(r["why_it_matters"].split()),
-            action=" ".join(r["action"].split()),
             source=r["source"],
+            action=(" ".join(r["action"].split()) if r.get("action") else None),
             brief_line=(
                 " ".join(r["brief_line"].split()) if r.get("brief_line") else None
             ),

@@ -165,10 +165,6 @@ rules:
       inadequate exits and inadequate fire protection equipment as conditions
       that make a building substandard, which is the finding behind a notice of
       violation.
-    action: >-
-      Walk the route from the unit to the street and check it is clear. If an
-      exit is blocked once you live here, report it to the Department of
-      Building Inspection.
     watch_for: >-
       Walk the exit route from the unit to the street and check the stairs and
       hallways are clear of stored items, and that fire doors close properly.
@@ -196,8 +192,6 @@ rules:
       them in common stairwells. Any unit with appliances that burn fossil fuels
       such as natural gas, propane or fuel oil, or with an attached garage, must
       also have working carbon monoxide detectors.
-    action: >-
-      Check the detectors before you sign, and test them once you move in.
     watch_for: >-
       Look for a smoke detector in each bedroom and in the common stairwell, and
       for a carbon monoxide detector if the unit has a gas stove, a gas heater
@@ -224,9 +218,6 @@ rules:
       right. Under state law, mold that the landlord has notice of and that
       affects livability or health can also breach the implied warranty of
       habitability.
-    action: >-
-      If you find mold once you live here, tell the landlord in writing and keep
-      a copy. You can also report it to the Department of Public Health.
     watch_for: >-
       Look for dark spots on walls, floors and ceilings, and for dry or wet
       spots, flaking or bubbling, or a damp or moldy smell, especially in
@@ -255,9 +246,6 @@ rules:
       vermin. San Francisco requires property owners to keep their property free
       of vermin, and requires an owner or manager to respond to a tenant's bed
       bug complaint by hiring a licensed pest control operator.
-    action: >-
-      If you see pests once you live here, tell the landlord in writing. You can
-      also report the condition to the Department of Public Health.
     # The state checklist's own pests bullet is "Signs of insects, vermin, or
     # rodents", which restates the heading above it. The cues below come from
     # sf.gov instead, which is concrete and checkable.
@@ -324,9 +312,6 @@ rules:
       including hot and cold running water connected to a sewage disposal
       system. Each rental unit must also have a working toilet, wash basin and
       bathtub or shower, in a room that is ventilated and allows privacy.
-    action: >-
-      Run the taps and flush the toilet before you sign. If a leak appears once
-      you live here, report it in writing and keep a copy.
     watch_for: >-
       Run the taps and look under the kitchen and bathroom sinks for leaks, and
       check whether the water runs rusty or discolored, or smells bad, when you
@@ -357,8 +342,8 @@ rules:
       windows or doors as faulty weather protection, one of the conditions that
       makes a building substandard.
     action: >-
-      Open and close the windows and doors before you sign, and ask about any
-      recent water damage.
+      Ask what was done about any past water damage, and get any repair the
+      landlord promises in writing before you sign.
     watch_for: >-
       Open and shut every window and exterior door to check they close and
       latch, and look for cracks or holes in the floor, walls or ceiling and for
@@ -385,9 +370,6 @@ rules:
       California law requires an electric system, including lighting, wiring and
       equipment, in good working order. San Francisco's Housing Code treats
       hazardous wiring as a condition that makes a building substandard.
-    action: >-
-      Ask whether the wiring has been updated. If something sparks or trips once
-      you live here, report it in writing.
     watch_for: >-
       Look for defects in wiring and fixtures such as scorch marks, loose
       sockets or exposed wire, and check whether there are enough outlets in
@@ -416,7 +398,8 @@ rules:
       California law requires operable dead bolt locks on the main entry doors
       of rental units, and operable locking or security devices on windows.
     action: >-
-      Try the locks on the entry door and the windows before you sign.
+      California requires the landlord to provide these locks, so ask for any
+      that are missing or broken to be fitted before you move in.
     watch_for: >-
       Try the dead bolt on the unit's main entry door and the catches on every
       window that opens, and check that the building's front door latches shut
@@ -440,7 +423,9 @@ rules:
       repair. San Francisco's Housing Code treats deteriorated floors and
       similar structural hazards as conditions that make a building substandard.
     action: >-
-      Walk the stairs and lean on the handrails before you sign.
+      Ask the landlord to repair anything loose or damaged before you move in.
+      If a stairway stays in disrepair, report it to the Department of
+      Building Inspection.
     watch_for: >-
       Walk the common stairs and press on the handrails, and look for damaged
       flooring, soft spots or uneven treads.
@@ -471,8 +456,8 @@ rules:
       Housing Code treats improper ventilation and dampness of habitable rooms
       as conditions that make a building substandard.
     action: >-
-      Check that the windows open and that the bathroom has a working fan or a
-      window that opens.
+      If a room has no window that opens and no working fan, ask the landlord
+      what provides its ventilation before you sign.
     watch_for: >-
       Check that the windows in each room open at least halfway, that the
       bathroom has either a window or a fan that runs, and note any offensive
@@ -599,10 +584,6 @@ rules:
       Francisco requires containers that keep out rodents and insects, that are
       watertight with tight fitting lids, and that are emptied often enough that
       they do not overflow.
-    action: >-
-      Look at the common areas and at where the bins are kept. If common areas
-      are not kept clean once you live here, put the request to the landlord in
-      writing.
     watch_for: >-
       Look along the common stairs and hallways for accumulated dirt, marks and
       debris, and check the bin area for containers with tight fitting lids that
@@ -627,7 +608,8 @@ rules:
       California law requires a locking mailbox for each unit, meeting United
       States Postal Service standards for apartment housing mailboxes.
     action: >-
-      Check that the unit has its own mailbox and that it locks.
+      If the unit has no locking mailbox of its own, ask the landlord to
+      provide one before you move in.
     watch_for: >-
       Find the mailbox for the unit and check that it locks and that the door is
       not damaged.

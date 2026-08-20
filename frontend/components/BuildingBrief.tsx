@@ -219,9 +219,11 @@ function WatchItem({
             </ul>
           )}
 
-          <p style={{ fontSize: 12.5, color: '#111111', lineHeight: 1.55, margin: '0 0 5px' }}>
-            {item.action}
-          </p>
+          {item.action && (
+            <p style={{ fontSize: 12.5, color: '#111111', lineHeight: 1.55, margin: '0 0 5px' }}>
+              {item.action}
+            </p>
+          )}
           {/* One line per source. A rule can make claims from two documents
               — the class C item takes its violation classes from the ABCs PDF
               and its correction deadlines from HPD's penalties-and-fees page —

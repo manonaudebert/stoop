@@ -501,7 +501,7 @@ def test_complaint_rules_state_the_window_they_actually_count():
     Keyed off the signal name rather than a hardcoded id list so a new
     complaint rule is covered the day it is added.
     """
-    from services.briefs.signals import COMPLAINT_WINDOW_YEARS
+    from services.briefs.cities.nyc.signals import COMPLAINT_WINDOW_YEARS
 
     # Spelled, not a numeral: `test_brief_line_carries_no_digits` bans digits
     # from layer 1 so the cards keep sole ownership of every count. A window is
@@ -883,7 +883,7 @@ def test_the_area_budget_covers_every_area_that_can_be_shown():
     """One sentence per area only works if the budget stretches that far.
     `HAZARD_AREA_LIMIT` caps what SQL supplies; the schema has to match it or a
     building at the limit fails length validation for obeying the prompt."""
-    from services.briefs.signals import HAZARD_AREA_LIMIT
+    from services.briefs.schema import HAZARD_AREA_LIMIT
     assert schema.MAX_AREA_SENTENCES == HAZARD_AREA_LIMIT
     assert schema.MAX_WATCH_FOR_MULTI == schema.MAX_WATCH_FOR * HAZARD_AREA_LIMIT
 

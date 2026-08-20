@@ -134,9 +134,13 @@ async def test_a_claim_from_another_document_carries_its_own_citation(client):
     assert len(item["citations"]) == 2
     secondary = item["citations"][1]
     assert secondary["url"].startswith("https://www.nyc.gov/")
-    # When an item cites two documents, each must say what it backs — otherwise
-    # the reader cannot tell which claim to check where.
-    assert all(c["covers"] for c in item["citations"])
+    # `covers` stopped reaching the page 2026-08-20 and is no longer in the
+    # payload at all. It remains REQUIRED in rules.yaml on any multi-source
+    # rule — the authoring record that made "which claim is backed by which
+    # document" auditable — which is what the assertion below now pins.
+    assert "covers" not in secondary
+    rule = next(r for r in rules_mod.load_rules()[0] if r.id == "open_class_c")
+    assert rule.covers and all(a.covers for a in rule.additional_sources)
 
 
 def test_single_source_rules_do_not_carry_a_redundant_covers_clause():

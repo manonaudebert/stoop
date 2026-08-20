@@ -5,6 +5,12 @@ finishing the NYC one. `BRIEF_ROLLOUT.md` is the NYC feature doc and the
 architecture reference; `SF_EXPANSION_PLAN.md` is the SF data plan. **This file
 only covers what is different, what transfers, and what will bite.**
 
+**Status: phase 0 is built** (2026-08-19, branch `building-brief`, not pushed).
+16 authored rules, `sf_brief_signals`, the route, and the page render. **No model
+anywhere in SF's pipeline** — see *The thing that mostly removes the model*, now
+backed by measurement rather than argument. What remains is applying the
+migration and reviewing copy against real pages; see *Where this ended up*.
+
 Read *The blocker* first. It is not a coding problem and it gates everything.
 
 ---
@@ -58,25 +64,44 @@ Relevant chapters: `gb05_lookingfor` (inspecting, applications), `gb08_living`,
 `gb09_dealingwith` (habitability, repairs, remedies), `gb10_movingout`.
 
 **Caution: the HTML and the PDF do not share footnote numbering** — the same
-habitability sentence is footnote 190 in the 2024 PDF and 198 in the HTML. They
-are probably different editions. Pick one as `source_document` and stay on it;
+habitability sentence ("A dwelling also may be considered uninhabitable if it
+substantially lacks any of the following") is footnote **198 in the 2024 PDF and
+206 in the HTML**, verified 2026-08-19. An earlier version of this note said
+190/198; the caution was right, the numbers were not. They are probably
+different editions. Pick one as `source_document` and stay on it;
 do not cite them interchangeably or quote from one and cite the other.
 
-### The thing that may remove the model from this feature
+### The thing that mostly removes the model from this feature
 
 `gb05_lookingfor.html#inspect` — **"Inspecting before you rent"** — is a
-state-published, citable checklist of what to look for at a viewing:
+state-published, citable checklist of what to look for at a viewing. It runs to
+19 bullets. **They are not uniformly useful, and an earlier version of this
+section overstated them** by quoting a curated subset, dropping six bullets and
+compressing others. The full list, verbatim, is in
+`data/raw/sf_brief_sources/dre_guidebook_gb05_lookingfor.html`; read it there
+rather than trusting a paraphrase.
 
-> Cracks or holes in the floor, walls, or ceiling · Signs of leaking water or
-> water damage; dry or wet spots, flaking, bubbling, or a damp or moldy smell ·
-> The presence of mold, which may appear as dark spots on a wall or floor ·
-> Signs of rust in water appearing near the faucet · Leaks in bathroom or
-> kitchen fixtures · Windows and doors that do not open all the way or fail to
-> shut securely · Inadequate lighting or insufficient electrical outlets ·
-> Inadequate heating or air conditioning · Inadequate ventilation or offensive
-> odors · Defects in electrical wiring and fixtures · Signs of insects, vermin,
-> or rodents · Inadequate trash and garbage receptacles · Chipping paint,
-> especially in older buildings
+The bullets split into two kinds, and the split is what matters:
+
+**Carry a real observable cue** — they tell a renter something the condition
+name does not:
+
+> Signs of leaking water or water damage in the floor, walls, or ceiling; this
+> may include dry or wet spots, flaking, bubbling, or a damp or moldy smell ·
+> The presence of mold that might affect your or your family's health and
+> safety. Mold may appear as dark spots on a wall or floor · Signs of rust in
+> water appearing near the faucet. Bad smelling or discolored water coming from
+> the faucet · Cracks or holes in the floor, walls, or ceiling · Chipping paint
+> in buildings, especially older buildings … Paint chips in older buildings
+> sometimes contain lead · Signs of asbestos-containing materials in older
+> buildings, such as flaking ceiling tiles, or crumbling pipe wrap or insulation
+
+**Merely restate the condition** — circular against a `brief_line` that has
+already named it:
+
+> Lack of hot water · Inadequate heating or air conditioning · Signs of insects,
+> vermin, or rodents · Inadequate trash and garbage receptacles · Damaged
+> flooring · Leaks in bathroom or kitchen fixtures · Accumulated dirt and debris
 
 **Read that against why `watch_for` exists in NYC.** The entire generated field
 was built because the ABCs of Housing contains no viewing checklist. The
@@ -85,30 +110,63 @@ it, and good instincts — "check under the sinks", "ask how last winter went" �
 were cut precisely because they are not in the source. A model was brought in to
 write the one thing the citable source could not supply.
 
-**SF's source supplies it.** Each of those bullets maps onto a rule:
+**The city source rescues most of what the state list drops.** sf.gov's vermin
+page supplies exactly the cue the DRE's circular pests bullet lacks — *"Look for
+signs such as droppings, scratches, greasy rub marks, and tracks"* — plus bins
+that must not overflow and gaps over ¼ inch around exterior doors and windows.
+Garbage is rescued the same way. So coverage is per rule, not all-or-nothing:
 
-| Rule | Authored viewing line, from the checklist |
-|---|---|
-| mold | dark spots on a wall or floor; damp or mouldy smell; flaking or bubbling |
-| pests | signs of insects, vermin, or rodents; trash receptacles |
-| heat | inadequate heating; ventilation |
-| lead / paint | chipping paint, especially in older buildings |
-| electrical | defects in wiring and fixtures; insufficient outlets |
+| Rule | Observable cue? | Source |
+|---|---|---|
+| mold | yes — dark spots; damp or mouldy smell; flaking, bubbling | DRE `#inspect` |
+| water damage | yes — dry or wet spots in floor, walls, ceiling | DRE `#inspect` |
+| lead / paint | yes — chipping paint, pre-1978 booklet; §581(b)(10) pre-1979 presumption | DRE + Health Code |
+| pests / rodents | yes — droppings, greasy rub marks, tracks; overflowing bins; ¼in gaps | **sf.gov vermin** |
+| garbage | yes — watertight bins, tight lids, piles 6in off ground and wall | **sf.gov vermin** |
+| structural / weather | yes — cracks or holes; broken windows, loose plaster | DRE + Housing Code §1001(h) |
+| electrical | thin, but not circular — insufficient outlets, defects in wiring | DRE `#inspect` |
+| **heat / hot water** | **no** — "Inadequate heating." Housing Code §1001(b) is no better | none |
+| **bed bugs** | **no** — owner must hire a licensed operator: a duty, not a cue | none |
+
+**Two rules are genuinely uncovered, and they are small.** Measured on
+`sf_311_housing` 2026-08-18, five-year window, against the ~44,000 parcels the
+brief can cover:
+
+| Rule | parcels, ≥1 complaint | parcels, >1 (NYC's threshold) |
+|---|---|---|
+| pests | 1,500 | 412 |
+| mold | 1,178 | 272 |
+| heat + hot water | 629 | 196 |
+| bed bugs | 232 | 69 |
+
+Heat is a top-five subtype by raw volume (1,576 heat + 1,095 hot water rows), so
+it is not a rule you can dismiss as marginal — but at parcel grain the two
+uncovered rules together reach **under 2% of coverable parcels even at the loose
+≥1 threshold**, and about 0.5% at NYC's `>1`.
 
 So the honest question for SF is not "how do we run the corpus" but **"do we
 need generated text at all?"** An authored, cited viewing line is strictly
 better than a generated one on every axis that matters here: it is checkable, it
 is free, it needs no corpus, no prompt version, no five validators, and no
-"AI-assisted" label. The NYC machinery exists to solve a problem SF may not
-have.
+"AI-assisted" label. On this evidence the answer is that authored lines carry
+the feature, and the model's entire remaining job is heat and bed bugs on a
+sliver of the city.
+
+Note also that the model cannot rescue the violations half either — see *The
+violations data has no usable condition taxonomy*. Where
+`nov_category_description` is `building section` or `other section`, there is no
+condition in the data for a model to sharpen, so generated text adds nothing
+there that authored text could not.
 
 Where a model could still earn its place: the checklist is generic, and the
 brief knows *which* condition was flagged on *this* building. Sharpening a
 generic bullet into a building-specific one is a real but much smaller job than
 NYC's — and worth deciding deliberately rather than by momentum, because
 everything downstream (corpus table, prompt versioning, drop telemetry,
-validation calibration) exists only to serve generated text.
-
+validation calibration) exists only to serve generated text. The per-rule
+kill-switch makes the narrow version cheap: a rule with no corpus row falls back
+to its authored line with no code change, so "model for heat and bed bugs only"
+is a supported configuration rather than a special case.
 ### The statutory habitability list is close to a ready-made rules table
 
 Pages 47–48 enumerate what makes a unit legally uninhabitable. It reads almost
@@ -455,6 +513,134 @@ the same state.
 
 ---
 
+## Where this ended up
+
+Built 2026-08-19. The plan in *Suggested order* below survived mostly intact;
+these are the places reality differed.
+
+**Rules are derived from the statute, not from volume.** The list at
+`gb09_dealingwith.html#conditions` enumerates what a dwelling "substantially
+lacks" to be legally uninhabitable, and read verbatim it is fuller than this
+document's earlier summary of it: it also names **adequate trash receptacles**,
+**floors, stairways and railings**, **a working toilet, wash basin and bathtub or
+shower**, and **natural lighting with windows that open at least halfway**. Each
+of those maps onto a 311 subtype and became a rule. Deriving from the statute is
+what lets a rule firing on 121 parcels sit beside one firing on 1,614 without
+special pleading — the question "why this rule and not that one" has a legal
+answer rather than an editorial one.
+
+**15 rules, not 3–5.** The display cap is 3, so more rules widen *which* three
+can surface rather than crowding the page.
+
+**Four NOV categories feed signals, not three.** `security requirements section`
+maps 1:1 onto the locks rule. `sanitation section` and `interior surfaces
+section` look usable but each spans several rule groups, so they stay out: about
+2,213 parcels' worth of open violations the brief says nothing about, which is
+the price of not guessing.
+
+**The `any:` predicate already existed** in `rules.py::evaluate`. Three rules
+read either a complaint or an active NOV, and the violation branch is not
+decoration: smoke detectors fire on 54 parcels by complaint and **423** by
+violation.
+
+**Coverage is 13.1%, against NYC's ~52%.** 6,075 of 46,260 parcels flag
+something, across 16 rules — and within 0.2 points of the 13.3% ceiling for
+anything violations-led, so there is very little nameable signal left unused. This is structural: NYC's spine is `open_class_c` at ~43%, and SF has
+no equivalent because its violation categories name code sections rather than
+conditions. The hard ceiling for anything violations-led here is the 6,172
+parcels (13.3%) with any active NOV. Worth knowing before anyone reads the low
+number as a bug.
+
+**The `> 1` floor was removed, and that was the right call.** It shipped on the
+four high-volume rules, carrying NYC's reasoning that one complaint cannot
+separate an incident from a building condition. At SF's volume — 35k complaints
+against NYC's millions — it suppressed 77% of the properties where a tenant
+reported mold and cost 4.3 points of overall coverage (7.1% to 11.4%). The
+argument that settles it is about the copy, not the counts: the brief says
+tenants *reported* a condition, never that it is ongoing or severe, and one
+complaint supports that claim exactly. See METRICS.md for the per-rule figures.
+
+### Two things the code now guarantees
+
+**`watch_for` is authorable.** It was generated-only, and `BuildingBrief.tsx`
+hardcoded the AI-assisted label. Items now carry `watch_for_source`
+(`authored` | `generated` | null) and the label follows *the row*, never the
+city — which also fixes a latent NYC bug: a rule whose corpus row is deleted
+falls back to authored text, and would have been mislabelled as AI-assisted.
+
+**The taxonomy is a complete partition.** All 37 `service_subtype` values are
+either grouped or excluded with a written reason, asserted by a test. A new
+DataSF value forces a decision instead of vanishing.
+
+### Two conditions the 311 taxonomy could not see
+
+Both found by reading DBI violation text, and both invisible from the complaint
+side because **SF has no 311 subtype for either**. This is the strongest
+argument for treating the violations text as a signal source rather than noise.
+
+**Sanitation** (649 parcels). The `garbage` rule was named after the only 311
+subtype that matched (`garbage_receptacles`) and was written about bins, while
+the statute it already cited covers two things: "clean and sanitary buildings,
+grounds, and appurtenances, free from debris, filth, rubbish, garbage, rodents,
+and vermin" AND "adequate trash receptacles in good repair". Common-area filth
+had nowhere to land despite being squarely inside the citation. Widened to
+`sanitation`; no new source needed, only prose that matched the law it quoted.
+
+**Interior surfaces** (589 parcels). Damaged walls and ceilings, the single most
+common thing DBI writes about, with no complaint category anywhere. Framed as
+the DEFECT rather than the cause after the data rejected a `water_damage`
+framing: only 204 of those parcels mention water and 520 do not, and of the rows
+that DO name water damage, 83% say only "locate and repair source of water
+damage" — the inspector ordering the landlord to find out. A cause-based group
+would have invented an attribution the record explicitly lacks.
+
+This rule introduced a third signal source: a short POSIX regex over `item`.
+Narrow on purpose, and not a general classifier. See METRICS.md.
+
+### The violations text is a signal, not noise
+
+The handoff originally concluded that "a violations rule can say that open
+violations exist, and not what they are". That is no longer true, and undoing it
+was the largest single gain in the whole build.
+
+`nov_category_description` really is unusable — 52.7% code-section labels. But
+the CONDITION is in the text, in canonical phrases DBI reuses, and an ordered
+pattern table reads it out: **98% accurate over 114 hand-labelled rows, 99% on
+the 70 held out.** It lives in `cities/sf/nov_patterns.yaml` as config, compiles
+into the view as a CASE cascade, and runs in Python for tests — both engines
+verified identical on all 29,712 active rows.
+
+What it bought, per rule: floors_stairs 85 to 1,096 parcels, electrical 373 to
+988, peeling_paint 491 to 1,206, plumbing 768 to 1,419, smoke_detectors 473 to
+920. And `lead_paint` moved 140 to 153, which is the point — see below.
+
+**The lead lesson is the one to carry forward.** SF presumes all peeling paint
+contains lead, so lead warnings appear on every paint order and carry no
+information about a finding. A first pass keyed on that text and labelled 1,953
+rows `lead_paint`, against DBI's own 72 in `lead section`. A false lead flag
+alarms a reader far more than it protects them, so lead now requires an explicit
+abatement order and bare warnings resolve to `peeling_paint`. This was Manon's
+call and it is the reason the classifier is safe to ship.
+
+**Hand labelling was worth far more than tuning.** Accuracy went 50% to 98%
+across four rounds, and essentially every gain came from a labelled disagreement
+rather than from reasoning: the permit reversal, the paint precedence, the
+leading-phrase-beats-section-number rule. The corpus is checked in at
+`data/sf_nov_labels/labels_final.csv`, with the basis recorded per row.
+
+### Still open
+
+- **Elevators.** 388 parcels, 181 at `>1` — larger than heat at the same
+  threshold — and no gathered source covers them, so no rule ships. This is the
+  one substantial signal that cannot be cited. Finding a source (SF Housing Code
+  elevator provisions, or CA Civil Code) is the highest-value next step.
+- **The scanned sf.gov habitability checklist** is still untranscribed.
+- **`RIGHTS_PATTERNS`** still lacks the California remedy terms. Harmless while
+  SF has no model, and a trap the moment it does.
+- **`brief_texts` has no `city` column.** Nothing needs it in phase 0. It
+  becomes load-bearing the moment SF generates anything, and rules named `mold`
+  and `pests` exist in both cities.
+
 ## Suggested order
 
 1. ~~Settle the source document.~~ Primary is the DRE guide; pair it per
@@ -467,13 +653,15 @@ the same state.
 5. Generate `sf_brief_signals` + the parity test.
 6. Route, then phase 0 render — authored only, no model. **Ship and stop here
    if you want.** NYC treats phase 0 as a complete product.
-7. **Decide whether there is a model at all** — see *The thing that may remove
-   the model*. If the authored viewing lines from `gb05#inspect` carry the
-   feature, stop here: no corpus, no prompt version, no validators, no
-   AI-assisted label.
-8. Only if that decision is yes: prompt, corpus run, validation calibration,
+7. **Decide whether there is a model at all** — see *The thing that mostly
+   removes the model*. Measured, the authored viewing lines carry every rule
+   except heat/hot water and bed bugs, which together reach under 2% of
+   coverable parcels. The default should be to stop here: no corpus, no prompt
+   version, no validators, no AI-assisted label.
+8. Only if that decision is yes, and preferably scoped to the two uncovered
+   rules rather than all of them: prompt, corpus run, validation calibration,
    and the `brief_texts` city key from step 2 becomes load-bearing.
 
 Steps 1–6 involve no model at all, and are most of the work. NYC treats phase 0
-as a complete product; SF has a better authored source than NYC does, so its
-phase 0 is stronger than NYC's phase 0 was.
+as a complete product; SF's authored source covers more rules than NYC's did, so
+its phase 0 is stronger than NYC's phase 0 was.

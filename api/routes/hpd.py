@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 
 from database import get_db
 from limiter import limiter
@@ -25,7 +24,7 @@ from schemas import (
 # Anthropic SDK — a ~17s cost the API must never pay at startup, for a code path
 # that makes no model calls at all.
 from services.briefs.confidence import confidence_note_from_signals
-from services.briefs.corpus import PROMPT_VERSION, keys_for_selection
+from services.briefs.route_support import generated_watch_for
 from services.briefs.rules import load_rules, select_rules
 from services.briefs.taxonomy import (
     describe_hazard_areas, describe_hazard_areas_prose, join_prose,
@@ -36,7 +35,6 @@ router = APIRouter(prefix="/hpd", tags=["hpd"])
 logger = logging.getLogger(__name__)
 
 # PostgreSQL undefined_table. See _generated_watch_for.
-UNDEFINED_TABLE = "42P01"
 
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
@@ -440,77 +438,6 @@ async def get_hpd_breakdown(bin: str, db: AsyncSession = Depends(get_db)):
     return result
 
 
-async def _generated_watch_for(
-    db: AsyncSession, selected_rules, *, categories, percentile
-) -> dict[str, str]:
-    """rule_id -> the generated sentence for it, for the rules that have one.
-
-    A miss is the normal case and not an error — an absent rule id simply means
-    the page renders that rule's authored `brief_line`. That is what makes a
-    partial corpus a shippable state rather than a broken one, and it is the
-    per-rule kill-switch: deleting a rule's rows turns its generated text off
-    with no code change.
-
-    Skipped entirely when nothing is flagged, which is roughly half of all
-    buildings — there is no rule to look up a sentence for, and this is the
-    hottest route on the site.
-
-    Keyed on (rule_id, input_key, prompt_version), which is the primary key, so
-    a stale corpus from an older prompt is invisible rather than served.
-
-    A MISSING `brief_texts` table is treated as an empty one. This is not
-    defensive padding — it is the difference between a degraded brief and no
-    brief at all, and it has already cost the site once: the read path shipped
-    in 429a06f while `migrate_brief_texts.sql` was deliberately left unapplied,
-    on the reasoning that a missing table and an empty table both mean "no
-    generated text". They do not. An empty table returns zero rows; a missing
-    one raises, and `page.tsx` fetches the brief with `.catch(() => null)`, so
-    the entire section silently disappeared from every building where a rule
-    fired — the ~52% of pages that have something to say. The early return above
-    is why the other 48% looked fine and hid the bug.
-
-    Narrow on purpose: only undefined_table, and only for this optional read.
-    Any other database error is a real fault and still propagates.
-    """
-    keys = keys_for_selection(
-        selected_rules, categories=categories, percentile=percentile
-    )
-    if not keys:
-        return {}
-
-    try:
-        rows = (await db.execute(
-            text("""
-                SELECT rule_id, watch_for
-                FROM brief_texts
-                WHERE prompt_version = :version
-                  AND (rule_id, input_key) IN (
-                      SELECT * FROM unnest(
-                          CAST(:rule_ids AS text[]), CAST(:input_keys AS text[])
-                      )
-                  )
-            """),
-            {
-                "version": PROMPT_VERSION,
-                "rule_ids": [rule_id for rule_id, _ in keys],
-                "input_keys": [key for _, key in keys],
-            },
-        )).all()
-    except ProgrammingError as e:
-        if getattr(e.orig, "sqlstate", None) != UNDEFINED_TABLE:
-            raise
-        # The failed statement aborted the transaction. Nothing downstream reads
-        # the database, but roll back explicitly rather than leave a poisoned
-        # session for the dependency teardown to discover.
-        await db.rollback()
-        logger.warning(
-            "brief_texts is missing — serving authored brief_line only. "
-            "Apply ingest/migration/migrate_brief_texts.sql."
-        )
-        return {}
-    return {r.rule_id: r.watch_for for r in rows}
-
-
 @router.get("/building/{bin}/brief", response_model=BuildingBriefResponse)
 async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
     """The deterministic Building Brief — no model, no generated text.
@@ -578,7 +505,7 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
 
     selected = select_rules(signals)
     _, document = load_rules()
-    generated = await _generated_watch_for(
+    generated = await generated_watch_for(
         db, selected,
         categories=row.open_class_c_categories if row else None,
         percentile=row.violations_density_pct if row else None,
@@ -588,7 +515,16 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
         BriefWatchItem(
             rule_id=rule.id,
             brief_line=rule.brief_line,
-            watch_for=generated.get(rule.id),
+            watch_for=generated.get(rule.id) or rule.watch_for,
+            # NYC generates this line; a rule whose corpus row is missing falls
+            # back to its authored one, if it has one. The label follows the
+            # source rather than the city, so a fallback is never mislabelled as
+            # AI-assisted.
+            watch_for_source=(
+                "generated" if generated.get(rule.id)
+                else "authored" if rule.watch_for
+                else None
+            ),
             # Authored sentence plus, for the class C rule only, this
             # building's hazard areas named inside it. Every other rule gets
             # its `condition` back unchanged — see Rule.condition_with_areas.
@@ -599,7 +535,7 @@ async def get_hpd_building_brief(bin: str, db: AsyncSession = Depends(get_db)):
             why_it_matters=rule.why_it_matters,
             action=rule.action,
             citations=[
-                BriefCitation(label=c.label, url=c.url, covers=c.covers)
+                BriefCitation(label=c.label, url=c.url)
                 for c in rule.citations(document)
             ],
             # Only the class C rule is about hazard areas. For every other rule

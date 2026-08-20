@@ -366,6 +366,111 @@ with `short_description ILIKE '%LEAD%'` — the pattern is how they were found,
 but a free-text scan is not a definition. `open_class_c_violations` deliberately
 still counts them: they are genuine immediately-hazardous conditions.
 
+### SF Building Brief (`sf_brief_signals` materialized view)
+
+The SF analog of `hpd_brief_signals`, and the same arrangement: the SQL is
+GENERATED from the city's taxonomy by
+`api/services/briefs/cities/sf/signals.py`, so the view's category lists cannot
+drift from the file the rules read. Regenerate with:
+
+```bash
+cd api && ../.venv/bin/python -m services.briefs.cities.sf.signals
+```
+
+**Grain is the parcel.** One row per `mapblklot`, which can carry several
+buildings. Every reader-facing string reached from this view says "property"
+rather than "building" — see `CityBriefConfig.subject_noun`.
+
+**Universe.** `sf_violations_summary UNION sf_housing_complaints_summary`
+(46,260 parcels). A parcel can have complaints and no violations and still
+render a page, so a brief must exist for both.
+
+**Windows.** Complaint signals use a **5-year** window on
+`requested_datetime`; the two confidence inputs (`sf_record_count`,
+`latest_sf_activity`) are all-time, because a record is not thin because it is
+old.
+
+**Complaint signals** — one per rule, named for the statutory element rather
+than the raw DataSF subtype. The grouping lives in
+`api/services/briefs/cities/sf/taxonomy.json`, which is a complete partition of
+all 37 observed `service_subtype` values: 26 grouped into 15 rules, 11
+explicitly excluded with a recorded reason.
+
+**Violation signals** — `open_<group>_violations`, one per condition group,
+counted from `sf_dbi_nov` where `status = 'active'`.
+
+The group is assigned by a **text classifier** over `item` +
+`nov_item_description`, defined as an ordered first-match-wins pattern table in
+`api/services/briefs/cities/sf/nov_patterns.yaml` and compiled into the view as a
+`CASE` cascade. `nov_category_description` is only a fallback, used where the
+text names nothing.
+
+This exists because the category field cannot do the job: ten values, and 52.7%
+of rows are `building section`, `other section` or blank — a chapter of the code
+rather than a condition. The condition itself is in the text, in canonical
+phrases DBI reuses ("repair damaged ceilings (1001b,h,o hc)").
+
+Neither text field is ever rendered. They carry inspector names, addresses and
+narrative; this is classification only.
+
+**Accuracy: 98% over 114 hand-labelled rows, 99% on the 70 held out** during
+tuning. The table is measured, not assumed, and `tests/test_briefs_sf_classifier.py`
+fails if either figure regresses.
+
+**The lead rule is the most consequential single decision here.** `lead_paint`
+fires only on an explicit abatement or containment order. It does NOT fire on
+lead warnings or advisories, because San Francisco *presumes* all peeling paint
+and its substrate contains lead — so that language rides along on every paint
+order and says nothing about whether lead was found. An early version keyed on it
+and labelled 1,953 rows `lead_paint` against DBI's own 72 in `lead section`. Lead
+language with no abatement order resolves to `peeling_paint` instead.
+
+**Two engines, one table.** The classifier runs in Python (for tests and offline
+evaluation) and as generated SQL (on the site). They were verified to produce
+identical labels on all 29,712 active rows. The live hazard is dialect: POSIX
+spells a word boundary `\y`, Python spells it `\b`, and Postgres reads `\b` as
+BACKSPACE — so a stray `\b` would match nothing in the view while passing every
+Python test. A test asserts no pattern contains one.
+
+**Thresholds. Every rule fires at `> 0`** — one report, or one active NOV in a
+qualifying category, is enough.
+
+The first version used `> 1` on the four high-volume rules (pests, mold,
+plumbing, weather_windows). That floor was NYC's reasoning — one complaint
+cannot separate an incident from a building condition — and it does not transfer
+to a city with 35k complaints instead of millions. Measured cost of keeping it:
+
+| Rule | fires at `> 1` | fires at `> 0` |
+|---|---|---|
+| pests | 462 | 1,579 |
+| mold | 264 | 1,155 |
+| weather_windows | 157 | 960 |
+| plumbing | 187 | 768 |
+| **whole brief** | **3,267 (7.1%)** | **5,270 (11.4%)** |
+
+It suppressed 77% of the properties where a tenant reported mold. The brief
+never claims a condition is ongoing or severe — it says tenants reported it,
+which is exactly what one complaint supports — so the floor was protecting a
+distinction the rendered copy does not draw.
+
+**Coverage.** 6,075 of 46,260 parcels (**13.1%**) flag at least one rule,
+against NYC's ~52%. The remaining gap is structural rather than a tuning
+problem: NYC's brief is led by `open_class_c`, which fires on ~43% of buildings,
+and SF has no equivalent because its violation categories name code sections
+rather than conditions. The ceiling for anything violations-led in SF is the
+6,172 parcels (13.3%) that carry any active NOV at all. The empty state states
+the record count and says explicitly that nothing crossing a threshold "is not
+the same as no problems".
+
+The display cap of 3 truncates something on 391 parcels, 7.4% of those flagged —
+close to NYC's 7.1%, so the cap is behaving the same way in both cities.
+
+**Ranking.** `priority` 1–5 is editorial and no source document does it: life
+safety and the two bright-line utilities first, then health hazards, building
+systems, security and structure, then sanitation. Peers within a priority are
+ordered by `rank_by`, the signal deciding which is the bigger problem at that
+parcel. Display cap is 3, shared with NYC.
+
 ## Cross-cutting rules
 
 - **Residential filter**: percentile comparisons (`serious_rate_percentile`,

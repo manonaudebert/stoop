@@ -18,6 +18,8 @@ keeping the Anthropic SDK off the deterministic path.
 
 from pathlib import Path
 
+from services.briefs.schema import HAZARD_AREA_LIMIT
+from services.briefs.sql import sql_array as _sql_array
 from services.briefs.taxonomy import minor_categories
 
 # Complaint minor-categories behind the mold and pest rules. Named explicitly
@@ -106,22 +108,12 @@ VIOLATION_CATEGORIES_SCANNED = ["LEAD-BASED PAINT", "RETIRED", *DETECTOR_CATEGOR
 # for a rule that tells a prospective tenant what to expect this winter.
 COMPLAINT_WINDOW_YEARS = 5
 
-# How many hazard areas the class C rule can describe. Three is what the model
-# was given and what the rendered brief shows; more crowds the item.
-HAZARD_AREA_LIMIT = 3
-
+# This module sits two levels deeper than it used to (services/briefs/ ->
+# services/briefs/cities/nyc/), so the walk to the repo root is parents[5].
 MIGRATION_PATH = (
-    Path(__file__).resolve().parents[3]
+    Path(__file__).resolve().parents[5]
     / "ingest" / "migration" / "migrate_hpd_brief_signals.sql"
 )
-
-
-def _sql_array(values: list[str]) -> str:
-    """A Postgres text[] literal. Values are HPD category names — no quotes in
-    any of them today, but escape anyway rather than generate broken SQL if one
-    ever appears."""
-    inner = ", ".join("'" + v.replace("'", "''") + "'" for v in values)
-    return f"ARRAY[{inner}]"
 
 
 def _view_body() -> str:
@@ -253,19 +245,19 @@ def render_migration() -> str:
 
     Regenerate with:
 
-        cd api && ../.venv/bin/python -m services.briefs.signals
+        cd api && ../.venv/bin/python -m services.briefs.cities.nyc.signals
     """
     return f"""\
 -- GENERATED FILE — do not edit by hand.
 --
--- Written by `api/services/briefs/signals.py::render_migration`, which reads
+-- Written by `api/services/briefs/cities/nyc/signals.py::render_migration`, which reads
 -- the complaint categories from `frontend/lib/renter-facing-groups.json` via
 -- the shared taxonomy. Editing this file directly forks the heat definition
 -- away from the building page's "Heat / hot water" card, which is the exact
 -- bug the taxonomy alignment fixed.
 --
--- To change it: edit `signals.py` (or the JSON), then regenerate with
---     cd api && ../.venv/bin/python -m services.briefs.signals
+-- To change it: edit `cities/nyc/signals.py` (or the JSON), then regenerate with
+--     cd api && ../.venv/bin/python -m services.briefs.cities.nyc.signals
 -- `tests/test_briefs_signals_sql.py` fails if this file and the generator
 -- disagree, and if `schema.sql` has drifted from either.
 --
@@ -296,7 +288,7 @@ def render_schema_section() -> str:
     return f"""\
 -- ── hpd_brief_signals ─────────────────────────────────────────────────────────
 -- The seven signals behind the Building Brief's rules, one row per building.
--- Generated from `api/services/briefs/signals.py` — see the note there before
+-- Generated from `api/services/briefs/cities/nyc/signals.py` — see the note there before
 -- editing the category lists, which come from renter-facing-groups.json.
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS hpd_brief_signals AS

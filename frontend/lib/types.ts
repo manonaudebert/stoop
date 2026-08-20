@@ -302,7 +302,6 @@ export interface BriefCitation {
   url: string | null
   // Which claims this source backs. Only populated when an item cites more than
   // one document, where the reader needs to know which to check for what.
-  covers: string | null
 }
 
 export interface BriefWatchItem {
@@ -316,9 +315,16 @@ export interface BriefWatchItem {
   // rule below the top two and for any rule whose corpus was deleted. Anything
   // rendering it must carry the AI-assisted label — see WatchForLine.
   watch_for: string | null
+  // Which kind of text `watch_for` holds. 'generated' is the only value that may
+  // carry the AI-assisted label; 'authored' text is cited like everything else,
+  // and null whenever `watch_for` is null. Read this rather than the city — a
+  // NYC rule whose corpus row is deleted serves authored text too.
+  watch_for_source: 'authored' | 'generated' | null
   condition: string
   why_it_matters: string
-  action: string
+  // Optional: omitted where the only honest action is generic advice that
+  // applies to every condition alike. See api/services/briefs/rules.py::Rule.
+  action?: string | null
   citations: BriefCitation[]
   // Only populated for the class C rule. [] and null differ: [] means flagged
   // but nothing describable, null means this rule is not about hazard areas.
@@ -336,8 +342,15 @@ export interface BriefWatchItem {
   hazard_area_phrase: string | null
 }
 
-export interface BuildingBrief {
-  bin: string
+/**
+ * Everything a rendered brief needs, minus the identifier.
+ *
+ * The identifier is exactly what the two cities cannot share: NYC keys on a BIN
+ * (one building) and SF on a mapblklot (one PARCEL, possibly several buildings).
+ * `BuildingBrief.tsx` takes this base type, so it never has to know which, and
+ * the two ids stay honestly named rather than one pretending to be the other.
+ */
+export interface BuildingBriefBase {
   watch_items: BriefWatchItem[]
   confidence_note: string | null
   no_flags: boolean
@@ -349,4 +362,14 @@ export interface BuildingBrief {
   // Violations and complaints together. The only number the brief renders,
   // and only in the empty state — see EmptyState in BuildingBrief.tsx.
   record_count: number
+}
+
+export interface BuildingBrief extends BuildingBriefBase {
+  bin: string
+}
+
+export interface SfBuildingBrief extends BuildingBriefBase {
+  // A PARCEL id, not a building id: one mapblklot can carry several buildings,
+  // which is why SF's copy says "property" where NYC's says "building".
+  mapblklot: string
 }

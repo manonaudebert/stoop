@@ -128,3 +128,32 @@ def test_dockerignore_does_not_exclude_the_taxonomy():
             f"{relative} has no effect. Either exclude its contents instead "
             f"({parent}/*) or re-include the directory: !{parent}/"
         )
+
+
+def test_other_cities_keep_their_taxonomy_inside_api():
+    """Only NYC's taxonomy needs an explicit COPY; the rest must not.
+
+    NYC's lives in `frontend/lib/` because the violations chart renders from the
+    same file, which is why the arithmetic above exists at all. Every other city
+    keeps its taxonomy and rules inside `api/services/briefs/cities/`, where
+    `COPY api/ .` ships them for free.
+
+    This asserts that property rather than trusting it. A city whose taxonomy
+    drifted outside api/ without a matching COPY would import fine in every test
+    — they all run from a checkout — and crash the container on startup, which is
+    exactly how this failed the first time.
+    """
+    from services.briefs.cities import CITIES
+
+    api_dir = Path(taxonomy.__file__).resolve().parents[2]
+    for key, config in CITIES.items():
+        if key == "nyc":
+            continue
+        assert config.taxonomy_path.is_relative_to(api_dir), (
+            f"{key}'s taxonomy is at {config.taxonomy_path}, outside {api_dir}. "
+            "Either move it under api/ or add an explicit COPY to api/Dockerfile "
+            "and extend the arithmetic above to cover it."
+        )
+        assert config.rules_path.is_relative_to(api_dir), (
+            f"{key}'s rules.yaml is outside {api_dir} and will not ship."
+        )

@@ -474,6 +474,15 @@ async def _refresh_sf_views(conn: asyncpg.Connection) -> None:
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY sf_housing_complaints_summary")
     log.info("Refreshing sf_violations_summary…")
     await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY sf_violations_summary")
+
+    # Building Brief signals. Reads both summary views above (for the record
+    # count and last-activity date) plus the raw NOV and 311 tables, so it has to
+    # come after both. Skipping it does not break the page — it silently serves
+    # last week's watch items against this week's numbers, which is worse than an
+    # error, so it belongs in this sequence rather than a separate job.
+    log.info("Refreshing sf_brief_signals…")
+    await conn.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY sf_brief_signals")
+
     n_c = await conn.fetchval("SELECT COUNT(*) FROM sf_housing_complaints_summary")
     n_v = await conn.fetchval("SELECT COUNT(*) FROM sf_violations_summary")
     log.info("Views refreshed — %d complaint parcels, %d violation parcels.", n_c, n_v)

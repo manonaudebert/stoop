@@ -370,16 +370,18 @@ function EmptyState({
       <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
         {recordCount.toLocaleString()} {recordNoun}{' '}
         {recordCount === 1 ? 'record' : 'records'} on file; none met the
-        thresholds we flag. That is not the same as no problems. Full violation
-        and complaint history below.
+        thresholds we flag. Records only show what tenants reported and
+        inspectors cited, not everything about a {subjectNoun}. Full history
+        below.
       </p>
     )
   }
   if (hasRecords) {
     return (
       <p style={{ fontSize: 12.5, color: '#737373', lineHeight: 1.55, margin: 0 }}>
-        Nothing here met the thresholds we flag. That is not the same as no
-        problems. Full violation and complaint history below.
+        Nothing here met the thresholds we flag. Records only show what
+        tenants reported and inspectors cited, not everything about a{' '}
+        {subjectNoun}. Full history below.
       </p>
     )
   }

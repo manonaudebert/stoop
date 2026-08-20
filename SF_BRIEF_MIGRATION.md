@@ -1,8 +1,9 @@
 # SF Building Brief — migration handoff
 
 Everything needed to apply `sf_brief_signals` and see the SF brief render, written
-so a fresh session can pick it up cold. **Nothing here has touched a database
-yet.** The code is committed; the view does not exist in any environment.
+so a fresh session can pick it up cold. **Applied and verified on a Neon branch
+2026-08-20; still not applied to prod.** The code is committed; the view exists
+in no production environment.
 
 Companions: `SF_BRIEF_HANDOFF.md` (why the feature is shaped this way),
 `METRICS.md` (what every signal means), `BRIEF_ROLLOUT.md` (the NYC feature).
@@ -66,12 +67,15 @@ neonctl connection-string sf-brief-signals \
 # 2 ── apply, and TIME it. This is the number that decides the prod window.
 time psql "$BRANCH_URL" -f ingest/migration/migrate_sf_brief_signals.sql
 
-# 3 ── sanity checks
-psql "$BRANCH_URL" -c "SELECT count(*) FROM sf_brief_signals;"           # expect 46,260
-psql "$BRANCH_URL" -c "SELECT count(*) FROM sf_brief_signals
-                       WHERE open_interior_surfaces_violations > 0;"     # expect ~597
-psql "$BRANCH_URL" -c "SELECT count(*) FROM sf_brief_signals
-                       WHERE open_lead_paint_violations > 0;"            # expect ~153, NOT thousands
+# 3 ── sanity checks, in one pass
+psql "$BRANCH_URL" -c "SELECT
+  count(*)                                                             AS parcels,
+  count(*) FILTER (WHERE open_interior_surfaces_violations > 0)        AS interior,
+  count(*) FILTER (WHERE open_lead_paint_violations > 0)               AS lead_viol,
+  count(*) FILTER (WHERE open_lead_paint_violations > 0
+                      OR lead_paint_complaints > 0)                    AS lead_rule
+FROM sf_brief_signals;"
+# expect 46,260 / ~597 / ~40 / ~153. Read lead_rule, not lead_viol — see below.
 
 # 4 ── run the app against the branch, never overwriting prod .env
 echo "DATABASE_URL=$BRANCH_URL" > .env.branch
@@ -82,8 +86,17 @@ psql "$(grep -E '^DATABASE_URL=' .env | head -1 | cut -d= -f2-)" \
 neonctl branches delete sf-brief-signals --org-id org-restless-sun-47417782
 ```
 
-Check 3's lead count is the one worth reading carefully. If it comes back in the
-thousands, the classifier's lead rule has regressed — see *The lead rule* below.
+**Read `lead_rule`, not `lead_viol`.** The lead rule fires on a union of two
+signals (`rules.yaml:277-281`): `lead_paint_complaints > 0` OR
+`open_lead_paint_violations > 0`. The "140 to 153" in `SF_BRIEF_HANDOFF.md:615`
+is that union; the violations column alone is ~40, and the two were never the
+same quantity. Measured on the Neon branch 2026-08-20: 40 violations, 117
+complaints, **153 union** — the handoff number exactly.
+
+If `lead_viol` comes back in the *thousands*, the classifier's lead rule has
+regressed — see *The lead rule* below. A third number, 121, appears at
+`rules.yaml:26`; it is an older sync and none of the three should be read as a
+target, only as an order of magnitude.
 
 ### Cost and timing, measured
 
@@ -91,7 +104,8 @@ Measured against prod 2026-08-19, read-only:
 
 | | |
 |---|---|
-| full view build | ~39 s |
+| full view build, read-only plan | ~39 s |
+| full view build, actually applied | **54 s** (Neon branch, 2026-08-20) |
 | of which the classifier regex | **~6.3 s** |
 | rows the regex touches | **29,957** — active violations only, via `idx_sf_dbi_nov_status` |
 | same rows, no regex | 0.06 s |
@@ -111,7 +125,8 @@ label onto `sf_dbi_nov` at ingest: DBI republishes every row wholesale on each
 publish, so that recomputes 516k rows instead of 30k.
 
 The real operational cost is the one-off `DROP` + `CREATE`, during which the API
-serves a missing view. Step 2's timing is what tells you how long that is.
+serves a missing view. Measured: **54 s**, during which `/sf/building/*/brief`
+500s. That is a minute of downtime on one route, not an instant swap.
 
 ### After it is applied
 

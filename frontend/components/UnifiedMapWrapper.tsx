@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useState, useMemo, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
 import CityToggle from './CityToggle'
@@ -53,40 +54,17 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   const [visibleTiers,    setVisibleTiers]    = useState<Set<string>>(new Set(ALL_TIERS))
   const [showNtaBorders,   setShowNtaBorders]   = useState(false)
   const [mobileSheet,      setMobileSheet]      = useState<'legend' | 'dataset' | null>(null)
-  const [isMobile,         setIsMobile]         = useState(false)
   const [selectedNtas,     setSelectedNtas]     = useState<Set<string>>(new Set())
   const [ntaList,          setNtaList]          = useState<NtaItem[]>([])
   const [ntaSearch,        setNtaSearch]        = useState('')
   const [ntaListExpanded,  setNtaListExpanded]  = useState(true)
   const [explainerExpanded, setExplainerExpanded] = useState(false)
-  const [showWelcome,       setShowWelcome]       = useState(false)
   const [navMenuOpen,       setNavMenuOpen]       = useState(false)
+  const closeNavMenu = useCallback(() => setNavMenuOpen(false), [])
 
-  useEffect(() => {
-    if (!localStorage.getItem('stoop_welcome_dismissed')) setShowWelcome(true)
-  }, [])
-
-  useEffect(() => {
-    if (!navMenuOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavMenuOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [navMenuOpen])
-
-  // Track the mobile breakpoint (< 640px = Tailwind `sm`) so the map overlays
-  // can render as bottom sheets instead of floating cards.
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639.98px)')
-    const update = () => setIsMobile(mq.matches)
-    update()
-    mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
-  }, [])
-
-  function dismissWelcome() {
-    localStorage.setItem('stoop_welcome_dismissed', '1')
-    setShowWelcome(false)
-  }
+  const isMobile = useIsMobile()
+  const { showWelcome, dismissWelcome } = useWelcomeBanner('stoop_welcome_dismissed')
+  useEscapeKey(navMenuOpen, closeNavMenu)
 
   const config            = LENS_CONFIG[lens]
   const visibleTiersArray = useMemo(() => [...visibleTiers], [visibleTiers])

@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useState, useMemo, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
 import SearchBar from './SearchBar'
 import CityToggle from './CityToggle'
 import SfBuildingSidebar, { type SfMapBuilding } from './SfBuildingSidebar'
@@ -51,34 +52,18 @@ export default function SfMapWrapper() {
   const [flyTarget,        setFlyTarget]        = useState<FlyTarget | null>(null)
   const [visibleTiers,     setVisibleTiers]     = useState<Set<string>>(new Set(ALL_TIERS))
   const [mobileSheet,      setMobileSheet]      = useState<'legend' | 'dataset' | null>(null)
-  const [isMobile,         setIsMobile]         = useState(false)
   const [explainerExpanded, setExplainerExpanded] = useState(false)
   const [navMenuOpen,       setNavMenuOpen]       = useState(false)
-  const [showWelcome,       setShowWelcome]       = useState(false)
+  const closeNavMenu = useCallback(() => setNavMenuOpen(false), [])
   const [showNeighborhoods,     setShowNeighborhoods]     = useState(false)
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<Set<string>>(new Set())
   const [neighborhoodList,      setNeighborhoodList]      = useState<NhoodItem[]>([])
   const [neighborhoodSearch,    setNeighborhoodSearch]    = useState('')
   const [neighborhoodListExpanded, setNeighborhoodListExpanded] = useState(true)
 
-  useEffect(() => {
-    if (!localStorage.getItem('sf_welcome_dismissed')) setShowWelcome(true)
-  }, [])
-
-  useEffect(() => {
-    if (!navMenuOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavMenuOpen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [navMenuOpen])
-
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639.98px)')
-    const update = () => setIsMobile(mq.matches)
-    update()
-    mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
-  }, [])
+  const isMobile = useIsMobile()
+  const { showWelcome, dismissWelcome } = useWelcomeBanner('sf_welcome_dismissed')
+  useEscapeKey(navMenuOpen, closeNavMenu)
 
   useEffect(() => {
     if (selected) setExplainerExpanded(false)
@@ -368,11 +353,6 @@ export default function SfMapWrapper() {
       <path d="M2 4.5l4 4 4-4" stroke="#737373" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   )
-
-  function dismissWelcome() {
-    localStorage.setItem('sf_welcome_dismissed', '1')
-    setShowWelcome(false)
-  }
 
   return (
     <div className="relative w-full h-full">

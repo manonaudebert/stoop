@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
+
 // One building across both datasets, as carried by a unified map feature. Any
 // field group is null when the building has no record in that dataset.
 export type UnifiedBuilding = {
@@ -43,30 +45,6 @@ function riskMeta(level: string | null | undefined) {
   return RISK_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
 }
 
-function StatCell({ label, value, loading }: { label: string; value: number | null; loading?: boolean }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-      {loading ? (
-        <div className="skeleton" style={{ height: 19, width: 32, marginBottom: 6 }} />
-      ) : (
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
-          color: value === null ? '#D4D1C3' : '#111111',
-          lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
-        }}>
-          {value === null ? '—' : value.toLocaleString()}
-        </div>
-      )}
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#525252',
-      }}>
-        {label}
-      </div>
-    </div>
-  )
-}
-
 const RiskChip = ({ level }: { level: string | null | undefined }) => {
   const meta = riskMeta(level)
   return (
@@ -96,47 +74,6 @@ const RecordLink = ({ href, children }: { href: string; children: React.ReactNod
 
 // Marks the section whose risk currently drives the map colors, so a tenant
 // reading a green/red dot knows which of the two dimensions they're looking at.
-const OnMapBadge = () => (
-  <span style={{
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em',
-    textTransform: 'uppercase', color: '#FFFFFF',
-    background: '#111111', borderRadius: 4, padding: '2px 5px',
-  }}>
-    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FFFFFF' }} />
-    Map
-  </span>
-)
-
-const SectionHeader = ({ title, level, active }: { title: string; level?: string | null; active?: boolean }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: '#111111', fontWeight: 600,
-      }}>
-        {title}
-      </span>
-      {level !== undefined && <RiskChip level={level} />}
-    </div>
-    {active && <OnMapBadge />}
-  </div>
-)
-
-// Wraps a dataset section, giving the map-active one a left accent bar and a
-// faint tint so it reads as the source of the dot colors on the map.
-const Section = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
-  <div style={{
-    borderLeft: active ? '2px solid #111111' : '2px solid transparent',
-    background: active ? '#F5F5F4' : 'transparent',
-    borderRadius: active ? '0 6px 6px 0' : 0,
-    margin: active ? '0 -6px' : 0,
-    padding: active ? '10px 6px 10px 10px' : 0,
-  }}>
-    {children}
-  </div>
-)
-
 type Props = {
   building: UnifiedBuilding
   onClose: () => void
@@ -207,7 +144,7 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
 
       {/* ── Housing conditions (HPD) ── */}
       <Section active={activeLens === 'HPD'}>
-        <SectionHeader title="Housing conditions" level={hasHpd ? building.hpd_risk_level : undefined} active={activeLens === 'HPD'} />
+        <SectionHeader title="Housing conditions" chip={hasHpd ? <RiskChip level={building.hpd_risk_level} /> : undefined} active={activeLens === 'HPD'} />
         {hasHpd ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
@@ -228,7 +165,7 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
 
       {/* ── Building safety (DOB) ── */}
       <Section active={activeLens === 'DOB'}>
-        <SectionHeader title="Building safety" level={hasDob ? building.dob_risk_level : undefined} active={activeLens === 'DOB'} />
+        <SectionHeader title="Building safety" chip={hasDob ? <RiskChip level={building.dob_risk_level} /> : undefined} active={activeLens === 'DOB'} />
         {hasDob ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>

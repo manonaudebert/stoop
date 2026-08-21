@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 
+import { Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
+
 export type SfMapBuilding = {
   mapblklot: string
   address: string | null
@@ -31,26 +33,6 @@ function riskMeta(level: string | null | undefined) {
   return RISK_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
 }
 
-function StatCell({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 19, fontWeight: 500,
-        color: value === null ? '#D4D1C3' : '#111111',
-        lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 3,
-      }}>
-        {value === null ? '—' : value.toLocaleString()}
-      </div>
-      <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#525252',
-      }}>
-        {label}
-      </div>
-    </div>
-  )
-}
-
 const RiskChip = ({ level }: { level: string | null | undefined }) => {
   const meta = riskMeta(level)
   return (
@@ -62,45 +44,6 @@ const RiskChip = ({ level }: { level: string | null | undefined }) => {
     </span>
   )
 }
-
-const OnMapBadge = () => (
-  <span style={{
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em',
-    textTransform: 'uppercase', color: '#FFFFFF',
-    background: '#111111', borderRadius: 4, padding: '2px 5px',
-  }}>
-    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FFFFFF' }} />
-    Map
-  </span>
-)
-
-const SectionHeader = ({ title, level, active }: { title: string; level?: string | null; active?: boolean }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: '#111111', fontWeight: 600,
-      }}>
-        {title}
-      </span>
-      {level !== undefined && <RiskChip level={level} />}
-    </div>
-    {active && <OnMapBadge />}
-  </div>
-)
-
-const Section = ({ active, children }: { active: boolean; children: React.ReactNode }) => (
-  <div style={{
-    borderLeft: active ? '2px solid #111111' : '2px solid transparent',
-    background: active ? '#F5F5F4' : 'transparent',
-    borderRadius: active ? '0 6px 6px 0' : 0,
-    margin: active ? '0 -6px' : 0,
-    padding: active ? '10px 6px 10px 10px' : 0,
-  }}>
-    {children}
-  </div>
-)
 
 type Props = {
   building: SfMapBuilding
@@ -153,7 +96,7 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
       <Section active={activeLens === 'complaints'}>
         <SectionHeader
           title="311 Complaints"
-          level={hasComplaints ? building.complaints_risk_level : undefined}
+          chip={hasComplaints ? <RiskChip level={building.complaints_risk_level} /> : undefined}
           active={activeLens === 'complaints'}
         />
         {hasComplaints ? (
@@ -175,7 +118,7 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
       <Section active={activeLens === 'violations'}>
         <SectionHeader
           title="DBI Violations"
-          level={hasViolations ? building.violations_risk_level : undefined}
+          chip={hasViolations ? <RiskChip level={building.violations_risk_level} /> : undefined}
           active={activeLens === 'violations'}
         />
         {hasViolations ? (

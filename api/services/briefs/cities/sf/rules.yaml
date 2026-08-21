@@ -10,8 +10,8 @@
 # source. California's does — `gb05_lookingfor.html#inspect` — and sf.gov's
 # vermin page supplies the cues the state list leaves circular. So `watch_for`
 # here is authored and cited like every other field, and the page renders it
-# WITHOUT the AI-assisted label. See SF_BRIEF_HANDOFF.md for the measurement
-# behind that decision.
+# WITHOUT the AI-assisted label. See AI_METHODOLOGY.md, "SF: authored, and why",
+# for the reasoning behind that decision.
 #
 # ── The spine: rules are derived from the statute ────────────────────────────
 #
@@ -36,7 +36,7 @@
 #   - No causal claims.
 #   - If a claim cannot be located in a source document, it does not go in.
 #     Elevators fire on 388 parcels and have NO rule here for exactly this
-#     reason — no gathered source covers them. See SF_BRIEF_HANDOFF.md.
+#     reason — no gathered source covers them. See AI_METHODOLOGY.md.
 #   - No em dashes in `why_it_matters`, `action`, `brief_line` or `watch_for`.
 #   - No numbers. The counts sit in cards on the same page.
 #   - Say "property", not "building". A row is one mapblklot, which is a PARCEL

@@ -777,7 +777,7 @@ async def get_sf_building_brief(mapblklot: str, db: AsyncSession = Depends(get_d
     Every text field, `watch_for` included, is authored in `cities/sf/rules.yaml`
     and cited. NYC's generated field exists because the ABCs of Housing publishes
     no viewing checklist; California's guidebook does, so there is nothing here
-    for a model to add. See SF_BRIEF_HANDOFF.md for the measurement.
+    for a model to add. See AI_METHODOLOGY.md, "SF: authored, and why".
 
     A parcel with no row in the view is NOT an error and NOT a special case. The
     view covers every parcel with any DBI or 311 record, so a mapblklot outside

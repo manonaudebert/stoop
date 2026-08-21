@@ -9,15 +9,15 @@ Status: **phase 1 ships — the NYC corpus is generated and generated text
 renders on the page.** 903 of 909 rows at `brief-v11`, $8.02. Cost figures below
 are measured on `claude-haiku-4-5`, not extrapolated.
 
-Branch: `building-brief` (not pushed). Companion memory: the Building Brief
-entry in the project memory index.
+Merged to `main`. Companion memory: the Building Brief entry in the project
+memory index.
 
 ---
 
 ## Start here
 
-**State as of 2026-08-18, on `building-brief` (not pushed).** **The NYC corpus
-is generated.** 903 of 909 rows at `brief-v11`, 2,733 calls, **$8.02**. Six rows
+**State as of 2026-08-18, now merged to `main`.** **The NYC corpus is
+generated.** 903 of 909 rows at `brief-v11`, 2,733 calls, **$8.02**. Six rows
 remain, covering four buildings each; rerunning `build_corpus` picks them up.
 
 Generated text is live on the page for every building whose input shape has a

@@ -1,18 +1,22 @@
-# SF Building Brief — migration handoff
+# SF Building Brief — migration record
 
-Everything needed to apply `sf_brief_signals` and see the SF brief render, written
-so a fresh session can pick it up cold. **Applied and verified on a Neon branch
-2026-08-20; still not applied to prod.** The code is committed; the view exists
-in no production environment.
+**Applied to prod 2026-08-20. `sf_brief_signals` exists and the SF brief renders.**
+This is now a record of how the migration was done, not a to-do: it keeps the
+Neon-branch-first commands, the sanity checks, and the measured build cost, all
+of which stay useful the next time the view has to be rebuilt.
 
-Companions: `SF_BRIEF_HANDOFF.md` (why the feature is shaped this way),
-`METRICS.md` (what every signal means), `BRIEF_ROLLOUT.md` (the NYC feature).
+Because the view is materialized in prod, adding a group to `nov_patterns.yaml`
+now costs a real production recompute. Card-only violation buckets deliberately
+avoid that — see `METRICS.md`, "Top categories / timelines".
+
+Companions: `AI_METHODOLOGY.md` (why SF runs no model), `METRICS.md` (what every
+signal means), `BRIEF_ROLLOUT.md` (the NYC feature).
 
 ---
 
 ## State
 
-Branch **`sf-building-brief`**, four commits off `main` at `176087b`, not pushed.
+Merged to `main` in `30b0737`. The commits it carried:
 
 ```
 f1c7ca4  docs: record SF brief methodology and two corrections
@@ -21,11 +25,9 @@ f1c7ca4  docs: record SF brief methodology and two corrections
 c247633  refactor(briefs): put the Building Brief on a city registry
 ```
 
-Separately: branch **`domain-stoopcity`** is pushed and open as
-[PR #5](https://github.com/manonaudebert/stoop/pull/5) — an unrelated
-`stoopnyc.org` → `stoopcity.org` rename. `sf-building-brief` does NOT carry it,
-so anything deployed from this branch before that merges still emits the old
-domain in its OG metadata.
+The `stoopnyc.org` → `stoopcity.org` rename that was open alongside this work
+([PR #5](https://github.com/manonaudebert/stoop/pull/5)) has since merged in
+`158a87a`, so the canonical domain is `stoopcity.org` everywhere.
 
 **Verified green on the committed tree:** 419 tests, offline, ~0.9s; `tsc
 --noEmit` clean; the generated SQL parses and plans against prod.
@@ -88,10 +90,11 @@ neonctl branches delete sf-brief-signals --org-id org-restless-sun-47417782
 
 **Read `lead_rule`, not `lead_viol`.** The lead rule fires on a union of two
 signals (`rules.yaml:277-281`): `lead_paint_complaints > 0` OR
-`open_lead_paint_violations > 0`. The "140 to 153" in `SF_BRIEF_HANDOFF.md:615`
-is that union; the violations column alone is ~40, and the two were never the
+`open_lead_paint_violations > 0`. The "140 to 153" figure recorded during the
+build is that union; the violations column alone is ~40, and the two were never the
 same quantity. Measured on the Neon branch 2026-08-20: 40 violations, 117
-complaints, **153 union** — the handoff number exactly.
+complaints, **153 union** — matching the figure the SF brief handoff recorded
+(that document has since been removed; the number is preserved here).
 
 If `lead_viol` comes back in the *thousands*, the classifier's lead rule has
 regressed — see *The lead rule* below. A third number, 121, appears at

@@ -9,6 +9,7 @@ from cache import cache_get, cache_set
 from routes.map import RISK_COLORS
 from routes.hpd_complaints import _search_patterns, _normalize
 from services.briefs.cities import SF
+from services.briefs.cities.sf import card_categories, classifier
 from services.briefs.confidence import confidence_note_from_signals
 from services.briefs.rules import load_rules, select_rules
 from schemas import (
@@ -25,6 +26,31 @@ from schemas import (
 )
 
 router = APIRouter(prefix="/sf", tags=["sf"])
+
+
+# The bucket for NOV rows that name no condition once inspector narrative is
+# stripped — 32% of DBI's 5-year corpus. It is NOT charted as a bar: the route
+# returns it last and the page renders it as a footnote, because a chart that
+# shows "inspector comments" as a violation category invents a finding out of a
+# note. See cities/sf/nov_card_patterns.yaml for the measurement.
+UNCLASSIFIED_LABEL = "Notices naming no specific condition"
+UNCLASSIFIED_DESCRIPTION = (
+    "Inspector narrative, nuisance declarations, and scheduling notes, which "
+    "describe no condition of their own. Read them in the violation log below."
+)
+
+
+def _violation_group_label(group: str) -> str:
+    if group == card_categories.UNCLASSIFIED_GROUP:
+        return UNCLASSIFIED_LABEL
+    return card_categories.label(group)
+
+
+def _violation_group_description(group: str) -> str:
+    if group == card_categories.UNCLASSIFIED_GROUP:
+        return UNCLASSIFIED_DESCRIPTION
+    return card_categories.description(group)
+
 
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
@@ -653,33 +679,75 @@ async def get_sf_violations_breakdown(
     years: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
+    """Top violation categories, grouped by CONDITION rather than by code chapter.
+
+    This card used to group by `nov_category_description`, and that is close to
+    useless to a renter: it is the chapter of the code the inspector cited, not
+    what is wrong. Measured over 5 years of DBI notices, 97.4% of the rows that
+    describe nothing at all still carry `building section`, `other section` or a
+    blank — so the old card was substantially charting INSPECTOR NOTES as
+    violation categories. "building section — 5 violations" was, more often than
+    not, five rows of narrative.
+
+    The condition is in the notice text, so `cities/sf/card_categories` reads it
+    out: the brief's classifier first (which keeps this card and the Building
+    Brief from ever contradicting each other), then the card's own wider table
+    for DBI's non-habitability space. Rows still naming no condition are counted
+    into one `unclassified` bucket, returned LAST and rendered as a footnote —
+    never as a bar.
+
+    Returning that bucket rather than dropping it in SQL is deliberate. 5,717
+    parcels have nothing but narrative rows in a 5-year window, and on those the
+    chart is legitimately empty; the count is what lets the page say "12 notices,
+    none naming a specific condition" instead of rendering an empty card.
+    """
     cache_key = f"sf_violation_breakdown:{mapblklot}:{years}"
     cached = cache_get(cache_key)
     if cached:
         return cached
-    date_filter = "AND date_filed >= NOW() - INTERVAL '5 years'" if years else ""
+    date_filter = "AND v.date_filed >= NOW() - INTERVAL '5 years'" if years else ""
     rows = await db.execute(
         text(f"""
+            WITH t0 AS (
+                SELECT
+                    v.status,
+                    {classifier.render_sql_text_expression()} AS txt
+                FROM sf_dbi_nov v
+                WHERE v.mapblklot = :id
+                  {date_filter}
+            ), t AS (
+                SELECT
+                    status,
+                    txt,
+                    {card_categories.render_sql_narrative_strip("txt")} AS card_txt
+                FROM t0
+            )
             SELECT
-                COALESCE(nov_category_description, 'Unknown') AS category,
-                COUNT(*)                                      AS count,
-                COUNT(*) FILTER (WHERE LOWER(status) = 'active') AS open_count
-            FROM sf_dbi_nov
-            WHERE mapblklot = :id
-              {date_filter}
-            GROUP BY category
+                COALESCE(
+{card_categories.render_sql_case(indent="                    ")}
+                , '{card_categories.UNCLASSIFIED_GROUP}')          AS grp,
+                COUNT(*)                                           AS count,
+                COUNT(*) FILTER (WHERE LOWER(t.status) = 'active') AS open_count
+            FROM t
+            GROUP BY grp
             ORDER BY count DESC
         """),
         {"id": mapblklot},
     )
     result = [
         SfViolationBreakdownItem(
-            category=r.category,
+            group=r.grp,
+            category=_violation_group_label(r.grp),
+            description=_violation_group_description(r.grp),
             count=r.count,
             open_count=r.open_count,
         )
         for r in rows
     ]
+    # The unnamed bucket sorts last however large — and it is frequently the
+    # largest. The page renders it below the bars, so its position here is what
+    # keeps it out of the chart's ordering.
+    result.sort(key=lambda i: (i.group == card_categories.UNCLASSIFIED_GROUP, -i.count))
     cache_set(cache_key, result)
     return result
 
@@ -709,7 +777,7 @@ async def get_sf_building_brief(mapblklot: str, db: AsyncSession = Depends(get_d
     Every text field, `watch_for` included, is authored in `cities/sf/rules.yaml`
     and cited. NYC's generated field exists because the ABCs of Housing publishes
     no viewing checklist; California's guidebook does, so there is nothing here
-    for a model to add. See SF_BRIEF_HANDOFF.md for the measurement.
+    for a model to add. See AI_METHODOLOGY.md, "SF: authored, and why".
 
     A parcel with no row in the view is NOT an error and NOT a special case. The
     view covers every parcel with any DBI or 311 record, so a mapblklot outside

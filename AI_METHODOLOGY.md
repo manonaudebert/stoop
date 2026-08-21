@@ -8,14 +8,45 @@ AI-generated.
 For what it costs to run, how it reaches the frontend, and which decisions are
 still open, see [`BRIEF_ROLLOUT.md`](BRIEF_ROLLOUT.md).
 
-Status: **phase 0 is live — every HPD building page shows a brief, and none of
-it is generated.** What renders today is entirely authored and cited: six rules,
-their compact `brief_line`, and the full block behind a disclosure. Phase 1 is
-under way: the validator gates on two implemented checks, the corpus table and
-its key exist, and the prompt is verified against `claude-haiku-4-5` — but
-**no corpus has been generated, so nothing on the page is generated text.** That ordering is the architecture working as intended — the
-deterministic layer is the majority of the product and shipped without waiting
-on any of it.
+Status: **phase 1 is live on NYC.** The NYC corpus has been generated — 903 of
+909 rows at `brief-v11` for $8.02 on `claude-haiku-4-5` — so HPD building pages
+now render one generated sentence per flagged issue, labelled as AI-assisted,
+on top of the authored layer. Everything else on the page is still authored and
+cited: the rules, their compact `brief_line`, and the full block behind a
+disclosure. See [`BRIEF_ROLLOUT.md`](BRIEF_ROLLOUT.md) for the run and its cost.
+
+**San Francisco has no model in its path at all** — see [SF: authored, and why](#sf-authored-and-why)
+below.
+
+That phase 0 shipped and ran for weeks before any corpus existed is the
+architecture working as intended: the deterministic layer is the majority of the
+product, and it never waited on the generated one.
+
+---
+
+## SF: authored, and why
+
+**No model runs anywhere in San Francisco's path.** Every string on an SF brief
+— including `watch_for`, which is the one generated field on the NYC side — is
+authored in `api/services/briefs/cities/sf/rules.yaml` and carries a citation.
+SF items must never render the AI-assisted label, because nothing about them is.
+
+That is not caution, it is redundancy. NYC generates `watch_for` because HPD's
+*ABCs of Housing* publishes no viewing checklist, so there was nothing to cite
+and a sentence had to be written. California's tenant guidance does publish one,
+so the sentence already exists in a citable source and a model would be
+paraphrasing a document we can simply quote.
+
+Two decisions from SF's build are worth not rediscovering, both recorded in full
+in [`METRICS.md`](METRICS.md#sf-building-brief-sf_brief_signals):
+
+- **`lead_paint` fires only on an explicit abatement or containment order.** San
+  Francisco presumes all peeling paint contains lead, so warning language rides
+  along on every paint order and means nothing. An early version keyed on it and
+  labelled 1,953 rows against DBI's own 72.
+- **Known gaps are gaps, not judgements.** No document among the gathered
+  sources covers elevators, so no SF rule speaks to them. Silence there is
+  deliberate, and should not be filled by inference.
 
 ---
 

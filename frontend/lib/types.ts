@@ -284,7 +284,13 @@ export interface SfComplaintBreakdownItem {
 }
 
 export interface SfViolationBreakdownItem {
+  // Taxonomy key from the NOV classifier, or 'unclassified' for notices whose
+  // text names no condition. `category` is its renter-facing label and
+  // `description` the tooltip sentence — both authored on the backend so this
+  // card speaks the same language as the Building Brief.
+  group: string
   category: string
+  description: string
   count: number
   open_count: number
 }

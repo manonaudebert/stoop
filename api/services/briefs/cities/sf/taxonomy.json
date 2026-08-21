@@ -189,7 +189,7 @@
   "excluded_subtypes": {
     "general_maintenance_not_in_list_above": "Opaque bucket. Names no condition, so an item built on it would point at nothing — the same defect as the NOV 'other section'. 1,034 parcels, and excluding it is the single largest judgement in this file.",
     "clutter_hoarder_unit_interior_storage": "Frequently tenant-caused and inside a unit. Every rule here frames a condition as the owner's to fix; that framing would misattribute this one.",
-    "elevators_everthing_else": "KNOWN GAP, not a judgement. No source among the gathered documents covers elevators. See SF_BRIEF_HANDOFF.md.",
+    "elevators_everthing_else": "KNOWN GAP, not a judgement. No source among the gathered documents covers elevators. See AI_METHODOLOGY.md, 'SF: authored, and why'.",
     "elevators_no_working_elevator_7_or_more_stories": "KNOWN GAP. 388 parcels across both elevator subtypes, larger than heat at the >1 threshold, and a real habitability problem for anyone with limited mobility — but uncitable with the sources in hand.",
     "second_hand_smoke": "No source among the gathered documents.",
     "noise_caused_by_building_systems": "Not a habitability element in any gathered source.",

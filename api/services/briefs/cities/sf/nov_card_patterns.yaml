@@ -1,0 +1,182 @@
+# SF NOV card categories — the "Top violation categories" extension table.
+#
+# Config, not code. A SECOND ordered table, layered on top of the brief's
+# `nov_patterns.yaml`, for one reason: the two have different jobs.
+#
+# ── Why this is not just more rules in nov_patterns.yaml ─────────────────────
+#
+# `nov_patterns.yaml` names the STATUTORY ELEMENTS OF HABITABILITY, because
+# every group in it becomes a signal a brief rule can fire on. Two consequences
+# make it the wrong place for card vocabulary:
+#
+#   1. Each group there becomes a COLUMN in `sf_brief_signals`
+#      (`signals.py::classified_violation_signals`), so adding one regenerates
+#      the migration and forces a full materialized-view recompute — a view
+#      rebuild to widen a chart.
+#   2. `test_route_selects_every_signal_the_view_offers` and the signals/rules
+#      parity test hold that column list to the rules. A group no rule reads is
+#      a test failure, and "boiler permits" is not a habitability rule.
+#
+# So the card gets its own table. Nothing here touches a signal column.
+#
+# ── How the two tables compose ───────────────────────────────────────────────
+#
+# The brief classifier runs FIRST and wins outright. That is what keeps the card
+# and the brief from contradicting each other on the rows they both label: the
+# card cannot relabel a row the brief calls `mold`. These rules only ever see
+# rows the brief classifier declined, so they are strictly additive.
+#
+# ── Where these buckets came from ────────────────────────────────────────────
+#
+# Measured, not imagined: of DBI NOVs filed in the last 5 years, 45.0% classify
+# under the brief table, 32.1% have no text left after the advisory strip, and
+# 22.9% carry real text no rule matched. The rules below were written from the
+# top of that 22.9%, in descending frequency, and the counts in each comment are
+# 5-year row counts at the time of authoring.
+#
+# ── The narrative strip, which is most of the win ────────────────────────────
+#
+# ~64% of that 22.9% is not an unlabelled condition at all — it is inspector
+# narrative that the brief's advisory list misses by a hair. Its pattern is
+# `inspector comments regarding.*`, and DBI overwhelmingly writes plain
+# "inspector comments" (4,728 rows), "inspectors comment", "inspector's
+# comments". Those rows describe nothing, and a chart that shows them as a
+# category — under any name — is worse than one that omits them, because it
+# invents a finding out of an inspector's note. They are stripped here and the
+# row falls out of the chart entirely.
+#
+# Regex dialect is POSIX ARE, exactly as in `nov_patterns.yaml`: `\y` for word
+# boundary, never `\b`. Matching is over `item` + `nov_item_description`,
+# lowercased, with the brief's advisory blocks stripped first and then these.
+
+# Removed before any card rule is tried, and — unlike the brief's advisory list —
+# a row reduced to nothing by these is DROPPED from the chart rather than
+# bucketed. Everything here is narrative, legal boilerplate, or correspondence.
+narrative:
+  # 4,728 + 643 + 392 + 356 + 349 + 169 + 86 rows across these spellings.
+  - "inspector'?s? comments?"
+  - "inspectors'? comments?"
+  # The apostrophe in DBI's export is sometimes mojibake (¿), which is why the
+  # brief's `owner'?s` pattern misses 81 rows. Both spellings, here.
+  - "it is the property owner(\\?|¿|')?s responsibility.*"
+  # Nuisance declarations are a LEGAL ESCALATION appended to a notice, not a
+  # condition — the condition itself is cited elsewhere in the same text and
+  # gets labelled on its own. Charting "nuisance" as a category would double-
+  # count the finding that caused it under a name that describes nothing.
+  - "important note: due to the nature of this violation.*"
+  - "due to the violations noted, this property (constitutes|has been deemed).*"
+  - "violations cited herein constitute a nuisance.*"
+  - "this property has been deemed a nuisance.*"
+  - "nuisance *\\(?401\\(2\\)?\\)? *\\(?1001\\(d\\)\\)? *hc\\)?"
+  - "\\ynuisance\\y *\\(1001\\(d\\)\\)"
+  # Scheduling and correspondence. The email pattern also keeps an inspector's
+  # personal address from ever reaching a matcher, let alone a label.
+  - "contact inspector[^.]*@[^ ]+"
+  - "an onsite reinspection is not needed to clear this notice.*"
+  # The PHRASE only. An earlier version ran to the end of the string and ate
+  # the order that follows it — "at the time of reinspection provide access to
+  # the boilers" was stripped to nothing and counted as narrative. Every
+  # `.*` pattern in this list has to be one that genuinely runs to the end of
+  # the notice; a preamble is not one.
+  - "at the time of (the )?re-?inspection,?"
+  - "violations cited are located in the common areas only\\.?"
+  - "see dbi nov\\.?"
+
+# First match wins, evaluated only on rows the brief classifier declined.
+rules:
+  # ~811 rows. San Francisco requires a shutoff tool at the gas meter and a
+  # posted diagram — earthquake preparedness, and the single most common real
+  # condition the brief table has no name for.
+  - group: gas_shutoff
+    pattern: "gas (utility )?shutoff|utility shutoff|shutoff tool|shut off tool|gas meter"
+
+  # ~377 rows. §327 SFEBC work-practice orders — containment, ground protection,
+  # signage — issued when exterior paint work is done without lead controls.
+  # DELIBERATELY NOT `lead_paint`: that group is reserved, in the brief, for an
+  # explicit abatement order, and widening it here would make the card claim a
+  # lead finding the brief does not. This names the work-practice failure, which
+  # is what the notice actually says.
+  - group: lead_work_practices
+    pattern: "327\\.[0-9]|\\(327\\)|prevent migration|protect the ground|containment and barrier|provide containment"
+
+  # ~115 rows. Both are heat and hot water by any tenant's reading: a water
+  # heater below the statutory 105°F, and the timeclocks the heat ordinance
+  # banned. Maps into the EXISTING taxonomy group, so the card says the same
+  # word the brief would.
+  - group: heat_hot_water
+    pattern: "water heated to min|105 degrees|heat time ?clock"
+
+  # ~71 rows. Boiler permits to operate and access for boiler inspection —
+  # equipment upkeep rather than a habitability failure on its own.
+  - group: heating_equipment
+    pattern: "\\yboilers?\\y"
+
+  # ~215 rows. DBI's catch-all citation, 1001(b)(13). Matched on the PHRASE
+  # only, never the bare section number, which appears as a cross-reference on
+  # notices whose real subject is named above.
+  - group: general_disrepair
+    pattern: "general dilapidation|improper maintenance"
+
+  # ~103 rows. Painting orders with no peeling named — repainting prepped or
+  # repaired surfaces. The existing group covers it and reads correctly.
+  - group: peeling_paint
+    pattern: "prime and paint|paint the prepped|paint (the )?(ceilings?|walls?|exterior)"
+
+  # ~76 rows. Work done without a permit, and orders to obtain one before the
+  # cited repairs. Renter-relevant: unpermitted work is how a unit ends up
+  # illegal.
+  - group: permits
+    pattern: "work without (a )?permit|without (a )?(building )?permit|\\ybid permits\\y|building permit required|\\y10[68]a\\y"
+
+  # ~23 rows. Owner denied the inspector entry to common areas.
+  - group: access
+    pattern: "access for routine inspection|provide access to (the )?(common|building)"
+
+# Labels and one-sentence descriptions for the groups that exist ONLY here.
+# Groups that reuse a taxonomy key (heat_hot_water, peeling_paint) are absent on
+# purpose — they take their wording from `taxonomy.json`, so one condition never
+# has two names on one page.
+groups:
+  gas_shutoff:
+    label: "Gas shutoff & meters"
+    description: "No shutoff tool at the gas meter, or no posted diagram showing how to shut the gas off in an emergency."
+  lead_work_practices:
+    label: "Lead-safe work practices"
+    description: "Paint work done without the containment or signage required to control lead dust. It describes how the work was done, not a lead test result."
+  heating_equipment:
+    label: "Heating equipment"
+    description: "Boiler permits, access for inspection, and upkeep of the building's central heating plant."
+  general_disrepair:
+    label: "General disrepair"
+    description: "The city's catch-all citation for a property in generally dilapidated or poorly maintained condition."
+  permits:
+    label: "Permits & unpermitted work"
+    description: "Work done without a required permit, or an order to obtain one before making the cited repairs."
+  access:
+    label: "Access for inspection"
+    description: "An order to provide access for routine inspection of common areas."
+
+# Card-side wording for groups that DO live in taxonomy.json. Labels are never
+# overridden — one condition keeps one name across the page — only the tooltip.
+#
+# Two reasons a description is overridden here rather than fixed in
+# taxonomy.json, and neither is style:
+#
+#   1. `taxonomy.json` is written in the COMPLAINT voice, because that is where
+#      most of its groups get their evidence: "Mold or mildew reported in the
+#      building." Nobody reported these. A violation is an inspector's finding,
+#      and a tooltip that says "reported" on a Notice of Violation is simply
+#      wrong about what the reader is looking at.
+#   2. That file is the Building Brief's vocabulary. Editing it to suit a chart
+#      would change authored brief copy as a side effect, which is exactly the
+#      coupling this whole card-side layer exists to avoid.
+descriptions:
+  mold: "Mold or mildew cited by an inspector."
+  pests: "Rodents, insects, or bed bugs cited by an inspector."
+  # 139 characters in taxonomy.json, and a tooltip is not a paragraph.
+  interior_surfaces: "Damaged walls, ceilings, or built-in cabinetry, whether or not a leak is named as the cause."
+  # The taxonomy sentence — "paint work done without the practices required to
+  # control lead dust" — describes `lead_work_practices`, the bucket below it,
+  # almost word for word. On the card the two are adjacent bars, so the one
+  # reserved for an explicit abatement order has to say so.
+  lead_paint: "An order to abate or contain lead paint, rather than a warning that lead may be present."

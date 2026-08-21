@@ -24,6 +24,7 @@ import FilterPill from '@/components/FilterPill'
 import WindowToggle from '@/components/WindowToggle'
 import Pagination from '@/components/Pagination'
 import HorizontalBarChart from '@/components/HorizontalBarChart'
+import TooltipIcon from '@/components/TooltipIcon'
 import BuildingBrief from '@/components/BuildingBrief'
 import type { Sf311Complaint, SfNov, SfComplaintBreakdownItem, SfViolationBreakdownItem } from '@/lib/types'
 
@@ -205,6 +206,19 @@ export default async function SfBuildingPage({
   const severeCount  = building.severe_complaints_5yr
   const seriousCount = building.serious_complaints_5yr
   const minorCount   = building.minor_complaints_5yr
+
+  // Violation categories split in two. The bars are the CONDITIONS DBI named;
+  // the `unclassified` bucket is notices carrying only inspector narrative and
+  // nuisance boilerplate, which the backend counts but never labels. It reads as
+  // a footnote rather than a bar because "inspector comments — 9 violations" is
+  // not a category, and charting it is how the old card ended up showing
+  // "building section" as this building's top problem.
+  const violationBars = violationBreakdown.filter(
+    (r: SfViolationBreakdownItem) => r.group !== 'unclassified',
+  )
+  const unnamedViolations = violationBreakdown.find(
+    (r: SfViolationBreakdownItem) => r.group === 'unclassified',
+  )
 
   const openViolations = building.open_violations
   // Open violations by severity tier (sum to openViolations). Replace the fixed
@@ -450,14 +464,40 @@ export default async function SfBuildingPage({
                 </h2>
                 {cwToggle()}
               </div>
-              <HorizontalBarChart
-                data={violationBreakdown.map((r: SfViolationBreakdownItem) => ({
-                  label: r.category,
-                  count: r.count,
-                  tooltip: r.open_count > 0 ? `${r.open_count} open` : undefined,
-                }))}
-                unit="violations"
-              />
+              {violationBars.length > 0 ? (
+                <HorizontalBarChart
+                  data={violationBars.map((r: SfViolationBreakdownItem) => ({
+                    label: r.category,
+                    count: r.count,
+                    // What the condition is, then how much of it is still
+                    // outstanding — the open count alone (the old tooltip) told
+                    // a reader nothing about a label like "building section".
+                    tooltip: r.open_count > 0
+                      ? `${r.description} ${r.open_count} still open.`
+                      : r.description,
+                  }))}
+                  unit="violations"
+                />
+              ) : (
+                // Not a data gap, and not a card worth hiding: DBI files plenty
+                // of notices whose text is inspector narrative alone, and more
+                // parcels have only those than have a nameable condition. Saying
+                // so is the honest answer, and it points at the log where the
+                // text can actually be read.
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.5 }}>
+                  No violation in this period names a specific condition.
+                </div>
+              )}
+              {unnamedViolations && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 14, paddingTop: 12, borderTop: '0.5px solid #F5F5F5', fontFamily: 'var(--font-mono)', fontSize: 10, color: '#8A8A8A', lineHeight: 1.5 }}>
+                  <span>
+                    {unnamedViolations.count.toLocaleString()} further{' '}
+                    {unnamedViolations.count === 1 ? 'notice names' : 'notices name'} no
+                    specific condition, and {unnamedViolations.count === 1 ? 'is' : 'are'} not charted
+                  </span>
+                  <TooltipIcon text={unnamedViolations.description} />
+                </div>
+              )}
             </div>
           )}
           {complaintBreakdown.length > 0 && (

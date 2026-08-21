@@ -303,6 +303,28 @@ else Very high.
 same 5-year / all-time (`years=0`) window toggle. Timelines are monthly `COUNT(*)` from the
 raw `sf_311_housing` / `sf_dbi_nov` tables.
 
+**`/violations-breakdown` does NOT group by `nov_category_description`.** It groups by
+CONDITION, read out of the notice text by `api/services/briefs/cities/sf/card_categories.py`,
+which composes two ordered pattern tables:
+
+1. `nov_patterns.yaml` — the brief's classifier, evaluated first and winning outright, so the
+   card and the Building Brief can never label the same row differently.
+2. `nov_card_patterns.yaml` — card-only buckets for DBI's non-habitability space
+   (`gas_shutoff`, `lead_work_practices`, `general_disrepair`, `heating_equipment`, `permits`,
+   `access`), plus rules routing water-heater-temperature and heat-timeclock rows into
+   `heat_hot_water` and painting orders into `peeling_paint`.
+
+Neither table adds a column to `sf_brief_signals`; card buckets are display-only, so widening
+them costs no materialized-view recompute. `test_card_buckets_cost_no_signal_column` enforces
+that.
+
+Measured over NOVs filed in the last 5 years: **45.0%** classify under the brief table, **32.1%**
+have no text left after the advisory strip, **22.9%** carry text the brief table has no rule for
+(the card table covers the top of that tail). Rows naming no condition are returned as a single
+`unclassified` bucket, sorted last, and the page renders it as a footnote rather than a bar —
+97.4% of them carry `building section`, `other section` or a blank, which is why the previous
+category-based card was substantially charting inspector narrative as violations.
+
 ### Sync cadence (affects `open_violations` freshness)
 
 SF syncs on two schedules (see `.github/workflows/`):

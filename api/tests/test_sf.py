@@ -425,9 +425,15 @@ class TestSfBreakdowns:
 
     @pytest.mark.asyncio
     async def test_violations_breakdown(self, client):
+        """Condition buckets, not DBI's `nov_category_description`.
+
+        The route labels each bucket through `card_categories`, so the assertion
+        is that a renter-facing name and its tooltip came back — the whole reason
+        the card stopped reading "building section".
+        """
         mock_db = make_mock_db(
             MockResult([
-                MockRow({"category": "fire section", "count": 4, "open_count": 2}),
+                MockRow({"grp": "fire_safety", "count": 4, "open_count": 2}),
             ]),
         )
         app.dependency_overrides[get_db] = db_override(mock_db)
@@ -436,5 +442,29 @@ class TestSfBreakdowns:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data[0]["category"] == "fire section"
+        assert data[0]["group"] == "fire_safety"
+        assert data[0]["category"] == "Fire safety"
+        assert data[0]["description"]
         assert data[0]["open_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_violations_breakdown_unclassified_sorts_last(self, client):
+        """The unnamed bucket never leads the card, however large.
+
+        It is routinely the biggest — 32% of DBI's corpus is inspector narrative
+        — and the page renders it as a footnote below the bars, so its position
+        in this list is what keeps it out of the chart.
+        """
+        mock_db = make_mock_db(
+            MockResult([
+                MockRow({"grp": "unclassified", "count": 9, "open_count": 0}),
+                MockRow({"grp": "mold",         "count": 2, "open_count": 1}),
+            ]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(f"/sf/building/{SAMPLE_MAPBLKLOT}/violations-breakdown")
+        app.dependency_overrides.clear()
+
+        data = resp.json()
+        assert [r["group"] for r in data] == ["mold", "unclassified"]
+        assert data[1]["category"] == "Notices naming no specific condition"

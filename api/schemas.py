@@ -423,7 +423,17 @@ class SfComplaintBreakdownItem(BaseModel):
 
 
 class SfViolationBreakdownItem(BaseModel):
+    """One row of the SF "Top violation categories" card.
+
+    `group` is the taxonomy key the NOV classifier assigned (or `unclassified`),
+    `category` its renter-facing label, and `description` the same plain-English
+    sentence the brief uses for that condition — the two are kept together so the
+    card's tooltip cannot drift from the brief below it.
+    """
+
+    group: str
     category: str
+    description: str
     count: int
     open_count: int
 

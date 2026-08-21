@@ -4,6 +4,8 @@ import type { ReactNode } from 'react'
 // (desktop) and an optional stacked card view (mobile). Generic over the row
 // type so it can list 311 complaints, DBI violations, or any record set.
 type Props<T> = {
+  // Anchor target, so a link like `#violation-log` can scroll to the card.
+  id?: string
   title: string
   countLabel: string
   columns: string[]
@@ -15,12 +17,16 @@ type Props<T> = {
   renderCard?: (item: T) => ReactNode
   // Optional controls (e.g. filter pills) rendered on the right of the header.
   filters?: ReactNode
+  // Rendered inside the card, below the rows. Pagination lives here on the NYC
+  // pages; SF places its pager outside the card instead. Both were true before
+  // this component was shared, and neither is worth changing to look tidy.
+  footer?: ReactNode
 }
 
-export default function RecordLog<T>({ title, countLabel, columns, items, renderRow, emptyText, renderCard, filters }: Props<T>) {
+export default function RecordLog<T>({ id, title, countLabel, columns, items, renderRow, emptyText, renderCard, filters, footer }: Props<T>) {
   return (
-    <div style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ padding: '18px 20px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+    <div id={id} style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
             {title}
@@ -45,8 +51,8 @@ export default function RecordLog<T>({ title, countLabel, columns, items, render
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#FAFAFA', borderBottom: '0.5px solid #E5E5E5' }}>
-                  {columns.map((h, i) => (
-                    <th key={h} style={{ padding: i === 0 ? '10px 16px' : '10px 8px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  {columns.map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500, color: '#525252', letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}
@@ -64,6 +70,7 @@ export default function RecordLog<T>({ title, countLabel, columns, items, render
           )}
         </>
       )}
+      {footer}
     </div>
   )
 }

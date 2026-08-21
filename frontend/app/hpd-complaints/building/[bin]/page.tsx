@@ -7,6 +7,9 @@ import BuildingExplainer from '@/components/BuildingExplainer'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import ViolationCategoryBreakdown from '@/components/ViolationCategoryBreakdown'
 import ComplaintTypeBreakdown from '@/components/ComplaintTypeBreakdown'
+import FilterPill from '@/components/FilterPill'
+import RecordLog from '@/components/RecordLog'
+import Pagination from '@/components/Pagination'
 import type { HpdComplaint } from '@/lib/types'
 
 const TIER_META: Record<string, { color: string; bg: string }> = {
@@ -178,21 +181,6 @@ export default async function HpdComplaintsBuildingPage({
     }, new Map<string, number>())
   ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat]) => cat)
 
-  const FilterPill = ({ label, active, href }: { label: string; active: boolean; href: string }) => (
-    <Link
-      href={href}
-      style={{
-        display: 'inline-block', padding: '4px 10px', borderRadius: 20,
-        fontSize: 11, fontFamily: 'var(--font-mono)', textDecoration: 'none',
-        background: active ? '#111111' : '#F5F5F5',
-        color: active ? '#FFFFFF' : '#525252',
-        border: `0.5px solid ${active ? '#111111' : '#E5E5E5'}`,
-      }}
-    >
-      {label}
-    </Link>
-  )
-
   // Aggregate by major_category for the top categories horizontal chart.
   // breakdown rows are now (type, major_category) tuples so we need to sum.
   const categoryTotals = new Map<string, number>()
@@ -317,21 +305,16 @@ export default async function HpdComplaintsBuildingPage({
         </div>
 
         {/* Complaint log */}
-        <div id="log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', scrollMarginTop: '72px' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
-                Complaint log
-              </h2>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
-                {building.total_count.toLocaleString()} complaints
-                {majorCategory ? ` · ${majorCategory}` : ''}
-                {status ? ` · ${status}` : ''}
-              </p>
-            </div>
-
-            {/* Filters */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div id="log" style={{ scrollMarginTop: '72px' }}>
+          <RecordLog<HpdComplaint>
+            title="Complaint log"
+            countLabel={`${building.total_count.toLocaleString()} complaints${majorCategory ? ` · ${majorCategory}` : ''}${status ? ` · ${status}` : ''}`}
+            columns={['Type', 'Status', 'Apt', 'Received', 'Category']}
+            items={building.complaints}
+            renderRow={(c) => <ComplaintRow key={c.problem_id} c={c} />}
+            renderCard={(c) => <ComplaintCard key={c.problem_id} c={c} />}
+            emptyText="No complaints match the current filters."
+            filters={<>
               <FilterPill label="All categories" active={!majorCategory} href={filterUrl({ category: undefined })} />
               {topCategories.map(cat => (
                 <FilterPill key={cat} label={cat} active={majorCategory === cat} href={filterUrl({ category: cat })} />
@@ -340,79 +323,9 @@ export default async function HpdComplaintsBuildingPage({
               <FilterPill label="All"    active={!status}            href={filterUrl({ status: undefined })} />
               <FilterPill label="Open"   active={status === 'Open'}  href={filterUrl({ status: 'Open' })} />
               <FilterPill label="Closed" active={status === 'Close'} href={filterUrl({ status: 'Close' })} />
-            </div>
-          </div>
-
-          <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
-                  {['Type', 'Status', 'Apt', 'Received', 'Category'].map(h => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: '10px 16px', textAlign: 'left',
-                        fontFamily: 'var(--font-mono)', fontSize: 10,
-                        letterSpacing: '0.08em', textTransform: 'uppercase',
-                        color: '#525252', fontWeight: 500, whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {building.complaints.map(c => (
-                  <ComplaintRow key={c.problem_id} c={c} />
-                ))}
-                {building.complaints.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                      No complaints match the current filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="log-cards-wrap">
-            {building.complaints.map(c => (
-              <ComplaintCard key={c.problem_id} c={c} />
-            ))}
-            {building.complaints.length === 0 && (
-              <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                No complaints match the current filters.
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ padding: '16px 24px', borderTop: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>
-                Page {page} of {totalPages}
-              </span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {page > 1 && (
-                  <Link
-                    href={pageUrl(page - 1)}
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}
-                  >
-                    ← Prev
-                  </Link>
-                )}
-                {page < totalPages && (
-                  <Link
-                    href={pageUrl(page + 1)}
-                    style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#111111', textDecoration: 'none', padding: '4px 10px', border: '0.5px solid #E5E5E5', borderRadius: 6 }}
-                  >
-                    Next →
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+            </>}
+            footer={<Pagination page={page} totalPages={totalPages} prevHref={pageUrl(page - 1)} nextHref={pageUrl(page + 1)} />}
+          />
         </div>
 
       </main>

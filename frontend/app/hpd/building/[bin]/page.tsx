@@ -19,6 +19,7 @@ import BuildingCrossLinks from '@/components/BuildingCrossLinks'
 import InsightCard from '@/components/InsightCard'
 import BuildingBrief from '@/components/BuildingBrief'
 import Pagination from '@/components/Pagination'
+import RecordLog from '@/components/RecordLog'
 import FilterPill from '@/components/FilterPill'
 import ViolationTimeline from '@/components/ViolationTimeline'
 import OpenViolationAgesCard from '@/components/OpenViolationAgesCard'
@@ -794,19 +795,17 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
 
         {/* Violation log */}
         {show === 'violations' && violationsLog && (
-          <div id="violation-log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-            <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
-                  Violation log
-                </h2>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
-                  {violationsLog.total_count.toLocaleString()} violations
-                  {vcls ? ` · Class ${vcls}` : ''}
-                  {vst ? ` · ${vst}` : ''}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ marginBottom: 12 }}>
+            <RecordLog<HpdViolation>
+              id="violation-log"
+              title="Violation log"
+              countLabel={`${violationsLog.total_count.toLocaleString()} violations${vcls ? ` · Class ${vcls}` : ''}${vst ? ` · ${vst}` : ''}`}
+              columns={['Class', 'Status', 'Apt', 'Issued', 'Description']}
+              items={violationsLog.violations}
+              renderRow={(v) => <ViolationRow key={v.violation_id} v={v} />}
+              renderCard={(v) => <ViolationCard key={v.violation_id} v={v} />}
+              emptyText="No violations match the current filters."
+              filters={<>
                 <FilterPill label="All classes" active={!vcls} href={violFilterUrl({ vcls: undefined })} />
                 {['A', 'B', 'C', 'I'].map(cls => (
                   <FilterPill key={cls} label={`Class ${cls}`} active={vcls === cls} href={violFilterUrl({ vcls: cls })} />
@@ -815,62 +814,25 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
                 <FilterPill label="All"    active={!vst}             href={violFilterUrl({ vst: undefined })} />
                 <FilterPill label="Open"   active={vst === 'Open'}   href={violFilterUrl({ vst: 'Open' })} />
                 <FilterPill label="Closed" active={vst === 'Close'}  href={violFilterUrl({ vst: 'Close' })} />
-              </div>
-            </div>
-            <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
-                    {['Class', 'Status', 'Apt', 'Issued', 'Description'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {violationsLog.violations.map((v: HpdViolation) => (
-                    <ViolationRow key={v.violation_id} v={v} />
-                  ))}
-                  {violationsLog.violations.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                        No violations match the current filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="log-cards-wrap">
-              {violationsLog.violations.map((v: HpdViolation) => (
-                <ViolationCard key={v.violation_id} v={v} />
-              ))}
-              {violationsLog.violations.length === 0 && (
-                <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                  No violations match the current filters.
-                </div>
-              )}
-            </div>
-            <Pagination page={vpage} totalPages={violTotalPages} prevHref={violPageUrl(vpage - 1)} nextHref={violPageUrl(vpage + 1)} />
+              </>}
+              footer={<Pagination page={vpage} totalPages={violTotalPages} prevHref={violPageUrl(vpage - 1)} nextHref={violPageUrl(vpage + 1)} />}
+            />
           </div>
         )}
 
         {/* Complaint log */}
         {show === 'complaints' && complaintsLog && (
-          <div id="complaint-log" style={{ background: '#FFFFFF', border: '0.5px solid #E5E5E5', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-            <div style={{ padding: '20px 24px', borderBottom: '0.5px solid #E5E5E5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <h2 style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', margin: '0 0 4px' }}>
-                  Complaint log
-                </h2>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', margin: 0 }}>
-                  {complaintsLog.total_count.toLocaleString()} complaints
-                  {ccat ? ` · ${ccat}` : ''}
-                  {cst ? ` · ${cst}` : ''}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ marginBottom: 12 }}>
+            <RecordLog<HpdComplaint>
+              id="complaint-log"
+              title="Complaint log"
+              countLabel={`${complaintsLog.total_count.toLocaleString()} complaints${ccat ? ` · ${ccat}` : ''}${cst ? ` · ${cst}` : ''}`}
+              columns={['Type', 'Status', 'Apt', 'Received', 'Category']}
+              items={complaintsLog.complaints}
+              renderRow={(c) => <ComplaintRow key={c.problem_id} c={c} />}
+              renderCard={(c) => <ComplaintCard key={c.problem_id} c={c} />}
+              emptyText="No complaints match the current filters."
+              filters={<>
                 <FilterPill label="All categories" active={!ccat} href={complFilterUrl({ ccat: undefined })} />
                 {topComplaintCategories.map(cat => (
                   <FilterPill key={cat} label={cat} active={ccat === cat} href={complFilterUrl({ ccat: cat })} />
@@ -879,44 +841,9 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
                 <FilterPill label="All"    active={!cst}             href={complFilterUrl({ cst: undefined })} />
                 <FilterPill label="Open"   active={cst === 'Open'}   href={complFilterUrl({ cst: 'Open' })} />
                 <FilterPill label="Closed" active={cst === 'Close'}  href={complFilterUrl({ cst: 'Close' })} />
-              </div>
-            </div>
-            <div className="log-table-wrap" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '0.5px solid #E5E5E5', background: '#FAFAFA' }}>
-                    {['Type', 'Status', 'Apt', 'Received', 'Category'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {complaintsLog.complaints.map((c: HpdComplaint) => (
-                    <ComplaintRow key={c.problem_id} c={c} />
-                  ))}
-                  {complaintsLog.complaints.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                        No complaints match the current filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="log-cards-wrap">
-              {complaintsLog.complaints.map((c: HpdComplaint) => (
-                <ComplaintCard key={c.problem_id} c={c} />
-              ))}
-              {complaintsLog.complaints.length === 0 && (
-                <div style={{ padding: '32px 24px', textAlign: 'center', fontSize: 13, color: '#6B6B6B', fontFamily: 'var(--font-mono)' }}>
-                  No complaints match the current filters.
-                </div>
-              )}
-            </div>
-            <Pagination page={cpage} totalPages={complTotalPages} prevHref={complPageUrl(cpage - 1)} nextHref={complPageUrl(cpage + 1)} />
+              </>}
+              footer={<Pagination page={cpage} totalPages={complTotalPages} prevHref={complPageUrl(cpage - 1)} nextHref={complPageUrl(cpage + 1)} />}
+            />
           </div>
         )}
 

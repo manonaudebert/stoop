@@ -1,9 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
+import { RecordLink, Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
 
 // One building across both datasets, as carried by a unified map feature. Any
 // field group is null when the building has no record in that dataset.
@@ -30,47 +29,6 @@ type ViolationSummary = {
   open_violations: number
   rent_impairing_count: number
 }
-
-const RISK_META: Record<string, { label: string; color: string }> = {
-  'Very low':          { label: 'Very low',       color: '#525252' },
-  'Low':               { label: 'Low',            color: '#525252' },
-  'Moderate':          { label: 'Moderate',       color: '#92400E' },
-  'High':              { label: 'High',           color: '#7F1D1D' },
-  'Very high':         { label: 'Very high',      color: '#7F1D1D' },
-  'Insufficient data': { label: 'Very low',       color: '#525252' },
-  'Not comparable':    { label: 'Not comparable', color: '#525252' },
-}
-
-function riskMeta(level: string | null | undefined) {
-  return RISK_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
-}
-
-const RiskChip = ({ level }: { level: string | null | undefined }) => {
-  const meta = riskMeta(level)
-  return (
-    <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-      textTransform: 'uppercase', color: meta.color,
-    }}>
-      {meta.label}
-    </span>
-  )
-}
-
-const RecordLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
-  <Link
-    href={href}
-    style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      fontSize: 13, fontWeight: 500, color: '#7F1D1D', textDecoration: 'none',
-    }}
-  >
-    <span>{children}</span>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M5 12h14M13 6l6 6-6 6"/>
-    </svg>
-  </Link>
-)
 
 // Marks the section whose risk currently drives the map colors, so a tenant
 // reading a green/red dot knows which of the two dimensions they're looking at.
@@ -144,7 +102,7 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
 
       {/* ── Housing conditions (HPD) ── */}
       <Section active={activeLens === 'HPD'}>
-        <SectionHeader title="Housing conditions" chip={hasHpd ? <RiskChip level={building.hpd_risk_level} /> : undefined} active={activeLens === 'HPD'} />
+        <SectionHeader title="Housing conditions" level={hasHpd ? building.hpd_risk_level : undefined} active={activeLens === 'HPD'} />
         {hasHpd ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
@@ -165,7 +123,7 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
 
       {/* ── Building safety (DOB) ── */}
       <Section active={activeLens === 'DOB'}>
-        <SectionHeader title="Building safety" chip={hasDob ? <RiskChip level={building.dob_risk_level} /> : undefined} active={activeLens === 'DOB'} />
+        <SectionHeader title="Building safety" level={hasDob ? building.dob_risk_level : undefined} active={activeLens === 'DOB'} />
         {hasDob ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>

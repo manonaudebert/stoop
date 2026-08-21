@@ -1,8 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 
-import { Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
+import { RecordLink, Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
 
 export type SfMapBuilding = {
   mapblklot: string
@@ -19,30 +18,6 @@ export type SfMapBuilding = {
   violations_risk_level: string | null
   total_violations: number
   open_violations: number
-}
-
-const RISK_META: Record<string, { label: string; color: string }> = {
-  'Very low':  { label: 'Very low',  color: '#525252' },
-  'Low':       { label: 'Low',       color: '#525252' },
-  'Moderate':  { label: 'Moderate',  color: '#92400E' },
-  'High':      { label: 'High',      color: '#BC4B33' },
-  'Very high': { label: 'Very high', color: '#7F1D1D' },
-}
-
-function riskMeta(level: string | null | undefined) {
-  return RISK_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
-}
-
-const RiskChip = ({ level }: { level: string | null | undefined }) => {
-  const meta = riskMeta(level)
-  return (
-    <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
-      textTransform: 'uppercase', color: meta.color,
-    }}>
-      {meta.label}
-    </span>
-  )
 }
 
 type Props = {
@@ -96,7 +71,7 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
       <Section active={activeLens === 'complaints'}>
         <SectionHeader
           title="311 Complaints"
-          chip={hasComplaints ? <RiskChip level={building.complaints_risk_level} /> : undefined}
+          level={hasComplaints ? building.complaints_risk_level : undefined}
           active={activeLens === 'complaints'}
         />
         {hasComplaints ? (
@@ -118,7 +93,7 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
       <Section active={activeLens === 'violations'}>
         <SectionHeader
           title="DBI Violations"
-          chip={hasViolations ? <RiskChip level={building.violations_risk_level} /> : undefined}
+          level={hasViolations ? building.violations_risk_level : undefined}
           active={activeLens === 'violations'}
         />
         {hasViolations ? (
@@ -135,18 +110,7 @@ export default function SfBuildingSidebar({ building, activeLens, onClose }: Pro
 
       {divider}
 
-      <Link
-        href={`/sf/building/${building.mapblklot}`}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          fontSize: 13, fontWeight: 500, color: '#7F1D1D', textDecoration: 'none',
-        }}
-      >
-        <span>View full report</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M5 12h14M13 6l6 6-6 6"/>
-        </svg>
-      </Link>
+      <RecordLink href={`/sf/building/${building.mapblklot}`}>View full report</RecordLink>
     </div>
   )
 }

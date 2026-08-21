@@ -10,13 +10,43 @@
 // 'complaints' | 'violations'). Forcing those together is the risky half of the
 // reuse; this is the half that is provably safe.
 //
-// `RiskChip` is deliberately NOT here. It reads a per-city `RISK_META`, and the
-// two disagree: SF renders "High" as #BC4B33, NYC as #7F1D1D, and NYC carries
-// two levels SF has no equivalent for. That is a product decision about what a
-// risk color means, not a duplication to collapse, so `SectionHeader` takes the
-// rendered chip as a node and each sidebar keeps its own.
+// `RiskChip` reads one `RISK_META` for both cities. The tables used to disagree
+// about "High" — SF #BC4B33, NYC #7F1D1D — and NYC's sidebar was the outlier:
+// #BC4B33 is the High color in both map dot palettes, both legends, SearchBar
+// and all three leaderboards, and NYC's #7F1D1D is what it also uses for "Very
+// high", so its chip collapsed two levels the legend beside it distinguishes.
+// Resolved to #BC4B33 app-wide. The two NYC-only levels are harmless to SF,
+// which never produces them.
 
+import Link from 'next/link'
 import type { ReactNode } from 'react'
+
+const RISK_META: Record<string, { label: string; color: string }> = {
+  'Very low':          { label: 'Very low',       color: '#525252' },
+  'Low':               { label: 'Low',            color: '#525252' },
+  'Moderate':          { label: 'Moderate',       color: '#92400E' },
+  'High':              { label: 'High',           color: '#BC4B33' },
+  'Very high':         { label: 'Very high',      color: '#7F1D1D' },
+  // NYC only: percentile tiers that are not risk levels.
+  'Insufficient data': { label: 'Very low',       color: '#525252' },
+  'Not comparable':    { label: 'Not comparable', color: '#525252' },
+}
+
+function riskMeta(level: string | null | undefined) {
+  return RISK_META[level ?? ''] ?? { label: 'No data', color: '#525252' }
+}
+
+export const RiskChip = ({ level }: { level: string | null | undefined }) => {
+  const meta = riskMeta(level)
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+      textTransform: 'uppercase', color: meta.color,
+    }}>
+      {meta.label}
+    </span>
+  )
+}
 
 // One number and its caption. `loading` shows a skeleton in its place, for the
 // NYC sidebar's violation counts, which arrive after the panel opens.
@@ -58,8 +88,7 @@ export const OnMapBadge = () => (
   </span>
 )
 
-// `chip` is the city's own risk chip, already rendered. See the note above.
-export const SectionHeader = ({ title, chip, active }: { title: string; chip?: ReactNode; active?: boolean }) => (
+export const SectionHeader = ({ title, level, active }: { title: string; level?: string | null; active?: boolean }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
       <span style={{
@@ -68,7 +97,7 @@ export const SectionHeader = ({ title, chip, active }: { title: string; chip?: R
       }}>
         {title}
       </span>
-      {chip}
+      {level !== undefined && <RiskChip level={level} />}
     </div>
     {active && <OnMapBadge />}
   </div>
@@ -86,4 +115,21 @@ export const Section = ({ active, children }: { active: boolean; children: React
   }}>
     {children}
   </div>
+)
+
+// The "view the full record" link at the foot of a section. NYC had it as a
+// component and SF as the same markup inline, down to the arrow path.
+export const RecordLink = ({ href, children }: { href: string; children: ReactNode }) => (
+  <Link
+    href={href}
+    style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      fontSize: 13, fontWeight: 500, color: '#7F1D1D', textDecoration: 'none',
+    }}
+  >
+    <span>{children}</span>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M5 12h14M13 6l6 6-6 6"/>
+    </svg>
+  </Link>
 )

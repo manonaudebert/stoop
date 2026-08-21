@@ -24,7 +24,6 @@ import FilterPill from '@/components/FilterPill'
 import WindowToggle from '@/components/WindowToggle'
 import Pagination from '@/components/Pagination'
 import HorizontalBarChart from '@/components/HorizontalBarChart'
-import TooltipIcon from '@/components/TooltipIcon'
 import BuildingBrief from '@/components/BuildingBrief'
 import type { Sf311Complaint, SfNov, SfComplaintBreakdownItem, SfViolationBreakdownItem } from '@/lib/types'
 
@@ -481,21 +480,26 @@ export default async function SfBuildingPage({
               ) : (
                 // Not a data gap, and not a card worth hiding: DBI files plenty
                 // of notices whose text is inspector narrative alone, and more
-                // parcels have only those than have a nameable condition. Saying
-                // so is the honest answer, and it points at the log where the
-                // text can actually be read.
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.5 }}>
-                  No violation in this period names a specific condition.
+                // parcels (5,819) have only those than have a nameable condition
+                // (5,489). Saying so is the honest answer, and it points at the
+                // log where the text can actually be read.
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.6 }}>
+                  {unnamedViolations
+                    ? `None of the ${unnamedViolations.count.toLocaleString()} violation${unnamedViolations.count === 1 ? '' : 's'} in this period names a specific condition. See violation log below.`
+                    : 'No violation in this period names a specific condition.'}
                 </div>
               )}
-              {unnamedViolations && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 14, paddingTop: 12, borderTop: '0.5px solid #F5F5F5', fontFamily: 'var(--font-mono)', fontSize: 10, color: '#8A8A8A', lineHeight: 1.5 }}>
-                  <span>
-                    {unnamedViolations.count.toLocaleString()} further{' '}
-                    {unnamedViolations.count === 1 ? 'notice names' : 'notices name'} no
-                    specific condition, and {unnamedViolations.count === 1 ? 'is' : 'are'} not charted
-                  </span>
-                  <TooltipIcon text={unnamedViolations.description} />
+              {violationBars.length > 0 && unnamedViolations && (
+                // Set at the card's body size rather than as fine print, and
+                // with no tooltip: this is half of DBI's corpus on a typical
+                // parcel, so what it says has to be readable without a hover.
+                // Only rendered ALONGSIDE bars — with none, "further" refers to
+                // nothing and the empty state above already says it.
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid #F5F5F5', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.6 }}>
+                  {unnamedViolations.count.toLocaleString()} further{' '}
+                  {unnamedViolations.count === 1 ? 'notice names' : 'notices name'} no
+                  specific condition and {unnamedViolations.count === 1 ? 'is' : 'are'} not
+                  charted. See violation log below.
                 </div>
               )}
             </div>

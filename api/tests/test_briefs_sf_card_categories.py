@@ -308,3 +308,35 @@ def test_no_tooltip_uses_a_dash_as_punctuation():
     texts.append(UNCLASSIFIED_DESCRIPTION)
     for text in texts:
         assert "—" not in text and "–" not in text, text
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("inspectors comment at the time of reinspection provide access to the boilers heating room", "heating_equipment"),
+    ("inspectors comment at the time of reinspection provide access for routine inspection of common areas", "access"),
+])
+def test_a_narrative_preamble_does_not_swallow_the_order_after_it(text, expected):
+    """The strip removes the note, never the finding it introduces.
+
+    `at the time of reinspection.*` ran to the end of the string and destroyed
+    the order that followed, so a row plainly naming a condition was counted as
+    "names no specific condition". Only patterns that genuinely run to the end
+    of a notice may use `.*`.
+    """
+    assert card_categories.classify(text, None) == expected
+
+
+def test_no_narrative_pattern_ends_a_string_it_should_not():
+    """Every `.*` in the narrative list is boilerplate that runs to the end.
+
+    Enumerated deliberately: adding one is a decision to discard everything
+    after the match, which is how the reinspection bug happened.
+    """
+    open_ended = [p for p in card_categories.narrative_patterns() if p.endswith(".*")]
+    assert open_ended == [
+        "it is the property owner(\\?|¿|')?s responsibility.*",
+        "important note: due to the nature of this violation.*",
+        "due to the violations noted, this property (constitutes|has been deemed).*",
+        "violations cited herein constitute a nuisance.*",
+        "this property has been deemed a nuisance.*",
+        "an onsite reinspection is not needed to clear this notice.*",
+    ]

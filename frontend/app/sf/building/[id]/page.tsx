@@ -208,10 +208,10 @@ export default async function SfBuildingPage({
 
   // Violation categories split in two. The bars are the CONDITIONS DBI named;
   // the `unclassified` bucket is notices carrying only inspector narrative and
-  // nuisance boilerplate, which the backend counts but never labels. It reads as
-  // a footnote rather than a bar because "inspector comments — 9 violations" is
-  // not a category, and charting it is how the old card ended up showing
-  // "building section" as this building's top problem.
+  // nuisance boilerplate, which the backend counts but never labels. It is shown
+  // as a muted, unscaled row: the volume is worth seeing, but it is not a
+  // category, and letting it own the chart's scale is how the old card ended up
+  // showing "building section" as this building's top problem.
   const violationBars = violationBreakdown.filter(
     (r: SfViolationBreakdownItem) => r.group !== 'unclassified',
   )
@@ -463,45 +463,36 @@ export default async function SfBuildingPage({
                 </h2>
                 {cwToggle()}
               </div>
-              {violationBars.length > 0 ? (
-                <HorizontalBarChart
-                  data={violationBars.map((r: SfViolationBreakdownItem) => ({
+              <HorizontalBarChart
+                data={[
+                  ...violationBars.map((r: SfViolationBreakdownItem) => ({
                     label: r.category,
                     count: r.count,
                     // What the condition is, then how much of it is still
-                    // outstanding — the open count alone (the old tooltip) told
+                    // outstanding. The open count alone (the old tooltip) told
                     // a reader nothing about a label like "building section".
                     tooltip: r.open_count > 0
                       ? `${r.description} ${r.open_count} still open.`
                       : r.description,
-                  }))}
-                  unit="violations"
-                />
-              ) : (
-                // Not a data gap, and not a card worth hiding: DBI files plenty
-                // of notices whose text is inspector narrative alone, and more
-                // parcels (5,819) have only those than have a nameable condition
-                // (5,489). Saying so is the honest answer, and it points at the
-                // log where the text can actually be read.
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.6 }}>
-                  {unnamedViolations
-                    ? `None of the ${unnamedViolations.count.toLocaleString()} violation${unnamedViolations.count === 1 ? '' : 's'} in this period names a specific condition. See violation log below.`
-                    : 'No violation in this period names a specific condition.'}
-                </div>
-              )}
-              {violationBars.length > 0 && unnamedViolations && (
-                // Set at the card's body size rather than as fine print, and
-                // with no tooltip: this is half of DBI's corpus on a typical
-                // parcel, so what it says has to be readable without a hover.
-                // Only rendered ALONGSIDE bars — with none, "further" refers to
-                // nothing and the empty state above already says it.
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '0.5px solid #F5F5F5', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#6B6B6B', lineHeight: 1.6 }}>
-                  {unnamedViolations.count.toLocaleString()} further{' '}
-                  {unnamedViolations.count === 1 ? 'notice names' : 'notices name'} no
-                  specific condition and {unnamedViolations.count === 1 ? 'is' : 'are'} not
-                  charted. See violation log below.
-                </div>
-              )}
+                  })),
+                  // Charted as a MUTED row rather than a bar. These are real
+                  // notices and worth seeing the volume of, but they name no
+                  // condition, and they are routinely the largest count on the
+                  // card — as a normal bar they would own the scale and leave
+                  // every actual condition a sliver. On a parcel whose notices
+                  // are ALL narrative this row is the whole card, which is the
+                  // honest answer and still points at the log.
+                  ...(unnamedViolations ? [{
+                    label: 'No specific condition stated',
+                    count: unnamedViolations.count,
+                    muted: true,
+                    note: unnamedViolations.open_count > 0
+                      ? `${unnamedViolations.open_count.toLocaleString()} still open. See violation log below.`
+                      : 'See violation log below.',
+                  }] : []),
+                ]}
+                unit="violations"
+              />
             </div>
           )}
           {complaintBreakdown.length > 0 && (

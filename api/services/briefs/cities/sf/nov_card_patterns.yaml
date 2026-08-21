@@ -73,7 +73,12 @@ narrative:
   # personal address from ever reaching a matcher, let alone a label.
   - "contact inspector[^.]*@[^ ]+"
   - "an onsite reinspection is not needed to clear this notice.*"
-  - "at the time of reinspection.*"
+  # The PHRASE only. An earlier version ran to the end of the string and ate
+  # the order that follows it — "at the time of reinspection provide access to
+  # the boilers" was stripped to nothing and counted as narrative. Every
+  # `.*` pattern in this list has to be one that genuinely runs to the end of
+  # the notice; a preamble is not one.
+  - "at the time of (the )?re-?inspection,?"
   - "violations cited are located in the common areas only\\.?"
   - "see dbi nov\\.?"
 

@@ -344,7 +344,19 @@ Live: `uvicorn … | jq -R 'fromjson? // empty' | jq -c 'select(.status >= 400)'
 On Railway, don't grep at all — it parses these lines into attributes, so
 `level`, `status`, `route`, `request_id` and `duration_ms` are filterable fields.
 
-### What `internal` does not cover
+### What `internal` and `is_bot` do not cover
+
+`is_bot` is set from the `User-Agent` the API receives. Every request reaches it
+from a Next.js server, so the browser's own agent only survives where a route
+handler forwards it deliberately — `/api/proxy` (searches, map calls) and
+`/api/event` (page views) both do. **Server-rendered page loads do not**: the
+API sees this server's fetch agent, so a crawler rendering a page server-side
+is counted as a real visitor. Page views come from the browser beacon, which is
+where crawler traffic would distort the numbers most, so the metrics that
+matter are covered; `kind='request'` fault rows are not.
+
+The `ip` field in the stdout log has the same shape of limit — through the
+proxy it is the edge's address, not the visitor's.
 
 `?dev=1` tags page views (via `/api/event`) and client-side search and map calls
 (via `/api/proxy`), because both forward the `stoop_dev` cookie. It does **not**

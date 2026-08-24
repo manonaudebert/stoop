@@ -20,6 +20,10 @@ export async function GET(
     const res = await fetch(target, {
       headers: {
         'X-Internal-Key': SECRET,
+        // Without this the API only ever sees this server's own fetch agent
+        // ("node"), so its crawler check can never fire and every bot counts as
+        // a real visitor.
+        'User-Agent': req.headers.get('user-agent') ?? '',
         // Tags the maintainer's own traffic so dashboard queries can exclude
         // it. Set by the root proxy.ts on a ?dev=1 visit.
         ...(req.cookies.get('stoop_dev') ? { 'X-Stoop-Internal': '1' } : {}),

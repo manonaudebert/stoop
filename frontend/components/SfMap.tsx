@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { reportDegraded } from '@/lib/api'
 
 export type SfLens = 'complaints' | 'violations'
 
@@ -329,7 +330,9 @@ export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, v
             .sort((a: NhoodSelection, b: NhoodSelection) => a.name.localeCompare(b.name))
           onNhoodListLoadRef.current(list)
         })
-        .catch(() => { /* non-critical — map still works without the neighborhood layer */ })
+        // Non-critical: the map works without the overlay. Reported so a
+        // persistently missing layer is not mistaken for one that has none.
+        .catch(err => reportDegraded('sf neighborhood overlay', err))
 
       map.addSource('buildings', {
         type: 'geojson',

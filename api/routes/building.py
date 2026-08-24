@@ -6,6 +6,7 @@ from sqlalchemy import text
 from database import get_db
 from limiter import limiter
 from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
+from observability import emit_event, is_bot, is_internal
 from cache import cache_get, cache_set
 
 router = APIRouter(prefix="/building", tags=["building"])
@@ -99,6 +100,9 @@ async def search_buildings(
     cache_key = f"search:{q.strip().lower()}"
     cached = cache_get(cache_key)
     if cached:
+        emit_event(kind="search", route="/building/search", city="nyc", query=q.strip(),
+                   result_count=len(cached), internal=is_internal(request),
+                   is_bot=is_bot(request.headers.get("User-Agent", "")))
         return cached
 
     q = q.strip()
@@ -149,10 +153,16 @@ async def search_buildings(
 
     if not summary_rows:
         cache_set(cache_key, [], ttl_seconds=3600)
+        emit_event(kind="search", route="/building/search", city="nyc", query=q, result_count=0,
+                   internal=is_internal(request),
+                   is_bot=is_bot(request.headers.get("User-Agent", "")))
         return []
 
     results = [BuildingSummaryResponse(**dict(r._mapping)) for r in summary_rows]
     cache_set(cache_key, results, ttl_seconds=3600)
+    emit_event(kind="search", route="/building/search", city="nyc", query=q, result_count=len(results),
+               internal=is_internal(request),
+               is_bot=is_bot(request.headers.get("User-Agent", "")))
     return results
 
 

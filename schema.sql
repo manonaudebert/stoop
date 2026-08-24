@@ -1412,3 +1412,38 @@ LEFT JOIN sf_housing_complaints_summary sc ON sc.mapblklot = p.mapblklot;
 
 CREATE UNIQUE INDEX IF NOT EXISTS sf_brief_signals_mapblklot_idx
     ON sf_brief_signals (mapblklot);
+
+-- Durable telemetry: faults, searches, and page views. Written by
+-- api/observability.py off a bounded in-process queue (never on the request
+-- path). Only faults, searches, page views and client errors persist —
+-- successful 200s stay in the stdout JSON log. `internal` and `is_bot` tag
+-- rather than drop, so dashboard queries carry `WHERE NOT internal AND NOT
+-- is_bot`. No IP is stored. See ingest/migration/migrate_api_events.sql.
+CREATE TABLE IF NOT EXISTS api_events (
+    id           BIGSERIAL PRIMARY KEY,
+    ts           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    kind         TEXT        NOT NULL,   -- request | search | pageview | error
+    city         TEXT,                   -- nyc | sf
+    route        TEXT,                   -- route template, never a raw path
+    status       INT,
+    duration_ms  INT,
+    request_id   TEXT,                   -- joins stdout, Vercel, and this table
+    query        TEXT,                   -- search term (kind='search' only)
+    result_count INT,
+    internal     BOOLEAN     NOT NULL DEFAULT false,
+    is_bot       BOOLEAN     NOT NULL DEFAULT false,
+    meta         JSONB
+);
+
+CREATE INDEX IF NOT EXISTS api_events_ts_idx      ON api_events(ts DESC);
+CREATE INDEX IF NOT EXISTS api_events_kind_ts_idx ON api_events(kind, ts DESC);
+CREATE INDEX IF NOT EXISTS api_events_err_idx     ON api_events(ts DESC)
+    WHERE status >= 400;
+
+-- The shape every dashboard query has: real traffic only, newest first.
+CREATE INDEX IF NOT EXISTS api_events_real_idx    ON api_events(kind, ts DESC)
+    WHERE NOT internal AND NOT is_bot;
+
+-- Correlating one user's 500 screen back to its stdout line.
+CREATE INDEX IF NOT EXISTS api_events_request_id_idx ON api_events(request_id)
+    WHERE request_id IS NOT NULL;

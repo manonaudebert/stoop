@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
+from observability import emit_event, is_bot, is_internal
 from cache import cache_get, cache_set
 from schemas import (
     HpdComplaintBuildingSummaryResponse,
@@ -196,6 +197,9 @@ async def search_hpd_complaint_buildings(
     cache_key = f"hpd_complaint_search:{q.strip().lower()}"
     cached = cache_get(cache_key)
     if cached:
+        emit_event(kind="search", route="/hpd-complaints/building/search", city="nyc", query=q.strip(),
+                   result_count=len(cached), internal=is_internal(request),
+                   is_bot=is_bot(request.headers.get("User-Agent", "")))
         return cached
 
     q = q.strip()
@@ -246,6 +250,9 @@ async def search_hpd_complaint_buildings(
 
     results = [_row_to_summary(r) for r in summary_rows]
     cache_set(cache_key, results, ttl_seconds=3600)
+    emit_event(kind="search", route="/hpd-complaints/building/search", city="nyc", query=q, result_count=len(results),
+               internal=is_internal(request),
+               is_bot=is_bot(request.headers.get("User-Agent", "")))
     return results
 
 

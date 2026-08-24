@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { searchBuildings } from '@/lib/api'
+import { ApiError, reportDegraded, searchBuildings } from '@/lib/api'
 import type { BuildingSummary } from '@/lib/types'
 
 const RISK_TIER: Record<string, { color: string }> = {
@@ -32,6 +32,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
   const [open,     setOpen]     = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [searched, setSearched] = useState(false)   // a query has resolved for the current input
+  const [failed,   setFailed]   = useState(false)   // the lookup itself broke
   const [active,   setActive]   = useState(-1)       // highlighted result index for keyboard nav
   const timer      = useRef<ReturnType<typeof setTimeout> | null>(null)
   const controller = useRef<AbortController | null>(null)
@@ -42,7 +43,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
       controller.current?.abort()
       if (timer.current) clearTimeout(timer.current)
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset to reflect cleared input
-      setResults([]); setOpen(false); setSearched(false); setActive(-1)
+      setResults([]); setOpen(false); setSearched(false); setFailed(false); setActive(-1)
       return
     }
     if (timer.current) clearTimeout(timer.current)
@@ -56,16 +57,19 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
         let data: AnyBuilding[]
         if (searchUrl) {
           const res = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`, { signal: ctrl.signal })
-          data = res.ok ? await res.json() : []
+          if (!res.ok) throw new ApiError(res.status, searchUrl, res.headers.get('x-request-id') ?? undefined)
+          data = await res.json()
         } else {
           data = await searchBuildings(query, ctrl.signal)
         }
         setResults(data)
         setSearched(true)
+        setFailed(false)
         setActive(-1)
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return   // superseded by a newer query
-        setResults([]); setSearched(true)
+        reportDegraded('search', err)
+        setResults([]); setSearched(true); setFailed(true)
       } finally {
         if (controller.current === ctrl) setLoading(false)
       }
@@ -82,7 +86,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
     setOpen(false)
     setQuery('')
     setResults([])
-    setSearched(false)
+    setSearched(false); setFailed(false)
     setActive(-1)
     onSelect(b)
   }
@@ -105,7 +109,8 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
   }
 
   const showDropdown = open && query.length >= 3
-  const showEmpty   = showDropdown && !loading && searched && results.length === 0
+  const showFailed  = showDropdown && !loading && failed
+  const showEmpty   = showDropdown && !loading && searched && !failed && results.length === 0
   const showLoading = showDropdown && loading && results.length === 0
 
   return (
@@ -139,7 +144,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
         )}
       </div>
 
-      {showDropdown && (results.length > 0 || showEmpty || showLoading) && (
+      {showDropdown && (results.length > 0 || showEmpty || showFailed || showLoading) && (
         <ul
           id="search-results"
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto"
@@ -150,6 +155,10 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
             <li style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div className="skeleton" style={{ height: 12, width: '70%' }} />
               <div className="skeleton" style={{ height: 9, width: '35%' }} />
+            </li>
+          ) : showFailed ? (
+            <li style={{ padding: '12px 14px', fontSize: 13, color: '#92400E' }}>
+              Search is unavailable right now.
             </li>
           ) : showEmpty ? (
             <li style={{ padding: '12px 14px', fontSize: 13, color: '#525252' }}>

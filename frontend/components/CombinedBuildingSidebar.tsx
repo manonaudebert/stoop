@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
+import { reportDegraded } from '@/lib/api'
+
 import { RecordLink, Section, SectionHeader, StatCell } from '@/components/MapSidebarParts'
 
 // One building across both datasets, as carried by a unified map feature. Any
@@ -42,23 +44,34 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
   const hasHpd = building.hpd_total != null || building.hpd_risk_level != null
   const hasDob = building.dob_total != null || building.dob_risk_level != null
 
-  const [violations, setViolations] = useState<ViolationSummary | null | 'loading'>('loading')
+  const [violations, setViolations] = useState<ViolationSummary | null | 'loading' | 'error'>('loading')
 
   useEffect(() => {
     if (!hasHpd) { setViolations(null); return }
     setViolations('loading')
     let cancelled = false
     fetch(`/api/proxy/hpd/building/search?q=${encodeURIComponent(building.bin)}`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => {
+        // A failed request must not collapse into an empty result set: "no
+        // violations on file" and "we could not load this" are different facts,
+        // and on this card the difference is the whole product.
+        if (!r.ok) throw new Error(`hpd search ${r.status}`)
+        return r.json()
+      })
       .then((results: ViolationSummary[]) => {
         if (cancelled) return
         setViolations(results.find(r => r.bin === building.bin) ?? null)
       })
-      .catch(() => { if (!cancelled) setViolations(null) })
+      .catch(err => {
+        if (cancelled) return
+        reportDegraded('sidebar hpd violations', err)
+        setViolations('error')
+      })
     return () => { cancelled = true }
   }, [building.bin, hasHpd])
 
-  const v        = violations === 'loading' ? null : violations
+  const vFailed  = violations === 'error'
+  const v        = typeof violations === 'string' ? null : violations
   const vLoading = violations === 'loading'
 
   const divider = <div style={{ height: '0.5px', background: '#E5E5E5', margin: '14px 0' }} />
@@ -110,6 +123,14 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
               <StatCell label="Total violations" value={v?.total_violations ?? null} loading={vLoading} />
               <StatCell label="Open violations"  value={v?.open_violations ?? null}  loading={vLoading} />
             </div>
+            {vFailed && (
+              <p style={{
+                fontFamily: 'var(--font-sans)', fontSize: 11, color: '#92400E',
+                margin: '-8px 0 12px',
+              }}>
+                Violation counts couldn&apos;t be loaded — this is a loading problem, not a clean record.
+              </p>
+            )}
             <RecordLink href={`/hpd/building/${building.bin}`}>View housing record</RecordLink>
           </>
         ) : (

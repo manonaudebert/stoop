@@ -1,26 +1,30 @@
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from limiter import limiter
+from observability import (
+    alert_5xx, client_ip, configure_logging, db_target, emit_event, is_bot,
+    is_internal, new_request_id, request_id_var, route_template, start_events,
+    stop_events,
+)
 from routes.building import router as building_router
 from routes.hpd import router as hpd_router
 from routes.hpd_complaints import router as hpd_complaints_router
 from routes.map import router as map_router
 from routes.sf import router as sf_router, warm_citywide_cache
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+configure_logging(logging.INFO)
 logger = logging.getLogger("nycd")
 
 _INTERNAL_API_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
@@ -32,12 +36,19 @@ async def lifespan(app: FastAPI):
     # Warm the SF citywide cluster cache on boot so the first map load (and every
     # CDN revalidation after a restart clears the in-process cache) skips the
     # heavy join+window-sort. Non-fatal: a warm failure must never block startup.
+    if not _INTERNAL_API_SECRET:
+        logger.warning("INTERNAL_API_SECRET not set — requests are unauthenticated")
+    # Which database this process is talking to. Pointing a local run at prod
+    # instead of a Neon branch is silent otherwise, and looks like lost data.
+    logger.info("connected to %s", db_target(), extra={"db": db_target()})
+    await start_events()
     try:
         await warm_citywide_cache()
         logger.info("SF citywide cluster cache warmed")
     except Exception as exc:
         logger.warning("SF citywide cache warm failed (serving cold): %s", exc)
     yield
+    await stop_events()
 
 
 app = FastAPI(
@@ -95,11 +106,58 @@ async def verify_internal_key(request: Request, call_next):
     if request.method == "OPTIONS" or request.url.path == "/health":
         return await call_next(request)
     if not _INTERNAL_API_SECRET:
-        logger.warning("INTERNAL_API_SECRET not set — requests are unauthenticated")
         return await call_next(request)
     if request.headers.get("X-Internal-Key") != _INTERNAL_API_SECRET:
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
     return await call_next(request)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Railway's healthcheck would otherwise be most of the log volume.
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    rid = new_request_id()
+    token = request_id_var.set(rid)
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    finally:
+        request_id_var.reset(token)
+
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    route = route_template(request)
+    status = response.status_code
+    response.headers["X-Request-Id"] = rid
+
+    if status >= 500:
+        level = logging.ERROR
+    elif status >= 400:
+        level = logging.WARNING
+    else:
+        level = logging.INFO
+    logger.log(
+        level, "%s %s %s", request.method, route, status,
+        extra={
+            "request_id": rid, "method": request.method, "route": route,
+            "status": status, "duration_ms": duration_ms,
+            "ip": client_ip(request),
+            "ua": request.headers.get("User-Agent", "")[:200],
+        },
+    )
+
+    # Only faults are durable. Successful 200s stay in stdout: storing them
+    # buys nothing and multiplies write volume.
+    if status >= 400:
+        emit_event(
+            kind="request", route=route, status=status,
+            duration_ms=duration_ms, request_id=rid,
+            internal=is_internal(request),
+            is_bot=is_bot(request.headers.get("User-Agent", "")),
+            meta={"method": request.method},
+        )
+    return response
 
 
 app.include_router(building_router)
@@ -112,7 +170,40 @@ app.include_router(sf_router)
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled error on %s %s: %s", request.method, request.url, exc, exc_info=True)
+    alert_5xx(request, exc)
     return JSONResponse(status_code=500, content={"detail": "An unexpected error occurred."})
+
+
+class ClientEvent(BaseModel):
+    """A page view or client-side error, beaconed from the browser.
+
+    Deliberately closed: every field is bounded and there is no free text, so a
+    leaked internal key cannot turn this into a write-anything endpoint.
+    """
+    kind: str = Field(pattern="^(pageview|error)$")
+    city: str | None = Field(default=None, pattern="^(nyc|sf)$")
+    route: str | None = Field(default=None, max_length=120)
+    building: str | None = Field(default=None, max_length=32)
+    status: int | None = Field(default=None, ge=100, le=599)
+    request_id: str | None = Field(default=None, max_length=64)
+    digest: str | None = Field(default=None, max_length=64)
+
+
+@app.post("/events", status_code=204)
+@limiter.limit("120/minute")
+async def record_event(request: Request, event: ClientEvent):
+    emit_event(
+        kind=event.kind,
+        city=event.city,
+        route=event.route,
+        status=event.status,
+        request_id=event.request_id,
+        internal=is_internal(request),
+        is_bot=is_bot(request.headers.get("User-Agent", "")),
+        meta={k: v for k, v in
+              (("digest", event.digest), ("building", event.building)) if v} or None,
+    )
+    return Response(status_code=204)
 
 
 @app.get("/health")

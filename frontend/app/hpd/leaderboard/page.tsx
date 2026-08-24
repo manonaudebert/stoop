@@ -5,6 +5,7 @@ import BuildingNavBar from '@/components/BuildingNavBar'
 import LeaderboardToggle from '@/components/LeaderboardToggle'
 import CityToggle from '@/components/CityToggle'
 import TooltipIcon from '@/components/TooltipIcon'
+import PageBeacon from '@/components/PageBeacon'
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island']
 
@@ -153,6 +154,7 @@ export default async function HpdLeaderboardPage({
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      <PageBeacon route="/hpd/leaderboard" city="nyc" />
 
       <BuildingNavBar backHref="/" backLabel="Map" />
 

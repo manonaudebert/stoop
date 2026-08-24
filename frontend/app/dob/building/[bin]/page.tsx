@@ -12,6 +12,7 @@ import ComplaintBreakdown from '@/components/ComplaintBreakdown'
 import OutcomeCell from '@/components/OutcomeCell'
 import RankViz from '@/components/RankViz'
 import type { Complaint, TimelinePoint } from '@/lib/types'
+import PageBeacon from '@/components/PageBeacon'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -343,6 +344,7 @@ export default async function BuildingPage({
     if (err instanceof ApiError && err.status === 404) {
       return (
         <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+          <PageBeacon route="/dob/building/[bin]" city="nyc" building={bin} />
           <BuildingNavBar backHref={backHref} backLabel={backLabel} />
           <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
             <BuildingCrossLinks items={[
@@ -484,6 +486,7 @@ export default async function BuildingPage({
   // ── render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      <PageBeacon route="/dob/building/[bin]" city="nyc" building={bin} />
 
       <BuildingNavBar backHref={backHref} backLabel={backLabel} />
 

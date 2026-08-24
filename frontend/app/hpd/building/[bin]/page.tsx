@@ -5,6 +5,7 @@ import { pctHeadline, pctSub } from '@/lib/rankCopy'
 import { CITY_CONFIG } from '@/lib/cities'
 import RankViz from '@/components/RankViz'
 import {
+  absentOr404, degraded,
   getBuilding,
   getHpdBuilding, getHpdTimeline, getHpdBreakdown, getHpdBreakdownRecent, getHpdOpenViolationAges,
   getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown,
@@ -29,6 +30,7 @@ import TrendStatCard from '@/components/TrendStatCard'
 import StatListCard from '@/components/StatListCard'
 import WindowToggle from '@/components/WindowToggle'
 import type { TimelinePoint, HpdViolation, HpdComplaint, ComplaintTypePeriodItem, ComplaintResolutionItem, ViolationAgeBucketItem } from '@/lib/types'
+import PageBeacon from '@/components/PageBeacon'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -364,31 +366,36 @@ export default async function HpdOverviewPage({
   const cst = sp.cst
 
   const [violations, violationTimeline, violationBreakdown, violationBreakdownRecent, openViolationAges, complaints, complaintTimeline, complaintBreakdown, complaintTypePeriod, complaintResolution, minorBreakdown, brief] = await Promise.all([
-    getHpdBuilding(bin, 1).catch(() => null),
-    getHpdTimeline(bin).catch(() => [] as TimelinePoint[]),
-    getHpdBreakdown(bin).catch(() => []),
-    getHpdBreakdownRecent(bin).catch(() => []),
-    getHpdOpenViolationAges(bin).catch(() => [] as ViolationAgeBucketItem[]),
-    getHpdComplaintBuilding(bin, 1).catch(() => null),
-    getHpdComplaintTimeline(bin).catch(() => [] as TimelinePoint[]),
-    getHpdComplaintBreakdown(bin).catch(() => []),
-    getHpdComplaintTypePeriodBreakdown(bin).catch(() => [] as ComplaintTypePeriodItem[]),
-    getHpdComplaintResolutionBreakdown(bin).catch(() => [] as ComplaintResolutionItem[]),
-    getHpdComplaintMinorBreakdown(bin, cw === 'all' ? 0 : 5).catch(() => []),
+    // The two primary records decide whether this page renders the "no HPD
+    // records on file" state below, so they must not swallow a 5xx: an outage
+    // would otherwise tell a tenant the building is clean. The aggregates
+    // around them are supplementary and may degrade.
+    getHpdBuilding(bin, 1).catch(absentOr404),
+    getHpdTimeline(bin).catch(degraded('hpd timeline', [] as TimelinePoint[])),
+    getHpdBreakdown(bin).catch(degraded('hpd breakdown', [])),
+    getHpdBreakdownRecent(bin).catch(degraded('hpd breakdown recent', [])),
+    getHpdOpenViolationAges(bin).catch(degraded('hpd open ages', [] as ViolationAgeBucketItem[])),
+    getHpdComplaintBuilding(bin, 1).catch(absentOr404),
+    getHpdComplaintTimeline(bin).catch(degraded('hpd complaint timeline', [] as TimelinePoint[])),
+    getHpdComplaintBreakdown(bin).catch(degraded('hpd complaint breakdown', [])),
+    getHpdComplaintTypePeriodBreakdown(bin).catch(degraded('hpd complaint type period', [] as ComplaintTypePeriodItem[])),
+    getHpdComplaintResolutionBreakdown(bin).catch(degraded('hpd complaint resolution', [] as ComplaintResolutionItem[])),
+    getHpdComplaintMinorBreakdown(bin, cw === 'all' ? 0 : 5).catch(degraded('hpd complaint minor', [])),
     // The brief is computed server-side from hpd_brief_signals and is NOT
     // affected by the cw window toggle — its complaint signals are pinned to
     // five years by the rules layer. Failing soft: a brief that cannot load
     // renders nothing rather than taking the page down with it.
-    getHpdBuildingBrief(bin).catch(() => null),
+    getHpdBuildingBrief(bin).catch(degraded('hpd brief', null)),
   ])
 
   // No HPD records for this building — mirror the DOB empty state: keep the nav
   // + dataset tabs (so the reader can jump to Building Safety) and a full hero
   // header. The address comes from the DOB record since HPD has none.
   if (!violations && !complaints) {
-    const dob = await getBuilding(bin, 1).catch(() => null)
+    const dob = await getBuilding(bin, 1).catch(degraded('dob fallback address', null))
     return (
       <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+        <PageBeacon route="/hpd/building/[bin]" city="nyc" building={bin} />
         <BuildingNavBar backHref="/hpd" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd/building" />
         <div className="px-4 sm:px-6 pt-8" style={{ maxWidth: 1260, margin: '0 auto' }}>
           <BuildingCrossLinks items={[
@@ -422,10 +429,10 @@ export default async function HpdOverviewPage({
 
   // Log data — only fetched when the log is toggled open
   const violationsLog = show === 'violations'
-    ? await getHpdBuilding(bin, vpage, vcls, vst).catch(() => null)
+    ? await getHpdBuilding(bin, vpage, vcls, vst).catch(absentOr404)
     : null
   const complaintsLog = show === 'complaints'
-    ? await getHpdComplaintBuilding(bin, cpage, ccat, cst).catch(() => null)
+    ? await getHpdComplaintBuilding(bin, cpage, ccat, cst).catch(absentOr404)
     : null
 
   // ── derived values ──────────────────────────────────────────────────────────
@@ -619,6 +626,7 @@ const breakdownOpenC = openViolations > 0 ? openClassC : 0
 
   return (
     <>
+      <PageBeacon route="/hpd/building/[bin]" city="nyc" building={bin} />
       <BuildingNavBar backHref="/hpd" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd/building" />
 
       <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>

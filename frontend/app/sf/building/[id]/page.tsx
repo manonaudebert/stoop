@@ -11,7 +11,7 @@ import {
   getSfComplaintsBreakdown,
   getSfViolationsBreakdown,
 } from '@/lib/api'
-import { ApiError } from '@/lib/api'
+import { ApiError, degraded } from '@/lib/api'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingHero from '@/components/BuildingHero'
 import InsightCard from '@/components/InsightCard'
@@ -26,6 +26,7 @@ import Pagination from '@/components/Pagination'
 import HorizontalBarChart from '@/components/HorizontalBarChart'
 import BuildingBrief from '@/components/BuildingBrief'
 import type { Sf311Complaint, SfNov, SfComplaintBreakdownItem, SfViolationBreakdownItem } from '@/lib/types'
+import PageBeacon from '@/components/PageBeacon'
 
 // ── row components ──────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ export default async function SfBuildingPage({
     // anywhere in this path: every string, the "worth checking" line included, is
     // authored in cities/sf/rules.yaml and cited. Failing soft, as NYC does: a
     // brief that cannot load must not take the rest of the page with it.
-    getSfBuildingBrief(id).catch(() => null),
+    getSfBuildingBrief(id).catch(degraded('sf brief', null)),
   ])
 
   // ── derived values ──────────────────────────────────────────────────────────
@@ -250,6 +251,7 @@ export default async function SfBuildingPage({
   if (building.total_complaints === 0 && building.total_violations === 0) {
     return (
       <>
+        <PageBeacon route="/sf/building/[id]" city="sf" building={id} />
         <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
         <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
           <BuildingHero
@@ -343,6 +345,7 @@ export default async function SfBuildingPage({
 
   return (
     <>
+      <PageBeacon route="/sf/building/[id]" city="sf" building={id} />
       <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
+import { reportDegraded } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
 import CityToggle from './CityToggle'
@@ -119,7 +120,8 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     setSelected(base)
     try {
       const res = await fetch(`/api/proxy/hpd-complaints/building/search?q=${encodeURIComponent(b.bin)}`)
-      const results: HpdComplaintBuildingSummary[] = res.ok ? await res.json() : []
+      if (!res.ok) throw new Error(`hpd-complaints search ${res.status}`)
+      const results: HpdComplaintBuildingSummary[] = await res.json()
       const h = results.find(r => r.bin === b.bin)
       setSelected(prev => prev && prev.bin === b.bin ? {
         ...prev,
@@ -128,8 +130,10 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         hpd_open:           h?.open_complaints ?? null,
         hpd_open_emergency: h?.open_emergency_complaints ?? null,
       } : prev)
-    } catch {
-      /* HPD half stays unresolved — sidebar shows "No HPD records" */
+    } catch (err) {
+      // Leaves the HPD half unresolved, which the sidebar renders as its own
+      // failure state rather than as "No HPD records".
+      reportDegraded('map sidebar hpd complaints', err)
     }
   }
 

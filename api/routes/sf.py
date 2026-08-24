@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
+from observability import emit_event, is_bot, is_internal
 from cache import cache_get, cache_set
 from routes.map import RISK_COLORS
 from routes.hpd_complaints import _search_patterns, _normalize
@@ -317,6 +318,9 @@ async def search_sf_buildings(
     cache_key = f"sf_search:{q.lower()}"
     cached = cache_get(cache_key)
     if cached:
+        emit_event(kind="search", route="/sf/building/search", city="sf", query=q.strip(),
+                   result_count=len(cached), internal=is_internal(request),
+                   is_bot=is_bot(request.headers.get("User-Agent", "")))
         return cached
 
     # Reuse the NYC address normalization (ordinal stripping + N/S/E/W expansion)
@@ -362,6 +366,9 @@ async def search_sf_buildings(
         results = [_row_to_summary(r) for r in rows2.all()]
 
     cache_set(cache_key, results, ttl_seconds=3600)
+    emit_event(kind="search", route="/sf/building/search", city="sf", query=q, result_count=len(results),
+               internal=is_internal(request),
+               is_bot=is_bot(request.headers.get("User-Agent", "")))
     return results
 
 

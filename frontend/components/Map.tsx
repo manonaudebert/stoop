@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { reportDegraded } from '@/lib/api'
 
 const DEFAULT_CLUSTERS_URL = '/api/proxy/map/unified/clusters'
 
@@ -345,7 +346,9 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
             .sort((a: NtaSelection, b: NtaSelection) => a.name.localeCompare(b.name))
           onNtaListLoadRef.current(list)
         })
-        .catch(() => { /* non-critical — map still works without NTA layer */ })
+        // Non-critical: the map works without the overlay. Reported so a
+        // persistently missing layer is not mistaken for one that has none.
+        .catch(err => reportDegraded('nta overlay', err))
 
       map.addSource('buildings', {
         type: 'geojson',

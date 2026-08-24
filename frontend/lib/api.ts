@@ -1,8 +1,38 @@
 import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem, BuildingBrief, SfBuildingBrief } from './types'
 
+// Two ways a fetch is allowed to fail, and the difference is the point.
+//
+// `absentOr404` is for the record a page is *about*: a 404 means the building
+// genuinely has no record, anything else is an outage and must reach error.tsx.
+// Collapsing both into null renders an outage as a clean building.
+export function absentOr404(err: unknown): null {
+  if (err instanceof ApiError && err.status === 404) return null
+  throw err
+}
+
+// `degraded` is for supplementary data the page is still worth rendering
+// without — a chart, a brief. It swallows the error but never silently.
+export function degraded<T>(what: string, fallback: T) {
+  return (err: unknown): T => {
+    reportDegraded(what, err)
+    return fallback
+  }
+}
+
+// Something optional failed and the page carried on. Not user-visible, but it
+// must not vanish: these are exactly the faults that look like missing data.
+export function reportDegraded(what: string, err: unknown) {
+  const rid = err instanceof ApiError ? err.requestId : undefined
+  console.warn(`[stoop] degraded: ${what}`, { status: (err as ApiError)?.status, requestId: rid })
+}
+
 export class ApiError extends Error {
-  constructor(public status: number, path: string) {
-    super(`API error ${status}: ${path}`)
+  // `requestId` is the API's X-Request-Id. It is folded into the message on
+  // purpose: on a server render Next replaces the message with an opaque digest
+  // before it reaches error.tsx, and instrumentation.ts's onRequestError is the
+  // only place the original text survives to be paired with that digest.
+  constructor(public status: number, path: string, public requestId?: string) {
+    super(`API error ${status}: ${path}${requestId ? ` [request_id=${requestId}]` : ''}`)
   }
 }
 
@@ -34,7 +64,7 @@ async function get<T>(path: string, opts: GetOptions = {}): Promise<T> {
     signal: opts.signal,
     next: { revalidate: opts.revalidate ?? DAY },
   })
-  if (!res.ok) throw new ApiError(res.status, path)
+  if (!res.ok) throw new ApiError(res.status, path, res.headers.get('x-request-id') ?? undefined)
   return res.json()
 }
 
@@ -64,9 +94,12 @@ export async function getBreakdown(bin: string, years?: number): Promise<Categor
 }
 
 export async function getNeighborhood(bin: string): Promise<NeighborhoodData | null> {
+  // Neighborhood context is supplementary — the page is still worth rendering
+  // without it. Degrading is right; degrading silently is not, so report first.
   try {
     return await get(`/building/${bin}/neighborhood`)
-  } catch {
+  } catch (err) {
+    reportDegraded('getNeighborhood', err)
     return null
   }
 }

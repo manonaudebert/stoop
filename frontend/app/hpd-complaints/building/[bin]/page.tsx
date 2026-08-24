@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown, getHpdComplaintMinorBreakdown } from '@/lib/api'
+import { absentOr404, degraded, getHpdComplaintBuilding, getHpdComplaintTimeline, getHpdComplaintBreakdown, getHpdComplaintMinorBreakdown } from '@/lib/api'
 import { MINOR_TO_GROUP, FILTER_GROUP_ORDER } from '@/lib/constants'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import BuildingExplainer from '@/components/BuildingExplainer'
@@ -11,6 +11,7 @@ import FilterPill from '@/components/FilterPill'
 import RecordLog from '@/components/RecordLog'
 import Pagination from '@/components/Pagination'
 import type { HpdComplaint } from '@/lib/types'
+import PageBeacon from '@/components/PageBeacon'
 
 const TIER_META: Record<string, { color: string; bg: string }> = {
   'Emergency': { color: '#7F1D1D', bg: '#FEF2F2' },
@@ -125,11 +126,14 @@ export default async function HpdComplaintsBuildingPage({
   const majorCategory = sp.category
   const status = sp.status
 
+  // The primary record decides the page: a 404 is a missing building, anything
+  // else is an outage and must reach error.tsx. Collapsing both into notFound()
+  // made every failure read as "this building does not exist".
   const [building, timeline, breakdown, minorBreakdown] = await Promise.all([
-    getHpdComplaintBuilding(bin, page, majorCategory, status).catch(() => null),
-    getHpdComplaintTimeline(bin).catch(() => []),
-    getHpdComplaintBreakdown(bin).catch(() => []),
-    getHpdComplaintMinorBreakdown(bin).catch(() => []),
+    getHpdComplaintBuilding(bin, page, majorCategory, status).catch(absentOr404),
+    getHpdComplaintTimeline(bin).catch(degraded('hpd-complaints timeline', [])),
+    getHpdComplaintBreakdown(bin).catch(degraded('hpd-complaints breakdown', [])),
+    getHpdComplaintMinorBreakdown(bin).catch(degraded('hpd-complaints minor breakdown', [])),
   ])
 
   if (!building) notFound()
@@ -196,6 +200,7 @@ export default async function HpdComplaintsBuildingPage({
 
   return (
     <>
+      <PageBeacon route="/hpd-complaints/building/[bin]" city="nyc" building={bin} />
       <BuildingNavBar backHref="/hpd-complaints" backLabel="← Back to map" searchUrl="/api/proxy/hpd-complaints/building/search" buildingBasePath="/hpd-complaints/building" />
 
       <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 960, margin: '0 auto' }}>

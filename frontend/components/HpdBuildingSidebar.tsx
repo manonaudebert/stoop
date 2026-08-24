@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+import { reportDegraded } from '@/lib/api'
+
 export type HpdSelectedBuilding = {
   bin: string
   address: string | null
@@ -68,23 +70,34 @@ type Props = {
 
 export default function HpdBuildingSidebar({ building, onClose }: Props) {
   const meta = getRiskMeta(building.risk_level ?? null)
-  const [violations, setViolations] = useState<ViolationSummary | null | 'loading'>('loading')
+  const [violations, setViolations] = useState<ViolationSummary | null | 'loading' | 'error'>('loading')
 
   useEffect(() => {
     setViolations('loading')
     let cancelled = false
     fetch(`/api/proxy/hpd/building/search?q=${encodeURIComponent(building.bin)}`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => {
+        // A failed request must not collapse into an empty result set: "no
+        // violations on file" and "we could not load this" are different facts,
+        // and on this card the difference is the whole product.
+        if (!r.ok) throw new Error(`hpd search ${r.status}`)
+        return r.json()
+      })
       .then((results: ViolationSummary[]) => {
         if (cancelled) return
         const match = results.find(r => r.bin === building.bin)
         setViolations(match ?? null)
       })
-      .catch(() => { if (!cancelled) setViolations(null) })
+      .catch(err => {
+        if (cancelled) return
+        reportDegraded('sidebar hpd violations', err)
+        setViolations('error')
+      })
     return () => { cancelled = true }
   }, [building.bin])
 
-  const v           = violations === 'loading' ? null : violations
+  const vFailed     = violations === 'error'
+  const v           = typeof violations === 'string' ? null : violations
   const vLoading    = violations === 'loading'
 
   return (
@@ -154,6 +167,14 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
           <StatCell label="Open"               value={v?.open_violations ?? null}     loading={vLoading} />
           <StatCell label="Open rent-impairing" value={v?.rent_impairing_count ?? null} loading={vLoading} />
         </div>
+        {vFailed && (
+          <p style={{
+            fontFamily: 'var(--font-sans)', fontSize: 11, color: '#92400E',
+            margin: '-8px 0 12px',
+          }}>
+            Violation counts couldn&apos;t be loaded — this is a loading problem, not a clean record.
+          </p>
+        )}
       </div>
 
       <Link

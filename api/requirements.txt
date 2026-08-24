@@ -6,6 +6,10 @@ pydantic==2.10.0
 python-dotenv==1.2.2
 slowapi==0.1.9
 cachetools==5.5.0
+# Serving path: observability.py POSTs 5xx alerts to Resend. Also the direct
+# import in services/briefs/providers.py and the async test client, so the pin
+# that used to live in requirements-briefs.txt moved here.
+httpx==0.27.0
 # Read by services/briefs/rules.py, which routes/hpd.py imports on the serving
 # path. It arrived transitively via uvicorn[standard] and worked by accident;
 # pinned here because it is imported directly.

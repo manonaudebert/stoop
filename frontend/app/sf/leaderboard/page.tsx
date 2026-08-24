@@ -4,6 +4,7 @@ import type { SfBuildingSummary } from '@/lib/types'
 import BuildingNavBar from '@/components/BuildingNavBar'
 import TooltipIcon from '@/components/TooltipIcon'
 import CityToggle from '@/components/CityToggle'
+import PageBeacon from '@/components/PageBeacon'
 
 const TREND: Record<string, string> = {
   worsening: '↑',
@@ -129,6 +130,7 @@ export default async function SfLeaderboardPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
+      <PageBeacon route="/sf/leaderboard" city="sf" />
       <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       <div className="lb-header" style={{ background: '#FFFFFF', borderBottom: '0.5px solid #E5E5E5', padding: '1.5rem' }}>

@@ -11,4 +11,3 @@
 #   pip install -r requirements.txt -r requirements-briefs.txt
 -r requirements.txt
 anthropic==0.122.0
-httpx==0.27.0

@@ -121,6 +121,11 @@ async def log_requests(request: Request, call_next):
     rid = new_request_id()
     token = request_id_var.set(rid)
     started = time.perf_counter()
+    # A raised exception is handled by ServerErrorMiddleware, which wraps this
+    # middleware from the outside — it never returns through here. The scope is
+    # the only channel that reaches it, so the 5xx handler reads both from there.
+    request.scope["request_id"] = rid
+    request.scope["started"] = started
     try:
         response = await call_next(request)
     finally:
@@ -169,9 +174,31 @@ app.include_router(sf_router)
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled error on %s %s: %s", request.method, request.url, exc, exc_info=True)
+    # This runs above log_requests, so everything that middleware would have
+    # done for a 5xx has to happen here instead.
+    rid = request.scope.get("request_id", "")
+    started = request.scope.get("started")
+    duration_ms = int((time.perf_counter() - started) * 1000) if started else None
+    route = route_template(request)
+
+    logger.error(
+        "Unhandled error on %s %s: %s", request.method, request.url, exc,
+        exc_info=True,
+        extra={"request_id": rid, "method": request.method, "route": route,
+               "status": 500, "duration_ms": duration_ms},
+    )
+    emit_event(
+        kind="request", route=route, status=500, duration_ms=duration_ms,
+        request_id=rid, internal=is_internal(request),
+        is_bot=is_bot(request.headers.get("User-Agent", "")),
+        meta={"method": request.method, "exc": type(exc).__name__},
+    )
     alert_5xx(request, exc)
-    return JSONResponse(status_code=500, content={"detail": "An unexpected error occurred."})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected error occurred."},
+        headers={"X-Request-Id": rid} if rid else None,
+    )
 
 
 class ClientEvent(BaseModel):

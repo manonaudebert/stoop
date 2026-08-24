@@ -288,7 +288,7 @@ def alert_5xx(request, exc: Exception) -> None:
     # 4,000 times is worse than no alert at all.
     if not _should_alert(f"{type(exc).__name__}:{route}"):
         return
-    rid = request_id_var.get() or "-"
+    rid = request.scope.get("request_id") or request_id_var.get() or "-"
     body = (
         f"{type(exc).__name__}: {exc}\n\n"
         f"route:      {request.method} {route}\n"

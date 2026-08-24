@@ -14,6 +14,10 @@ import re
 
 import pytest
 
+from unittest.mock import AsyncMock
+
+from httpx import AsyncClient, ASGITransport
+
 import observability
 from database import get_db
 from main import app
@@ -111,6 +115,60 @@ class TestFaultCapture:
         routes = [getattr(r, "route", None) for r in records]
         assert "/building/{bin}" in routes
         assert "/building/0000000" not in routes
+
+
+class TestServerErrors:
+    """`@app.exception_handler(Exception)` lives in ServerErrorMiddleware, which
+    wraps the logging middleware from the outside — a raised exception never
+    returns through it. Everything a 5xx needs must come from the handler."""
+
+    async def _raise_500(self):
+        session = AsyncMock()
+        session.execute = AsyncMock(side_effect=RuntimeError("boom"))
+
+        async def _db():
+            yield session
+
+        records = []
+
+        class Capture(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        handler = Capture()
+        logging.getLogger("nycd").addHandler(handler)
+        app.dependency_overrides[get_db] = _db
+        try:
+            async with AsyncClient(
+                transport=ASGITransport(app=app, raise_app_exceptions=False),
+                base_url="http://test",
+            ) as c:
+                res = await c.get("/building/1044818/neighborhood")
+        finally:
+            app.dependency_overrides.clear()
+            logging.getLogger("nycd").removeHandler(handler)
+        return res, records
+
+    async def test_500_echoes_the_request_id(self):
+        res, _ = await self._raise_500()
+        assert res.status_code == 500
+        assert len(res.headers.get("x-request-id", "")) == 12
+
+    async def test_500_error_log_carries_the_request_id(self):
+        res, records = await self._raise_500()
+        errors = [r for r in records if r.levelname == "ERROR"]
+        assert errors, "a 5xx must produce an ERROR line"
+        assert getattr(errors[0], "request_id", None) == res.headers["x-request-id"]
+        assert getattr(errors[0], "route", None) == "/building/{bin}/neighborhood"
+
+    async def test_500_is_stored(self):
+        """Without this the error-surface metric misses 5xx entirely."""
+        res, _ = await self._raise_500()
+        rows = [r for r in queued() if r["status"] == 500]
+        assert len(rows) == 1
+        assert rows[0]["request_id"] == res.headers["x-request-id"]
+        assert rows[0]["route"] == "/building/{bin}/neighborhood"
+        assert json.loads(rows[0]["meta"])["exc"] == "RuntimeError"
 
 
 class TestEmitEvent:
@@ -232,10 +290,22 @@ class TestAlertThrottle:
         assert observability._should_alert("ValueError:/x") is False
         assert observability._should_alert("ValueError:/y") is True
 
-    def test_alert_is_disabled_without_credentials(self):
-        """No key configured → silently off, so local and CI are unaffected."""
+    def test_alert_is_disabled_without_credentials(self, monkeypatch):
+        """No key configured → silently off, so local and CI are unaffected.
+
+        Forced rather than assumed: a developer with RESEND_API_KEY in .env
+        would otherwise have this pass or fail depending on their environment.
+        """
+        monkeypatch.setattr(observability, "_RESEND_API_KEY", "")
+        monkeypatch.setattr(observability, "_ALERT_EMAIL", "")
         observability._alerted_at.clear()
-        assert observability._RESEND_API_KEY == ""
+        observability.alert_5xx(_FakeRequest(), ValueError("boom"))
+        assert observability._alerted_at == {}
+
+    def test_alert_is_disabled_without_a_recipient(self, monkeypatch):
+        monkeypatch.setattr(observability, "_RESEND_API_KEY", "re_key")
+        monkeypatch.setattr(observability, "_ALERT_EMAIL", "")
+        observability._alerted_at.clear()
         observability.alert_5xx(_FakeRequest(), ValueError("boom"))
         assert observability._alerted_at == {}
 

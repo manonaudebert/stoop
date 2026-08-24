@@ -15,6 +15,11 @@ import sys
 # so setting them here prevents .env values from leaking into tests.
 os.environ.setdefault("DATABASE_URL", "postgresql://fake:fake@localhost/fakedb")
 os.environ["INTERNAL_API_SECRET"] = ""   # disable auth middleware in tests
+# Alerting must be off in tests. observability.py reads these at import, and the
+# 5xx tests deliberately raise — with a real key in .env the suite would send
+# actual email. Blank means alert_5xx returns before it can build a request.
+os.environ["RESEND_API_KEY"] = ""
+os.environ["ALERT_EMAIL"] = ""
 
 # Add the api/ directory to sys.path so tests can import api modules directly.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

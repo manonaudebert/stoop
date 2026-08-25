@@ -335,7 +335,13 @@ def fetch_dbi_nov(since: date | None = None) -> pd.DataFrame:
     rows = _fetch_all(
         SF_DBI_NOV_API,
         where=where,
-        select=":id,block,lot,status,nov_category_description,item,nov_item_description,date_filed,neighborhoods_analysis_boundaries,location",
+        select=(
+            ":id,complaint_number,item_sequence_number,block,lot,status,"
+            "receiving_division,assigned_division,nov_category_description,item,"
+            "nov_item_description,code_violation_desc,work_without_permit,"
+            "additional_work_beyond_permit,expired_permit,cancelled_permit,"
+            "unsafe_building,date_filed,neighborhoods_analysis_boundaries,location"
+        ),
     )
     if not rows:
         return pd.DataFrame()

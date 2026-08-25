@@ -214,6 +214,42 @@ class TestIncrementalFilters:
         sync_sf.fetch_dbi_nov()
         assert cap["where"] is None
 
+    def test_nov_fetch_requests_both_record_shapes(self, monkeypatch):
+        captured = {}
+
+        def fake_fetch_all(api_url, where=None, select=None):
+            captured["select"] = select
+            return []
+
+        monkeypatch.setattr(sync_sf, "_fetch_all", fake_fetch_all)
+        sync_sf.fetch_dbi_nov()
+
+        assert "nov_item_description" in captured["select"]
+        assert "code_violation_desc" in captured["select"]
+        assert "unsafe_building" in captured["select"]
+
+    def test_nov_fetch_preserves_non_housing_fields(self, monkeypatch):
+        def fake_fetch_all(api_url, where=None, select=None):
+            return [{
+                ":id": "row-1",
+                "complaint_number": "202307791",
+                "block": "2636",
+                "lot": "003",
+                "status": "active",
+                "receiving_division": "Building Inspection Division",
+                "code_violation_desc": "Observed fire damage to unit 1 M.",
+                "unsafe_building": "Y",
+                "date_filed": "2023-05-09",
+            }]
+
+        monkeypatch.setattr(sync_sf, "_fetch_all", fake_fetch_all)
+        row = sync_sf.fetch_dbi_nov().iloc[0]
+
+        assert row["row_id"] == "row-1"
+        assert row["mapblklot"] == "2636003"
+        assert row["code_violation_desc"] == "Observed fire damage to unit 1 M."
+        assert row["unsafe_building"] == "Y"
+
     def test_311_incremental_filters_on_updated_at(self, monkeypatch):
         cap = self._capture_where(monkeypatch)
         sync_sf.fetch_311(since=date(2026, 7, 2))

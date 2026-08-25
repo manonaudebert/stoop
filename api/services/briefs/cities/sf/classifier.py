@@ -80,26 +80,36 @@ def _compiled_advisory() -> list[re.Pattern]:
     return [re.compile(_to_python(p), re.S) for p in advisory_patterns()]
 
 
-def clean(item: str | None, description: str | None) -> str:
-    """Both fields, lowercased, with advisory boilerplate removed.
+def clean(
+    item: str | None,
+    description: str | None,
+    code_violation_description: str | None = None,
+) -> str:
+    """All violation text fields, lowercased, with advisory boilerplate removed.
 
-    Neither field is ever rendered — see the note in the pattern file. This text
-    exists only to be matched against.
+    The combined text exists only for matching. The API separately chooses one
+    nonblank source description for the tenant-facing violation log.
     """
-    text = " ".join(x for x in (item, description) if x).lower()
+    text = " ".join(
+        x for x in (item, description, code_violation_description) if x and x.strip()
+    ).lower()
     for advisory in _compiled_advisory():
         text = advisory.sub(" ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-def classify(item: str | None, description: str | None) -> str | None:
+def classify(
+    item: str | None,
+    description: str | None,
+    code_violation_description: str | None = None,
+) -> str | None:
     """The condition group for one NOV row, or None when it names none.
 
     None is a normal and common answer — inspector narrative, scheduling
     addenda and permit-only orders describe no condition, and a brief that
     invented one for them would be worse than silent.
     """
-    text = clean(item, description)
+    text = clean(item, description, code_violation_description)
     if len(text) < MIN_TEXT_LENGTH:
         return None
     for group, pattern in _compiled():
@@ -110,7 +120,11 @@ def classify(item: str | None, description: str | None) -> str | None:
 
 def _sql_text() -> str:
     """The SQL expression producing the cleaned text, mirroring `clean()`."""
-    expr = "lower(coalesce(v.item, '') || ' ' || coalesce(v.nov_item_description, ''))"
+    expr = (
+        "lower(coalesce(v.item, '') || ' ' || "
+        "coalesce(v.nov_item_description, '') || ' ' || "
+        "coalesce(v.code_violation_desc, ''))"
+    )
     for advisory in advisory_patterns():
         escaped = advisory.replace("'", "''")
         expr = f"regexp_replace({expr}, '{escaped}', ' ', 'g')"

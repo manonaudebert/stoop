@@ -54,6 +54,13 @@ def _violation_group_description(group: str) -> str:
     return card_categories.description(group)
 
 
+def _first_nonblank(*values: str | None) -> str | None:
+    for value in values:
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
 PAGE_SIZE         = 50
 CLUSTER_MAX_ZOOM  = 13
 # Citywide (clustered) sample cap, per SF analysis neighborhood. SF has 41
@@ -574,24 +581,45 @@ async def get_sf_building(
         )).scalar() or 0
         rows = await db.execute(
             text(f"""
-                SELECT row_id, mapblklot, status, nov_category_description,
-                       item, nov_item_description,
+                SELECT row_id, complaint_number, item_sequence_number,
+                       mapblklot, status, receiving_division, assigned_division,
+                       nov_category_description, item, nov_item_description,
+                       code_violation_desc, work_without_permit,
+                       additional_work_beyond_permit, expired_permit,
+                       cancelled_permit, unsafe_building,
                        date_filed, neighborhood, location_lat, location_lon
                 FROM sf_dbi_nov
                 WHERE mapblklot = :id {status_clause}
-                ORDER BY date_filed DESC NULLS LAST
+                ORDER BY date_filed DESC NULLS LAST,
+                         complaint_number DESC NULLS LAST,
+                         item_sequence_number ASC NULLS LAST,
+                         row_id
                 LIMIT :limit OFFSET :offset
             """),
             {"id": mapblklot, "limit": PAGE_SIZE, "offset": offset},
         )
-        violations = [
-            SfNovResponse(**{
-                **dict(r._mapping),
-                "location_lat": _safe_float(r._mapping.get("location_lat")),
-                "location_lon": _safe_float(r._mapping.get("location_lon")),
-            })
-            for r in rows.all()
-        ]
+        violations = []
+        for row in rows.all():
+            raw = dict(row._mapping)
+            condition_group = card_categories.classify(
+                raw.get("item"),
+                raw.get("nov_item_description"),
+                raw.get("code_violation_desc"),
+            )
+            display_category = _first_nonblank(raw.get("nov_category_description"))
+            if display_category is None and condition_group is not None:
+                display_category = card_categories.label(condition_group)
+            violations.append(SfNovResponse(**{
+                **raw,
+                "condition_group": condition_group,
+                "display_category": display_category or "DBI code violation",
+                "display_description": _first_nonblank(
+                    raw.get("nov_item_description"),
+                    raw.get("code_violation_desc"),
+                ),
+                "location_lat": _safe_float(raw.get("location_lat")),
+                "location_lon": _safe_float(raw.get("location_lon")),
+            }))
 
     return SfBuildingDetailResponse(
         **summary.__dict__,

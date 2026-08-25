@@ -295,9 +295,15 @@ else Very high.
   (no weight-0 tier as in complaints), so the three counts sum exactly to `open_violations`.
   These replaced the fixed Fire/Lead rows, which were mostly zeros on SF's sparse data. The
   tier tag is computed once in the view's `tagged` CTE and shared with `weighted_violation_sum`
-  (single source of truth for the A/B/C map): fire / smoke detection / lead section = A,
-  building / plumbing & electrical / interior surfaces / sanitation / security = B, else = C.
-  Revised by `migrate_sf_violation_tiers.sql`.
+  (single source of truth for the A/B/C map). A source `unsafe_building = Y` flag is always tier A.
+  Otherwise, populated DBI categories retain the existing map: fire / smoke detection / lead
+  section = A; building / plumbing & electrical / interior surfaces / sanitation / security = B;
+  everything else = C. When the category is blank, the condition classifier is the fallback:
+  fire safety / smoke detectors / lead paint / heat and hot water = A; pests / mold / plumbing /
+  exterior and windows / interior surfaces / electrical / ventilation and light / sanitation /
+  security / floors and stairs = B; unmatched rows = C. `open_fire_violations` and
+  `open_lead_violations` use the same classified fallback when their source category is blank.
+  Revised by `migrate_sf_violation_tiers.sql`, then `migrate_sf_nov_complete_records.sql`.
 
 ### Top categories / timelines (live queries)
 
@@ -432,7 +438,7 @@ explicitly excluded with a recorded reason.
 counted from `sf_dbi_nov` where `status = 'active'`.
 
 The group is assigned by a **text classifier** over `item` +
-`nov_item_description`, defined as an ordered first-match-wins pattern table in
+`nov_item_description` + `code_violation_desc`, defined as an ordered first-match-wins pattern table in
 `api/services/briefs/cities/sf/nov_patterns.yaml` and compiled into the view as a
 `CASE` cascade. `nov_category_description` is only a fallback, used where the
 text names nothing.
@@ -442,8 +448,8 @@ of rows are `building section`, `other section` or blank — a chapter of the co
 rather than a condition. The condition itself is in the text, in canonical
 phrases DBI reuses ("repair damaged ceilings (1001b,h,o hc)").
 
-Neither text field is ever rendered. They carry inspector names, addresses and
-narrative; this is classification only.
+The combined classifier expression is never rendered. The building API separately displays the
+first nonblank value of `nov_item_description` and `code_violation_desc` in the violation log.
 
 **Accuracy: 98% over 114 hand-labelled rows, 99% on the 70 held out** during
 tuning. The table is measured, not assumed, and `tests/test_briefs_sf_classifier.py`

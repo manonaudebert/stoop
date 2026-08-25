@@ -92,30 +92,38 @@ def _compiled_narrative() -> list[re.Pattern]:
     return [re.compile(p.replace(r"\y", r"\b"), re.S) for p in narrative_patterns()]
 
 
-def clean(item: str | None, description: str | None) -> str:
+def clean(
+    item: str | None,
+    description: str | None,
+    code_violation_description: str | None = None,
+) -> str:
     """The brief's cleaned text with card narrative removed as well.
 
     Used ONLY for the card's own rules and for the emptiness test. The brief
     classifier is always handed its own `clean()` output, never this, so extra
     stripping here can never change a label the brief already assigns.
     """
-    text = classifier.clean(item, description)
+    text = classifier.clean(item, description, code_violation_description)
     for narrative in _compiled_narrative():
         text = narrative.sub(" ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-def classify(item: str | None, description: str | None) -> str | None:
+def classify(
+    item: str | None,
+    description: str | None,
+    code_violation_description: str | None = None,
+) -> str | None:
     """The card bucket for one NOV row, or None when it describes no condition.
 
     None means "leave this row off the chart" — inspector narrative, nuisance
     declarations, scheduling notes. It is a third of DBI's corpus and charting
     it would invent findings out of an inspector's notes.
     """
-    brief_label = classifier.classify(item, description)
+    brief_label = classifier.classify(item, description, code_violation_description)
     if brief_label:
         return brief_label
-    text = clean(item, description)
+    text = clean(item, description, code_violation_description)
     if len(text) < classifier.MIN_TEXT_LENGTH:
         return None
     for group, pattern in _compiled():

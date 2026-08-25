@@ -170,8 +170,8 @@ labelled AS (
     --
     -- Category is the FALLBACK and only catches rows the text could not name.
     --
-    -- NEITHER text field is ever rendered. They carry inspector names, addresses
-    -- and narrative; this is classification only.
+    -- This expression is classification-only. The building API separately
+    -- chooses one nonblank source description for the violation log.
     --
     -- `status` has exactly two values, 'active' and 'not active'. DBI
     -- republishes every row on each publish, so `date_filed` is the incremental

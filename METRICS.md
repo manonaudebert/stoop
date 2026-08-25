@@ -354,6 +354,14 @@ same page always count a group the same way. Complaint signals use a **5-year
 window**; violation signals are **open right now** (a violation issued a decade
 ago can still be open, which is what the reader needs to know).
 
+Rule selection and ordering are deterministic. For NYC only, the item-level
+`watch_for` sentence can come from the AI-generated `brief_texts` corpus. Corpus
+generation happens offline once per distinct prompt shape; no model is called
+when a building page is requested. Generated sentences are stripped of building
+identifiers and counts, passed through deterministic validators before being
+stored, and labeled **AI-assisted** in the UI. A missing or rejected corpus row
+falls back to authored rule copy. SF does not use generated brief prose.
+
 | Signal | Definition |
 |---|---|
 | `open_class_c_violations` | Open, `violation_class = 'C'` |

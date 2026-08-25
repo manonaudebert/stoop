@@ -321,14 +321,14 @@ export default function SfMethodologyPage() {
           <SectionTitle>Building Brief</SectionTitle>
           <div style={CARD}>
             <p style={PROSE}>
-              The Building Brief is a rules-based summary of the records already shown on the page,
-              not a new inspection or a prediction. It can surface up to three renter-relevant watch
-              items. Complaint signals use the last 5 years; violation signals use notices that are
-              active now. Complaint subtypes are grouped through a fixed taxonomy, while violation
-              conditions are assigned by an ordered classifier over DBI notice text. The text is used
-              only for classification and is never reproduced in the brief. One qualifying report or
-              active notice can surface an item. If no rule crosses its threshold, that does not
-              establish that the property has no problems.
+              Unlike the New York brief&apos;s AI-assisted corpus, the San Francisco Building Brief
+              uses authored copy selected entirely by deterministic rules. It can surface up to three
+              renter-relevant watch items. Complaint signals use the last 5 years; violation signals
+              use notices that are active now. Complaint subtypes are grouped through a fixed
+              taxonomy, while violation conditions are assigned by an ordered classifier over DBI
+              notice text. The text is used only for classification and is never reproduced in the
+              brief. One qualifying report or active notice can surface an item. If no rule crosses
+              its threshold, that does not establish that the property has no problems.
             </p>
           </div>
         </section>

@@ -301,14 +301,16 @@ export default function MethodologyPage() {
           <SectionTitle>Building Brief</SectionTitle>
           <div style={CARD}>
             <p style={PROSE}>
-              The Building Brief is a rules-based summary of the records already shown on the page,
-              not a new inspection or a prediction. It can surface up to three renter-relevant watch
-              items, prioritizing life-safety and essential-service concerns. Complaint signals use
-              the last 5 years; violation signals use records that are open now, including lead-paint
-              orders that remain open even when their legal order number has been retired. The same
-              renter-facing category groups power both the brief and the page&apos;s issue cards. If no
-              rule crosses its threshold, the brief says so explicitly—that does not establish that
-              the building has no problems.
+              The Building Brief combines deterministic rule selection with an AI-assisted,
+              pre-generated corpus for its &ldquo;Worth checking&rdquo; sentences. No model is called
+              when you open a building page. The model-generated sentences are written once for
+              reusable record shapes, checked by deterministic validators before publication, and
+              labeled &ldquo;AI-assisted&rdquo; on the page; the remaining brief copy is written by hand
+              and cited. The brief can surface up to three renter-relevant watch items, prioritizing
+              life-safety and essential-service concerns. Complaint signals use the last 5 years;
+              violation signals use records that are open now, including lead-paint orders that
+              remain open even when their legal order number has been retired. If no rule crosses
+              its threshold, that does not establish that the building has no problems.
             </p>
           </div>
         </section>

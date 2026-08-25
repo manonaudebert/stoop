@@ -120,7 +120,9 @@ violations_density_pct      = PERCENT_RANK() on density within NTA
 ```
 
 `building_volume = footprint_area × max(height_roof / 12, 1)`. Buildings without
-footprint or height data fall back to `complaints_raw_pct` (see below).
+footprint or height data receive no `violations_density_pct`. On the combined HPD Rank card,
+the complaints percentile can still provide the other half of the comparison; this is not a
+raw-count fallback for violations.
 
 ### `hpd_complaints_building_summary` — complaints
 
@@ -352,6 +354,14 @@ same page always count a group the same way. Complaint signals use a **5-year
 window**; violation signals are **open right now** (a violation issued a decade
 ago can still be open, which is what the reader needs to know).
 
+Rule selection and ordering are deterministic. For NYC only, the item-level
+`watch_for` sentence can come from the AI-generated `brief_texts` corpus. Corpus
+generation happens offline once per distinct prompt shape; no model is called
+when a building page is requested. Generated sentences are stripped of building
+identifiers and counts, passed through deterministic validators before being
+stored, and labeled **AI-assisted** in the UI. A missing or rejected corpus row
+falls back to authored rule copy. SF does not use generated brief prose.
+
 | Signal | Definition |
 |---|---|
 | `open_class_c_violations` | Open, `violation_class = 'C'` |
@@ -495,11 +505,13 @@ parcel. Display cap is 3, shared with NYC.
 
 ## Cross-cutting rules
 
-- **Residential filter**: percentile comparisons (`serious_rate_percentile`,
-  `neighborhood_percentile`, `normalized_percentile`, `violations_density_pct`,
-  `complaints_density_pct`) are computed only within `nta_type = 0` neighbourhoods.
-  Parks, airports, and industrial zones are excluded; their DOB `risk_level` shows
-  as `Not comparable` (triggered by `normalized_percentile IS NULL`).
+- **Residential filter**: DOB percentiles (`serious_rate_percentile`,
+  `normalized_percentile`, `normalized_serious_rate_percentile`) are computed only within
+  `nta_type = 0` neighbourhoods. HPD `violations_density_pct` and `complaints_density_pct`
+  are currently ranked across every building with an NTA; those views do not carry or filter
+  on `nta_type`. Parks, airports, and industrial zones are excluded from DOB comparisons;
+  their DOB `risk_level` shows as `Not comparable` (triggered by
+  `normalized_percentile IS NULL`). Missing size data triggers the same DOB label.
 - **Minimum data threshold**: DOB buildings with fewer than 10 total complaints
   *and* less than 2 years of history are flagged `Insufficient data` and excluded
   from Severity/Rank comparisons.

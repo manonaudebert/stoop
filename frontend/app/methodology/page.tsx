@@ -98,7 +98,7 @@ export default function MethodologyPage() {
               title="NYC Building Footprints"
               agency="NYC Dept. of City Planning"
               description="Building polygons with roof height and footprint area, used to estimate total building scale for size-normalized comparisons, plus centroids for map placement."
-              href="https://data.cityofnewyork.us/Housing-Development/Building-Footprints/nqwf-w8eh"
+              href="https://data.cityofnewyork.us/d/5zhs-2jue"
             />
             <DataSourceCard
               id="NTA2020"
@@ -114,9 +114,9 @@ export default function MethodologyPage() {
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>DOB complaint priority</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 16 }}>
-            Each of the 254 DOB complaint category codes is assigned a priority tier based on
-            the DOB&apos;s own classification system (rev. 09/21). When a complaint&apos;s category is
-            unknown or absent, it defaults to Priority C.
+            DOB complaint category codes are assigned a priority tier based on the agency&apos;s
+            classification system (rev. 09/21). When a complaint&apos;s category is unknown or absent,
+            it defaults to Priority C.
           </p>
           <SeverityList items={PRIORITY_TIERS} />
         </section>
@@ -192,10 +192,12 @@ export default function MethodologyPage() {
               <p style={SECTION_HEADER}>Size-normalized percentile</p>
               <p style={{ ...PROSE, fontSize: 13 }}>
                 Each building&apos;s density is ranked via <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, background: '#F5F5F5', padding: '1px 5px', borderRadius: 3 }}>PERCENT_RANK()</code> within
-                its NTA, separately for HPD violations, HPD complaints, and DOB complaints.
-                Buildings without footprint or height data receive a raw count percentile instead.
-                A density percentile of 20 means the building has fewer weighted complaints per
-                unit of scale than 80% of its residential neighbors.
+                its NTA, separately for HPD violations, HPD complaints, and DOB complaints. DOB
+                comparisons include residential buildings only; the two HPD comparisons include
+                every building in the NTA. When scale data is missing, HPD complaints fall back to
+                a raw weighted-count percentile. DOB becomes &ldquo;Not comparable,&rdquo; and the HPD
+                violation percentile is unavailable. A density percentile of 20 means the building
+                has lower weighted activity per unit of scale than 80% of the relevant peer group.
               </p>
             </div>
           </div>
@@ -246,9 +248,9 @@ export default function MethodologyPage() {
                   Not comparable
                 </p>
                 <p style={{ ...PROSE, fontSize: 13 }}>
-                  Buildings in non-residential NTAs, parks, airports, cemeteries, and similar
-                  areas (NTA type ≠ 0), are excluded from percentile ranking because there are
-                  no meaningful residential peers to compare against.
+                  DOB buildings without usable size data, and those in non-residential NTAs such as
+                  parks, airports, and cemeteries (NTA type ≠ 0), receive no normalized percentile
+                  because there is no meaningful size-normalized residential comparison.
                 </p>
               </div>
             </div>
@@ -295,6 +297,24 @@ export default function MethodologyPage() {
         </section>
 
         {/* ── 11. Leaderboards ───────────────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Building Brief</SectionTitle>
+          <div style={CARD}>
+            <p style={PROSE}>
+              The Building Brief combines deterministic rule selection with an AI-assisted,
+              pre-generated corpus for its &ldquo;Worth checking&rdquo; sentences. No model is called
+              when you open a building page. The model-generated sentences are written once for
+              reusable record shapes, checked by deterministic validators before publication, and
+              labeled &ldquo;AI-assisted&rdquo; on the page; the remaining brief copy is written by hand
+              and cited. The brief can surface up to three renter-relevant watch items, prioritizing
+              life-safety and essential-service concerns. Complaint signals use the last 5 years;
+              violation signals use records that are open now, including lead-paint orders that
+              remain open even when their legal order number has been retired. If no rule crosses
+              its threshold, that does not establish that the building has no problems.
+            </p>
+          </div>
+        </section>
+
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Leaderboards</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
@@ -365,7 +385,7 @@ export default function MethodologyPage() {
                 },
                 {
                   title: 'Scale estimation',
-                  body: 'Building scale is estimated from footprint area and roof height. Buildings missing either value cannot be size-normalized and fall back to raw count percentiles within their NTA. Scale is a proxy; it does not account for unit density or occupancy.',
+                  body: 'Building scale is estimated from footprint area and roof height. HPD complaints missing either value fall back to a raw weighted-count percentile; DOB becomes Not comparable, and the HPD violation percentile is unavailable. Scale is a proxy; it does not account for unit density or occupancy.',
                 },
                 {
                   title: 'Sync frequency',

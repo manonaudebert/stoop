@@ -130,6 +130,10 @@ export default function SfMethodologyPage() {
             weight of 0. They are permitting and lease-policy matters, not habitability hazards, so
             they do not contribute to the risk score.
           </p>
+          <p style={{ ...PROSE, fontSize: 13, marginTop: 12 }}>
+            On the building page, the complaint-severity card counts Tier A, B, and C reports from
+            the last 5 years. A clean window is shown as an empty state rather than three zero rows.
+          </p>
         </section>
 
         {/* ── 4. DBI violation severity ──────────────────────────────────── */}
@@ -142,9 +146,28 @@ export default function SfMethodologyPage() {
             below), so recent serious violations weigh more than old minor ones.
           </p>
           <SeverityList items={SF_VIOLATION_TIERS} />
+          <p style={{ ...PROSE, fontSize: 13, marginTop: 12 }}>
+            The open-violations card applies these same tiers to notices whose status is currently
+            active. Its three tier counts therefore add up to the open-violation headline.
+          </p>
         </section>
 
         {/* ── 5. Building size normalization ─────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Top violation conditions</SectionTitle>
+          <div style={CARD}>
+            <p style={PROSE}>
+              The &ldquo;Top violation conditions&rdquo; chart does not group notices by the DBI
+              code-section category used for severity weighting. Those categories name chapters of
+              the code, not necessarily what is wrong. Instead, Stoop applies an ordered,
+              rules-based classifier to the notice text and groups matching records by the condition
+              named there. The chart defaults to the last 5 years and can be switched to all time.
+              Notices that contain inspector narrative but name no specific condition are counted in
+              a footnote and are not presented as a problem category.
+            </p>
+          </div>
+        </section>
+
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Building size normalization</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>
@@ -208,7 +231,8 @@ export default function SfMethodologyPage() {
             A building&apos;s neighborhood percentile is mapped to a risk level label shown on building
             pages and the map. The label reflects how the building compares to peers within the same
             Analysis Neighborhood, not citywide. Housing Conditions (311) and Building Safety (DBI)
-            each get their own risk level; on the map, a building&apos;s dot uses the more severe of the two.
+            each get their own risk level. The map colors each dot using whichever dataset lens—
+            Housing Complaints or DBI Violations—is currently selected.
           </p>
           <RiskLevelTable />
         </section>
@@ -293,6 +317,22 @@ export default function SfMethodologyPage() {
         </section>
 
         {/* ── 9. Leaderboard ─────────────────────────────────────────────── */}
+        <section style={{ marginBottom: '3rem' }}>
+          <SectionTitle>Building Brief</SectionTitle>
+          <div style={CARD}>
+            <p style={PROSE}>
+              Unlike the New York brief&apos;s AI-assisted corpus, the San Francisco Building Brief
+              uses authored copy selected entirely by deterministic rules. It can surface up to three
+              renter-relevant watch items. Complaint signals use the last 5 years; violation signals
+              use notices that are active now. Complaint subtypes are grouped through a fixed
+              taxonomy, while violation conditions are assigned by an ordered classifier over DBI
+              notice text. The text is used only for classification and is never reproduced in the
+              brief. One qualifying report or active notice can surface an item. If no rule crosses
+              its threshold, that does not establish that the property has no problems.
+            </p>
+          </div>
+        </section>
+
         <section style={{ marginBottom: '3rem' }}>
           <SectionTitle>Leaderboard</SectionTitle>
           <p style={{ ...PROSE, marginBottom: 20 }}>

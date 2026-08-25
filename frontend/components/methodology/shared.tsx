@@ -38,15 +38,15 @@ export const RECENCY_TIERS = [
 
 export const RISK_LEVELS = [
   { label: 'Very low',  range: '< 15th percentile', dot: '#84A98C',
-    desc: 'Fewer weighted complaints per unit of scale than ~85% of residential peers in the neighborhood.' },
+    desc: 'Lower weighted activity per unit of scale than ~85% of neighborhood peers.' },
   { label: 'Low',       range: '15th – 39th',        dot: '#84A98C',
     desc: 'Below the neighborhood median.' },
   { label: 'Moderate',  range: '40th – 69th',        dot: '#E4A11B',
     desc: 'Near or above the neighborhood median.' },
   { label: 'High',      range: '70th – 89th',        dot: '#C45C3A',
-    desc: 'More weighted complaints than most residential peers.' },
+    desc: 'Higher weighted activity than most neighborhood peers.' },
   { label: 'Very high', range: '≥ 90th percentile',  dot: '#7F1D1D',
-    desc: 'Among the most complaint-heavy buildings in the neighborhood.' },
+    desc: 'Among the buildings with the highest weighted activity in the neighborhood.' },
 ]
 
 export type SeverityItem = {

@@ -262,6 +262,31 @@ docker run --rm -e DATABASE_URL=postgresql://fake:fake@localhost/fakedb stoop-ap
 `tests/test_dockerfile_taxonomy.py` replays the path arithmetic offline and
 fails if WORKDIR, the COPY destinations, or `TAXONOMY_PATH` stop agreeing.
 
+### Edge rate limiting
+
+Cloudflare is the outer public edge, so its WAF owns the per-visitor limit. A
+limiter inside Next.js would be per serverless instance, while the FastAPI
+process sees the proxy address rather than the visitor. Keep the SlowAPI limits
+as a coarse second layer, not as the primary abuse control.
+
+Create one Cloudflare **Security → WAF → Rate limiting rule** for the production
+zone:
+
+| Setting | Value |
+| --- | --- |
+| Expression | `(starts_with(http.request.uri.path, "/api/proxy/") or http.request.uri.path eq "/api/event") and not cf.client.bot` |
+| Counting characteristic | IP |
+| Requests | 100 |
+| Period | 10 seconds |
+| Action | Block |
+| Mitigation timeout | 10 seconds |
+
+The map waits 300 ms after movement before loading, so sustained normal use is
+well below 100 requests per 10 seconds even with searches and page-view events.
+The verified-bot exclusion keeps search crawlers out of the bucket. Publish the
+rule in **Log** mode first if traffic is already high, inspect its matches, then
+switch the same rule to **Block**; a dashboard draft does not protect anything.
+
 ---
 
 ## Observability

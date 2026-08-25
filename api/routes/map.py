@@ -6,6 +6,7 @@ from sqlalchemy import text
 from database import get_db
 from limiter import limiter
 from cache import cache_get, cache_set
+from map_params import Latitude, Longitude, validate_bbox_order
 
 router = APIRouter(prefix="/map", tags=["map"])
 
@@ -59,15 +60,16 @@ _BBOX_SQL = text("""
 @limiter.limit("120/minute")
 async def get_clusters(
     request: Request,
-    west: float = Query(...),
-    south: float = Query(...),
-    east: float = Query(...),
-    north: float = Query(...),
+    west: Longitude,
+    south: Latitude,
+    east: Longitude,
+    north: Latitude,
     zoom: float = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
     """Return a GeoJSON FeatureCollection of buildings within the bounding box.
     Mapbox GL JS uses this as the source for its cluster layer."""
+    validate_bbox_order(west=west, south=south, east=east, north=north)
     if zoom >= CLUSTER_MAX_ZOOM:
         # Individual dots: fetch everything in the viewport (bbox-dependent)
         cache_key = f"clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
@@ -195,16 +197,17 @@ _UNIFIED_BBOX_SQL = text(f"""
 @limiter.limit("120/minute")
 async def get_unified_clusters(
     request: Request,
-    west: float = Query(...),
-    south: float = Query(...),
-    east: float = Query(...),
-    north: float = Query(...),
+    west: Longitude,
+    south: Latitude,
+    east: Longitude,
+    north: Latitude,
     zoom: float = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
     """GeoJSON FeatureCollection of every building across DOB and HPD, joined on
     bin. Powers the single consolidated map: each feature carries both datasets'
     risk levels and stats so the active color lens is a paint swap, not a fetch."""
+    validate_bbox_order(west=west, south=south, east=east, north=north)
     if zoom >= CLUSTER_MAX_ZOOM:
         cache_key = f"unified_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f}"
     else:

@@ -71,10 +71,19 @@ def test_sql_case_guards_short_text_like_python_does():
 
 def test_sql_text_expression_strips_narrative_after_the_brief_advisory():
     sql = card_categories.render_sql_text_expression()
+    assert "v.code_violation_desc" in sql
     for pattern in classifier.advisory_patterns():
         assert pattern.replace("'", "''") in sql
     for pattern in card_categories.narrative_patterns():
         assert pattern.replace("'", "''") in sql
+
+
+def test_non_housing_boiler_description_uses_card_fallback():
+    assert card_categories.classify(
+        None,
+        None,
+        "No permit to operate the boiler. CMC 1022.",
+    ) == "heating_equipment"
 
 
 # ── the brief always wins ────────────────────────────────────────────────────

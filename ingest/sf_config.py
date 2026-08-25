@@ -64,20 +64,33 @@ SF_311_DB_COLUMNS = [
 # ── SF DBI NOV column map ─────────────────────────────────────────────────────
 SF_DBI_NOV_COLUMN_MAP = {
     ":id":                           "row_id",
+    "complaint_number":              "complaint_number",
+    "item_sequence_number":          "item_sequence_number",
     "block":                         "block",
     "lot":                           "lot",
     "status":                        "status",
+    "receiving_division":            "receiving_division",
+    "assigned_division":             "assigned_division",
     "nov_category_description":      "nov_category_description",
     "item":                          "item",
     "nov_item_description":          "nov_item_description",
+    "code_violation_desc":           "code_violation_desc",
+    "work_without_permit":           "work_without_permit",
+    "additional_work_beyond_permit": "additional_work_beyond_permit",
+    "expired_permit":                "expired_permit",
+    "cancelled_permit":              "cancelled_permit",
+    "unsafe_building":               "unsafe_building",
     "date_filed":                    "date_filed",
     "neighborhoods_analysis_boundaries": "neighborhood",
     "location":                      None,  # → location_lat / location_lon in Python
 }
 
 SF_DBI_NOV_DB_COLUMNS = [
-    "row_id", "block", "lot", "mapblklot",
-    "status", "nov_category_description", "item", "nov_item_description",
+    "row_id", "complaint_number", "item_sequence_number",
+    "block", "lot", "mapblklot", "status", "receiving_division", "assigned_division",
+    "nov_category_description", "item", "nov_item_description", "code_violation_desc",
+    "work_without_permit", "additional_work_beyond_permit", "expired_permit",
+    "cancelled_permit", "unsafe_building",
     "date_filed", "neighborhood", "location_lat", "location_lon",
 ]
 

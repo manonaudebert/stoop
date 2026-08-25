@@ -80,7 +80,7 @@ function NovRow({ v }: { v: SfNov }) {
       </td>
       <td style={{ padding: '12px 8px', verticalAlign: 'top' }}>
         <span style={{ fontSize: 13, color: '#111111', display: 'block', lineHeight: 1.4 }}>
-          {v.nov_category_description ?? '—'}
+          {v.display_category}
         </span>
       </td>
       <td style={{ padding: '12px 8px', verticalAlign: 'top' }}>
@@ -90,7 +90,7 @@ function NovRow({ v }: { v: SfNov }) {
       </td>
       <td style={{ padding: '12px 8px 12px 0', verticalAlign: 'top' }}>
         <span style={{ fontSize: 12, color: '#525252', display: 'block', lineHeight: 1.4 }}>
-          {v.nov_item_description ?? '—'}
+          {v.display_description ?? '—'}
         </span>
       </td>
     </tr>
@@ -123,11 +123,11 @@ function NovCard({ v }: { v: SfNov }) {
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#525252' }}>{fmtDate(v.date_filed)}</span>
       </div>
       <div style={{ fontSize: 13, color: '#111111', lineHeight: 1.4 }}>
-        {v.nov_category_description ?? '—'}
+        {v.display_category}
         {v.item && <span style={{ color: '#525252' }}> · {v.item}</span>}
       </div>
-      {v.nov_item_description && (
-        <div style={{ fontSize: 11, color: '#525252', marginTop: 4, lineHeight: 1.4 }}>{v.nov_item_description}</div>
+      {v.display_description && (
+        <div style={{ fontSize: 11, color: '#525252', marginTop: 4, lineHeight: 1.4 }}>{v.display_description}</div>
       )}
     </div>
   )

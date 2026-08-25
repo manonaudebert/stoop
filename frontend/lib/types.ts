@@ -225,11 +225,24 @@ export interface Sf311Complaint {
 
 export interface SfNov {
   row_id: string
+  complaint_number: string | null
+  item_sequence_number: string | null
   mapblklot: string | null
   status: string | null
+  receiving_division: string | null
+  assigned_division: string | null
   nov_category_description: string | null
   item: string | null
   nov_item_description: string | null
+  code_violation_desc: string | null
+  work_without_permit: string | null
+  additional_work_beyond_permit: string | null
+  expired_permit: string | null
+  cancelled_permit: string | null
+  unsafe_building: string | null
+  condition_group: string | null
+  display_category: string
+  display_description: string | null
   date_filed: string | null
   neighborhood: string | null
   location_lat: number | null

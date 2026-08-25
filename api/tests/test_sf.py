@@ -70,11 +70,21 @@ SF_COMPLAINT_ROW = {
 
 SF_NOV_ROW = {
     "row_id":                    "ROW001",
+    "complaint_number":          "202500001",
+    "item_sequence_number":      "1",
     "mapblklot":                 SAMPLE_MAPBLKLOT,
     "status":                    "active",
+    "receiving_division":        "Housing Inspection Services",
+    "assigned_division":         "Housing Inspection Services",
     "nov_category_description":  "fire section",
     "item":                      "smoke detectors (1006 hc)",
     "nov_item_description":      "install smoke detectors in all sleeping rooms",
+    "code_violation_desc":       None,
+    "work_without_permit":       None,
+    "additional_work_beyond_permit": None,
+    "expired_permit":            None,
+    "cancelled_permit":          None,
+    "unsafe_building":           None,
     "date_filed":                date(2025, 10, 15),
     "neighborhood":              "Financial District/South Beach",
     "location_lat":              37.7900,
@@ -335,6 +345,41 @@ class TestSfBuildingDetail:
         assert data["violations_total_count"] == 1
         assert len(data["violations"]) == 1
         assert data["violations"][0]["nov_category_description"] == "fire section"
+        assert data["violations"][0]["display_category"] == "fire section"
+        assert data["violations"][0]["display_description"] == (
+            "install smoke detectors in all sleeping rooms"
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_housing_violation_uses_code_description(self, client):
+        non_housing_row = {
+            **SF_NOV_ROW,
+            "row_id": "ROW002",
+            "complaint_number": "202307791",
+            "item_sequence_number": None,
+            "receiving_division": "Building Inspection Division",
+            "assigned_division": "Building Inspection Division",
+            "nov_category_description": None,
+            "item": None,
+            "nov_item_description": "   ",
+            "code_violation_desc": "  Observed fire damage to unit 1 M.  ",
+            "unsafe_building": "Y",
+        }
+        mock_db = make_mock_db(
+            MockResult([MockRow(SF_COMPLAINTS_SUMMARY_ROW)]),
+            MockResult([MockRow(SF_VIOLATIONS_SUMMARY_ROW)]),
+            MockResult(scalar_value=1),
+            MockResult([MockRow(non_housing_row)]),
+        )
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        resp = await client.get(f"/sf/building/{SAMPLE_MAPBLKLOT}?show=violations")
+        app.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        violation = resp.json()["violations"][0]
+        assert violation["condition_group"] == "fire_safety"
+        assert violation["display_category"] == "Fire safety"
+        assert violation["display_description"] == "Observed fire damage to unit 1 M."
 
     @pytest.mark.asyncio
     async def test_violations_open_status_filter(self, client):

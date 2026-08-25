@@ -358,11 +358,24 @@ class Sf311ComplaintResponse(BaseModel):
 
 class SfNovResponse(BaseModel):
     row_id: str
+    complaint_number: str | None
+    item_sequence_number: str | None
     mapblklot: str | None
     status: str | None
+    receiving_division: str | None
+    assigned_division: str | None
     nov_category_description: str | None
     item: str | None
     nov_item_description: str | None
+    code_violation_desc: str | None
+    work_without_permit: str | None
+    additional_work_beyond_permit: str | None
+    expired_permit: str | None
+    cancelled_permit: str | None
+    unsafe_building: str | None
+    condition_group: str | None
+    display_category: str
+    display_description: str | None
     date_filed: date | None
     neighborhood: str | None
     location_lat: float | None

@@ -1,25 +1,251 @@
--- GENERATED FILE — do not edit by hand.
+-- Store the complete DataSF DBI Notice of Violation record shape and use it
+-- for tenant-facing descriptions, condition classification, and severity.
 --
--- Written by `api/services/briefs/cities/sf/signals.py::render_migration`,
--- which reads the 311 subtypes and NOV categories from
--- `api/services/briefs/cities/sf/taxonomy.json`. Editing this file directly
--- forks the view away from the taxonomy the rules read, which is the bug the
--- generated SQL exists to prevent.
+-- nbtm-fbw5 has Housing rows whose detail lives in item / nov_item_description
+-- and non-Housing rows whose detail lives in code_violation_desc. The latter
+-- were previously ingested as blank records and defaulted to tier C.
 --
--- To change it: edit `cities/sf/signals.py` (or the JSON), then regenerate with
---     cd api && ../.venv/bin/python -m services.briefs.cities.sf.signals
--- `tests/test_briefs_signals_sql.py` fails if this file and the generator
--- disagree, and if `schema.sql` has drifted from either.
---
--- The signals behind SF's Building Brief rules, one row per PARCEL. A mapblklot
--- can carry more than one building, so copy derived from this view says
--- "property" rather than "building".
---
--- Complaint counts use a 5-year window; the two
--- confidence inputs are all-time on purpose.
---
--- Unlike most migrations here, this one is safely re-runnable: the DROP clears
--- the way, so it does not fail on the unique index the second time.
+-- Validated on an isolated Neon branch on 2026-08-25 after a 516,360-row full
+-- backfill: 44,204 violation parcels, 46,277 brief-signal parcels, and all open
+-- A/B/C counts summed to open_violations. Against the old tier logic on the
+-- same snapshot: severe +2,347, serious +1,271, minor -3,618, fire +488,
+-- lead +1, weighted score +8.1%; 1,309 parcel risk labels changed. The
+-- sf_violations_summary refresh took about 134 seconds.
+
+ALTER TABLE sf_dbi_nov
+    ADD COLUMN complaint_number TEXT,
+    ADD COLUMN item_sequence_number TEXT,
+    ADD COLUMN receiving_division TEXT,
+    ADD COLUMN assigned_division TEXT,
+    ADD COLUMN code_violation_desc TEXT,
+    ADD COLUMN work_without_permit TEXT,
+    ADD COLUMN additional_work_beyond_permit TEXT,
+    ADD COLUMN expired_permit TEXT,
+    ADD COLUMN cancelled_permit TEXT,
+    ADD COLUMN unsafe_building TEXT;
+
+-- sf_brief_signals depends on sf_violations_summary, so remove it first and
+-- recreate it from the current generated definition after the summary view.
+DROP MATERIALIZED VIEW IF EXISTS sf_brief_signals;
+
+-- ── sf_violations_summary ────────────────────────────────────────────────────
+-- Mirrors hpd_building_summary, parcel-grained. See migrate_add_sf.sql / METRICS.md.
+DROP MATERIALIZED VIEW IF EXISTS sf_violations_summary;
+CREATE MATERIALIZED VIEW sf_violations_summary AS
+WITH footprint_agg AS (
+    SELECT
+        mapblklot,
+        SUM(footprint_area_sqm) AS footprint_area_sqm,
+        MAX(hgt_median_m)       AS hgt_median_m
+    FROM sf_footprints
+    WHERE mapblklot IS NOT NULL
+    GROUP BY mapblklot
+),
+eas_repr AS (
+    SELECT DISTINCT ON (parcel_number)
+        parcel_number AS mapblklot,
+        address
+    FROM sf_addresses
+    WHERE parcel_number IS NOT NULL
+    ORDER BY parcel_number, eas_fullid
+),
+classified AS (
+    SELECT
+        v.*,
+        CASE
+            WHEN length(t.txt) < 8 THEN NULL
+            WHEN t.txt ~ 'smoke (detector|alarm)|carbon monoxide|\yco alarm\y|420\.\d|central alarm|alarm system' THEN 'smoke_detectors'
+            WHEN t.txt ~ '\(701|provide heat|required heat|minimum room temperature|lack of (heat|hot water)|no hot water' THEN 'heat_hot_water'
+            WHEN t.txt ~ 'floor covering|\yflooring\y|repair stairs|repair.{0,20}stair(way|case)' THEN 'floors_stairs'
+            WHEN t.txt ~ 'egress|fire damage|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\y(801|901|904|905|907|908|706)\y|1001\s*\(?\s*[lmn]\y' THEN 'fire_safety'
+            WHEN t.txt ~ '(repair|locate)[^.]{0,25}source of water damage|garbage disposal' THEN 'plumbing'
+            WHEN t.txt ~ '\ymold|mildew' THEN 'mold'
+            WHEN t.txt ~ 'damaged (wall|ceiling)|deteriorated (wall|ceiling|plaster)|damaged cabinet|repair cabinet|repair damaged (wall|ceiling)|patch.*(wall|ceiling)' THEN 'interior_surfaces'
+            WHEN t.txt ~ 'peeling|flaking paint|damaged paint|chipping paint|lead (hazard )?warning|remove or cover damaged paint|repaint' THEN 'peeling_paint'
+            WHEN t.txt ~ '\(708|708 hc|window (sash|hardware|glazing)|repair.*window|insulation|\yroof|waterproof|weather protection|\y504\y|1001\s*\(?\s*[hj]\y' THEN 'weather_windows'
+            WHEN t.txt ~ 'regulated work area|abate lead hazard|lead abatement|lead hazard evaluation' THEN 'lead_paint'
+            WHEN t.txt ~ '\yrodent|\yvermin|infestation|\yrats?\y|cockroach|bed ?bug' THEN 'pests'
+            WHEN t.txt ~ 'garbage(?! disposal)|rubbish|remove debris|clean (&|and) (remove|sanitize)|clean up|overgrown|filth|unsanitary|\y1306\y|1001\s*\(?\s*[ki]\y' THEN 'sanitation'
+            WHEN t.txt ~ 'electrical|wiring|\ycircuit\y|disconnect|1001\s*\(?\s*e\y' THEN 'electrical'
+            WHEN t.txt ~ 'water damage|\yleak|toilet|plumbing|sanitation facilit|\y(703|505)\y|1001\s*\(?\s*f\y' THEN 'plumbing'
+            WHEN t.txt ~ 'stairs|handrail|guardrail|structural|\y(802|604)\y|1001\s*\(?\s*c\y' THEN 'floors_stairs'
+            WHEN t.txt ~ 'ventilation|light well|lighting|\ylights?\y|\yduct|mechanical fan|1001\s*\(?\s*g\y' THEN 'ventilation_light'
+            WHEN t.txt ~ '\ylock\y|dead ?bolt|secure the (building|premises)|security' THEN 'security_locks'
+            WHEN t.txt ~ 'lead[- ]based paint|disturbs lead|lead ordinance' THEN 'peeling_paint'
+        END AS condition_group
+    FROM sf_dbi_nov v
+    CROSS JOIN LATERAL (
+        SELECT regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(coalesce(v.item, '') || ' ' || coalesce(v.nov_item_description, '') || ' ' || coalesce(v.code_violation_desc, '')), 'disturbing lead based paint can be extremely dangerous.*?ordinance #\d+-\d+\.?', ' ', 'g'), 'disturbing lead based paint can be extremely dangerous.*', ' ', 'g'), 'it is the property owner''?s responsibility.*', ' ', 'g'), 'this notice includes violations.*', ' ', 'g'), 'inspector comments regarding.*', ' ', 'g'), 'work practice for lead-based paint', ' ', 'g'), 'see attached lead hazard warning\.?', ' ', 'g') AS txt
+    ) t
+),
+-- One row per NOV, tagged once so the weighted score and open counts cannot
+-- disagree about severity.
+tagged AS (
+    SELECT
+        v.mapblklot,
+        e.address,
+        p.centroid_latitude     AS latitude,
+        p.centroid_longitude    AS longitude,
+        p.analysis_neighborhood AS neighborhood_analysis,
+        v.neighborhood          AS neighborhood_raw,
+        f.footprint_area_sqm,
+        f.hgt_median_m,
+        v.status,
+        v.date_filed,
+        v.nov_category_description,
+        v.condition_group,
+        CASE
+            WHEN LOWER(v.unsafe_building) = 'y' THEN 'A'
+            WHEN LOWER(v.nov_category_description) IN (
+                'fire section', 'smoke detection section', 'lead section'
+            ) THEN 'A'
+            WHEN LOWER(v.nov_category_description) IN (
+                'building section', 'plumbing and electrical section',
+                'interior surfaces section', 'sanitation section',
+                'security requirements section'
+            ) THEN 'B'
+            WHEN NULLIF(BTRIM(v.nov_category_description), '') IS NULL
+                 AND v.condition_group IN (
+                     'fire_safety', 'smoke_detectors', 'lead_paint', 'heat_hot_water'
+                 ) THEN 'A'
+            WHEN NULLIF(BTRIM(v.nov_category_description), '') IS NULL
+                 AND v.condition_group IN (
+                     'pests', 'mold', 'plumbing', 'weather_windows',
+                     'interior_surfaces', 'electrical', 'ventilation_light',
+                     'sanitation', 'security_locks', 'floors_stairs'
+                 ) THEN 'B'
+            ELSE 'C'
+        END AS tier
+    FROM classified v
+    JOIN sf_parcels p ON v.mapblklot = p.mapblklot
+    LEFT JOIN footprint_agg f ON f.mapblklot = v.mapblklot
+    LEFT JOIN eas_repr e ON e.mapblklot = v.mapblklot
+    WHERE v.mapblklot IS NOT NULL
+),
+base AS (
+    SELECT
+        t.mapblklot,
+        MAX(t.address)                                              AS address,
+        MAX(t.latitude)                                             AS latitude,
+        MAX(t.longitude)                                            AS longitude,
+        COALESCE(MAX(t.neighborhood_analysis), MAX(t.neighborhood_raw)) AS neighborhood,
+        MAX(t.footprint_area_sqm)                                   AS footprint_area_sqm,
+        MAX(t.hgt_median_m)                                         AS hgt_median_m,
+        COUNT(*)                                                    AS total_violations,
+        COUNT(*) FILTER (WHERE LOWER(t.status) = 'active')          AS open_violations,
+        COUNT(*) FILTER (
+            WHERE (
+                    LOWER(t.nov_category_description) = 'lead section'
+                    OR (
+                        NULLIF(BTRIM(t.nov_category_description), '') IS NULL
+                        AND t.condition_group = 'lead_paint'
+                    )
+                  )
+              AND LOWER(t.status) = 'active'
+        )                                                           AS open_lead_violations,
+        COUNT(*) FILTER (
+            WHERE (
+                    LOWER(t.nov_category_description) = 'fire section'
+                    OR (
+                        NULLIF(BTRIM(t.nov_category_description), '') IS NULL
+                        AND t.condition_group = 'fire_safety'
+                    )
+                  )
+              AND LOWER(t.status) = 'active'
+        )                                                           AS open_fire_violations,
+        -- Open violations by severity tier (all tiers A/B/C, so these three sum
+        -- to open_violations). Powers the "Open violations" card breakdown.
+        COUNT(*) FILTER (WHERE t.tier = 'A' AND LOWER(t.status) = 'active') AS open_severe_violations,
+        COUNT(*) FILTER (WHERE t.tier = 'B' AND LOWER(t.status) = 'active') AS open_serious_violations,
+        COUNT(*) FILTER (WHERE t.tier = 'C' AND LOWER(t.status) = 'active') AS open_minor_violations,
+        MAX(t.date_filed)                                           AS latest_violation_date,
+        COALESCE(SUM(
+            -- SF DBI severity weight, derived from the tier tag (single source
+            -- of truth above), times the recency-decay factor.
+            CASE t.tier
+                WHEN 'A' THEN 15.0
+                WHEN 'B' THEN  8.0
+                ELSE           3.0
+            END *
+            CASE
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '2 years'  THEN 1.00
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '5 years'  THEN 0.50
+                WHEN t.date_filed >= CURRENT_DATE - INTERVAL '10 years' THEN 0.25
+            END
+        ), 0.0)                                                     AS weighted_violation_sum
+    FROM tagged t
+    GROUP BY t.mapblklot
+),
+with_scale AS (
+    SELECT *,
+        CASE
+            WHEN footprint_area_sqm > 0 AND hgt_median_m > 0
+            THEN footprint_area_sqm * GREATEST(hgt_median_m, 1.0)
+        END AS estimated_scale
+    FROM base
+),
+with_density AS (
+    SELECT *,
+        ROUND(COALESCE(
+            weighted_violation_sum / NULLIF(estimated_scale, 0) * 1000,
+            weighted_violation_sum
+        )::numeric, 4) AS weighted_violations_density
+    FROM with_scale
+),
+neighborhood_density_pct AS (
+    SELECT mapblklot,
+        ROUND((
+            PERCENT_RANK() OVER (
+                PARTITION BY neighborhood
+                ORDER BY weighted_violations_density ASC
+            ) * 100
+        )::numeric, 1) AS violations_density_pct
+    FROM with_density
+    WHERE neighborhood IS NOT NULL
+)
+SELECT
+    wd.mapblklot,
+    wd.address,
+    wd.latitude,
+    wd.longitude,
+    wd.neighborhood,
+    wd.total_violations,
+    wd.open_violations,
+    wd.open_lead_violations,
+    wd.open_fire_violations,
+    wd.open_severe_violations,
+    wd.open_serious_violations,
+    wd.open_minor_violations,
+    wd.latest_violation_date,
+    wd.weighted_violation_sum,
+    wd.estimated_scale,
+    wd.weighted_violations_density,
+    np.violations_density_pct,
+    CASE
+        WHEN wd.total_violations < 3               THEN 'Very low'
+        WHEN np.violations_density_pct IS NULL     THEN 'Very low'
+        WHEN np.violations_density_pct < 15        THEN 'Very low'
+        WHEN np.violations_density_pct < 40        THEN 'Low'
+        WHEN np.violations_density_pct < 70        THEN 'Moderate'
+        WHEN np.violations_density_pct < 90        THEN 'High'
+        ELSE                                            'Very high'
+    END AS risk_level
+FROM with_density wd
+LEFT JOIN neighborhood_density_pct np ON wd.mapblklot = np.mapblklot;
+
+CREATE UNIQUE INDEX IF NOT EXISTS sf_violations_summary_mapblklot_idx
+    ON sf_violations_summary(mapblklot);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_neighborhood_idx
+    ON sf_violations_summary(neighborhood);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_lat_idx
+    ON sf_violations_summary(latitude);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_open_idx
+    ON sf_violations_summary(open_violations DESC);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_risk_idx
+    ON sf_violations_summary(risk_level);
+CREATE INDEX IF NOT EXISTS sf_violations_summary_density_pct_idx
+    ON sf_violations_summary(violations_density_pct);
+
 
 DROP MATERIALIZED VIEW IF EXISTS sf_brief_signals;
 

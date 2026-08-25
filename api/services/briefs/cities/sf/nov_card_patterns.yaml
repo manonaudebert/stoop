@@ -46,8 +46,9 @@
 # row falls out of the chart entirely.
 #
 # Regex dialect is POSIX ARE, exactly as in `nov_patterns.yaml`: `\y` for word
-# boundary, never `\b`. Matching is over `item` + `nov_item_description`,
-# lowercased, with the brief's advisory blocks stripped first and then these.
+# boundary, never `\b`. Matching is over `item` + `nov_item_description` +
+# `code_violation_desc`, lowercased, with the brief's advisory blocks stripped
+# first and then these.
 
 # Removed before any card rule is tried, and — unlike the brief's advisory list —
 # a row reduced to nothing by these is DROPPED from the chart rather than

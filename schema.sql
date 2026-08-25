@@ -803,13 +803,23 @@ CREATE INDEX IF NOT EXISTS idx_sf_311_subtype   ON sf_311_housing(service_subtyp
 
 CREATE TABLE IF NOT EXISTS sf_dbi_nov (
     row_id                   TEXT PRIMARY KEY,
+    complaint_number         TEXT,
+    item_sequence_number     TEXT,
     block                    TEXT,
     lot                      TEXT,
     mapblklot                TEXT,
     status                   TEXT,
+    receiving_division       TEXT,
+    assigned_division        TEXT,
     nov_category_description TEXT,
     item                     TEXT,
     nov_item_description     TEXT,
+    code_violation_desc      TEXT,
+    work_without_permit      TEXT,
+    additional_work_beyond_permit TEXT,
+    expired_permit           TEXT,
+    cancelled_permit         TEXT,
+    unsafe_building          TEXT,
     date_filed               DATE,
     neighborhood             TEXT,
     location_lat             DOUBLE PRECISION,
@@ -1075,8 +1085,37 @@ eas_repr AS (
     WHERE parcel_number IS NOT NULL
     ORDER BY parcel_number, eas_fullid
 ),
--- One row per NOV, tagged with a severity tier. Single source of truth for the
--- A/B/C map; feeds both weighted_violation_sum and the open tier counts.
+classified AS (
+    SELECT
+        v.*,
+        CASE
+            WHEN length(t.txt) < 8 THEN NULL
+            WHEN t.txt ~ 'smoke (detector|alarm)|carbon monoxide|\yco alarm\y|420\.\d|central alarm|alarm system' THEN 'smoke_detectors'
+            WHEN t.txt ~ '\(701|provide heat|required heat|minimum room temperature|lack of (heat|hot water)|no hot water' THEN 'heat_hot_water'
+            WHEN t.txt ~ 'floor covering|\yflooring\y|repair stairs|repair.{0,20}stair(way|case)' THEN 'floors_stairs'
+            WHEN t.txt ~ 'egress|fire damage|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\y(801|901|904|905|907|908|706)\y|1001\s*\(?\s*[lmn]\y' THEN 'fire_safety'
+            WHEN t.txt ~ '(repair|locate)[^.]{0,25}source of water damage|garbage disposal' THEN 'plumbing'
+            WHEN t.txt ~ '\ymold|mildew' THEN 'mold'
+            WHEN t.txt ~ 'damaged (wall|ceiling)|deteriorated (wall|ceiling|plaster)|damaged cabinet|repair cabinet|repair damaged (wall|ceiling)|patch.*(wall|ceiling)' THEN 'interior_surfaces'
+            WHEN t.txt ~ 'peeling|flaking paint|damaged paint|chipping paint|lead (hazard )?warning|remove or cover damaged paint|repaint' THEN 'peeling_paint'
+            WHEN t.txt ~ '\(708|708 hc|window (sash|hardware|glazing)|repair.*window|insulation|\yroof|waterproof|weather protection|\y504\y|1001\s*\(?\s*[hj]\y' THEN 'weather_windows'
+            WHEN t.txt ~ 'regulated work area|abate lead hazard|lead abatement|lead hazard evaluation' THEN 'lead_paint'
+            WHEN t.txt ~ '\yrodent|\yvermin|infestation|\yrats?\y|cockroach|bed ?bug' THEN 'pests'
+            WHEN t.txt ~ 'garbage(?! disposal)|rubbish|remove debris|clean (&|and) (remove|sanitize)|clean up|overgrown|filth|unsanitary|\y1306\y|1001\s*\(?\s*[ki]\y' THEN 'sanitation'
+            WHEN t.txt ~ 'electrical|wiring|\ycircuit\y|disconnect|1001\s*\(?\s*e\y' THEN 'electrical'
+            WHEN t.txt ~ 'water damage|\yleak|toilet|plumbing|sanitation facilit|\y(703|505)\y|1001\s*\(?\s*f\y' THEN 'plumbing'
+            WHEN t.txt ~ 'stairs|handrail|guardrail|structural|\y(802|604)\y|1001\s*\(?\s*c\y' THEN 'floors_stairs'
+            WHEN t.txt ~ 'ventilation|light well|lighting|\ylights?\y|\yduct|mechanical fan|1001\s*\(?\s*g\y' THEN 'ventilation_light'
+            WHEN t.txt ~ '\ylock\y|dead ?bolt|secure the (building|premises)|security' THEN 'security_locks'
+            WHEN t.txt ~ 'lead[- ]based paint|disturbs lead|lead ordinance' THEN 'peeling_paint'
+        END AS condition_group
+    FROM sf_dbi_nov v
+    CROSS JOIN LATERAL (
+        SELECT regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(coalesce(v.item, '') || ' ' || coalesce(v.nov_item_description, '') || ' ' || coalesce(v.code_violation_desc, '')), 'disturbing lead based paint can be extremely dangerous.*?ordinance #\d+-\d+\.?', ' ', 'g'), 'disturbing lead based paint can be extremely dangerous.*', ' ', 'g'), 'it is the property owner''?s responsibility.*', ' ', 'g'), 'this notice includes violations.*', ' ', 'g'), 'inspector comments regarding.*', ' ', 'g'), 'work practice for lead-based paint', ' ', 'g'), 'see attached lead hazard warning\.?', ' ', 'g') AS txt
+    ) t
+),
+-- One row per NOV, tagged once so the weighted score and open counts cannot
+-- disagree about severity.
 tagged AS (
     SELECT
         v.mapblklot,
@@ -1090,18 +1129,30 @@ tagged AS (
         v.status,
         v.date_filed,
         v.nov_category_description,
-        CASE LOWER(v.nov_category_description)
-            WHEN 'fire section'                    THEN 'A'
-            WHEN 'smoke detection section'         THEN 'A'
-            WHEN 'lead section'                    THEN 'A'
-            WHEN 'building section'                THEN 'B'
-            WHEN 'plumbing and electrical section' THEN 'B'
-            WHEN 'interior surfaces section'       THEN 'B'
-            WHEN 'sanitation section'              THEN 'B'
-            WHEN 'security requirements section'   THEN 'B'
+        v.condition_group,
+        CASE
+            WHEN LOWER(v.unsafe_building) = 'y' THEN 'A'
+            WHEN LOWER(v.nov_category_description) IN (
+                'fire section', 'smoke detection section', 'lead section'
+            ) THEN 'A'
+            WHEN LOWER(v.nov_category_description) IN (
+                'building section', 'plumbing and electrical section',
+                'interior surfaces section', 'sanitation section',
+                'security requirements section'
+            ) THEN 'B'
+            WHEN NULLIF(BTRIM(v.nov_category_description), '') IS NULL
+                 AND v.condition_group IN (
+                     'fire_safety', 'smoke_detectors', 'lead_paint', 'heat_hot_water'
+                 ) THEN 'A'
+            WHEN NULLIF(BTRIM(v.nov_category_description), '') IS NULL
+                 AND v.condition_group IN (
+                     'pests', 'mold', 'plumbing', 'weather_windows',
+                     'interior_surfaces', 'electrical', 'ventilation_light',
+                     'sanitation', 'security_locks', 'floors_stairs'
+                 ) THEN 'B'
             ELSE 'C'
         END AS tier
-    FROM sf_dbi_nov v
+    FROM classified v
     JOIN sf_parcels p ON v.mapblklot = p.mapblklot
     LEFT JOIN footprint_agg f ON f.mapblklot = v.mapblklot
     LEFT JOIN eas_repr e ON e.mapblklot = v.mapblklot
@@ -1119,11 +1170,23 @@ base AS (
         COUNT(*)                                                    AS total_violations,
         COUNT(*) FILTER (WHERE LOWER(t.status) = 'active')          AS open_violations,
         COUNT(*) FILTER (
-            WHERE LOWER(t.nov_category_description) = 'lead section'
+            WHERE (
+                    LOWER(t.nov_category_description) = 'lead section'
+                    OR (
+                        NULLIF(BTRIM(t.nov_category_description), '') IS NULL
+                        AND t.condition_group = 'lead_paint'
+                    )
+                  )
               AND LOWER(t.status) = 'active'
         )                                                           AS open_lead_violations,
         COUNT(*) FILTER (
-            WHERE LOWER(t.nov_category_description) = 'fire section'
+            WHERE (
+                    LOWER(t.nov_category_description) = 'fire section'
+                    OR (
+                        NULLIF(BTRIM(t.nov_category_description), '') IS NULL
+                        AND t.condition_group = 'fire_safety'
+                    )
+                  )
               AND LOWER(t.status) = 'active'
         )                                                           AS open_fire_violations,
         -- Open violations by severity tier (all tiers A/B/C, so these three sum
@@ -1247,8 +1310,8 @@ labelled AS (
     --
     -- Category is the FALLBACK and only catches rows the text could not name.
     --
-    -- NEITHER text field is ever rendered. They carry inspector names, addresses
-    -- and narrative; this is classification only.
+    -- This expression is classification-only. The building API separately
+    -- chooses one nonblank source description for the violation log.
     --
     -- `status` has exactly two values, 'active' and 'not active'. DBI
     -- republishes every row on each publish, so `date_filed` is the incremental
@@ -1261,7 +1324,7 @@ labelled AS (
                 WHEN t.txt ~ 'smoke (detector|alarm)|carbon monoxide|\yco alarm\y|420\.\d|central alarm|alarm system' THEN 'smoke_detectors'
                 WHEN t.txt ~ '\(701|provide heat|required heat|minimum room temperature|lack of (heat|hot water)|no hot water' THEN 'heat_hot_water'
                 WHEN t.txt ~ 'floor covering|\yflooring\y|repair stairs|repair.{0,20}stair(way|case)' THEN 'floors_stairs'
-                WHEN t.txt ~ 'egress|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\y(801|901|904|905|907|908|706)\y|1001\s*\(?\s*[lmn]\y' THEN 'fire_safety'
+                WHEN t.txt ~ 'egress|fire damage|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\y(801|901|904|905|907|908|706)\y|1001\s*\(?\s*[lmn]\y' THEN 'fire_safety'
                 WHEN t.txt ~ '(repair|locate)[^.]{0,25}source of water damage|garbage disposal' THEN 'plumbing'
                 WHEN t.txt ~ '\ymold|mildew' THEN 'mold'
                 WHEN t.txt ~ 'damaged (wall|ceiling)|deteriorated (wall|ceiling|plaster)|damaged cabinet|repair cabinet|repair damaged (wall|ceiling)|patch.*(wall|ceiling)' THEN 'interior_surfaces'
@@ -1286,7 +1349,7 @@ labelled AS (
             END
         )                                       AS condition_group
     FROM sf_dbi_nov v
-    CROSS JOIN LATERAL (SELECT regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(coalesce(v.item, '') || ' ' || coalesce(v.nov_item_description, '')), 'disturbing lead based paint can be extremely dangerous.*?ordinance #\d+-\d+\.?', ' ', 'g'), 'disturbing lead based paint can be extremely dangerous.*', ' ', 'g'), 'it is the property owner''?s responsibility.*', ' ', 'g'), 'this notice includes violations.*', ' ', 'g'), 'inspector comments regarding.*', ' ', 'g'), 'work practice for lead-based paint', ' ', 'g'), 'see attached lead hazard warning\.?', ' ', 'g') AS txt) t
+    CROSS JOIN LATERAL (SELECT regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(regexp_replace(lower(coalesce(v.item, '') || ' ' || coalesce(v.nov_item_description, '') || ' ' || coalesce(v.code_violation_desc, '')), 'disturbing lead based paint can be extremely dangerous.*?ordinance #\d+-\d+\.?', ' ', 'g'), 'disturbing lead based paint can be extremely dangerous.*', ' ', 'g'), 'it is the property owner''?s responsibility.*', ' ', 'g'), 'this notice includes violations.*', ' ', 'g'), 'inspector comments regarding.*', ' ', 'g'), 'work practice for lead-based paint', ' ', 'g'), 'see attached lead hazard warning\.?', ' ', 'g') AS txt) t
     WHERE v.mapblklot IS NOT NULL
       AND v.status = 'active'
 ),

@@ -100,6 +100,15 @@ def test_advisory_strip_is_applied_before_matching_in_sql():
     expr = classifier.render_sql_text_expression()
     assert expr.count("regexp_replace") == len(classifier.advisory_patterns())
     assert "disturbing lead based paint" in expr
+    assert "v.code_violation_desc" in expr
+
+
+def test_classifies_non_housing_code_violation_description():
+    assert classifier.classify(
+        None,
+        None,
+        "Observed fire damage to unit 1 M, with smoke and water damage above.",
+    ) == "fire_safety"
 
 
 # ── the lead rule, which is the one that caused real harm ────────────────────

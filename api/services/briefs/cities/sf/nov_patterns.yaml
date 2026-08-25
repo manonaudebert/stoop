@@ -42,9 +42,10 @@
 # `\y` to `\b` for the Python implementation, and a test runs both engines over
 # the same corpus and asserts identical labels.
 #
-# Matching is over `item` + `nov_item_description`, lowercased, with the
-# advisory blocks below stripped first. Neither field is EVER rendered: they
-# carry inspector names, addresses and narrative. Classification only.
+# Matching is over `item` + `nov_item_description` + `code_violation_desc`,
+# lowercased, with the advisory blocks below stripped first. The combined text
+# is classification-only; the API separately chooses one nonblank source
+# description for the tenant-facing violation log.
 
 # Boilerplate attached to notices as guidance rather than as a finding. Removed
 # before any rule is tried, so it can never decide a label.
@@ -70,7 +71,7 @@ rules:
     pattern: "floor covering|\\yflooring\\y|repair stairs|repair.{0,20}stair(way|case)"
 
   - group: fire_safety
-    pattern: "egress|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\\y(801|901|904|905|907|908|706)\\y|1001\\s*\\(?\\s*[lmn]\\y"
+    pattern: "egress|fire damage|fire escape|fire alarm|sprinkler|fire extinguisher|combustible storage|self-clos|\\y(801|901|904|905|907|908|706)\\y|1001\\s*\\(?\\s*[lmn]\\y"
 
   # The SOURCE of water damage is plumbing; the damaged surface it produced is
   # `interior_surfaces`. Placed before mold so an incidental mention downstream

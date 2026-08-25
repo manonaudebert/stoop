@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
+from map_params import Latitude, Longitude, validate_bbox_order
 from observability import emit_event, is_bot, is_internal
 from cache import cache_get, cache_set
 from schemas import (
@@ -96,13 +97,14 @@ _BBOX_SQL = text("""
 @limiter.limit("120/minute")
 async def get_hpd_clusters(
     request: Request,
-    west: float = Query(...),
-    south: float = Query(...),
-    east: float = Query(...),
-    north: float = Query(...),
+    west: Longitude,
+    south: Latitude,
+    east: Longitude,
+    north: Latitude,
     zoom: float = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    validate_bbox_order(west=west, south=south, east=east, north=north)
     cache_key = f"hpd_clusters:{west:.4f},{south:.4f},{east:.4f},{north:.4f},{zoom:.2f}"
     cached = cache_get(cache_key)
     if cached:

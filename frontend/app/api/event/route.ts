@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
       headers: {
         'content-type': 'application/json',
         'X-Internal-Key': SECRET,
+        // Page views are where crawler traffic distorts the numbers most, and
+        // this is the only hop where the real browser agent is still available.
+        'User-Agent': req.headers.get('user-agent') ?? '',
         ...(req.cookies.get('stoop_dev') ? { 'X-Stoop-Internal': '1' } : {}),
       },
       body,

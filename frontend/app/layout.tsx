@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import { Analytics } from "@vercel/analytics/next";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -61,6 +62,7 @@ export default function RootLayout({
           }
         `}</style>
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

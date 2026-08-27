@@ -50,6 +50,24 @@ export interface BuildingSummary {
   normalized_serious_rate_percentile: number | null
 }
 
+export interface UnifiedSearchResult {
+  bin: string
+  address: string | null
+  borough: string | null
+  zip_code: string | null
+  nta_code: string | null
+  latitude: number | null
+  longitude: number | null
+  dob_risk_level: string | null
+  dob_total: number | null
+  dob_open: number | null
+  dob_priority_a: number | null
+  hpd_risk_level: string | null
+  hpd_total: number | null
+  hpd_open: number | null
+  hpd_open_emergency: number | null
+}
+
 export interface NeighborhoodData {
   nta_code: string
   nta_name: string

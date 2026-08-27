@@ -60,6 +60,24 @@ class BuildingSummaryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UnifiedSearchResponse(BaseModel):
+    bin: str
+    address: str | None = None
+    borough: str | None = None
+    zip_code: str | None = None
+    nta_code: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    dob_risk_level: str | None = None
+    dob_total: int | None = None
+    dob_open: int | None = None
+    dob_priority_a: int | None = None
+    hpd_risk_level: str | None = None
+    hpd_total: int | None = None
+    hpd_open: int | None = None
+    hpd_open_emergency: int | None = None
+
+
 class BuildingDetailResponse(BuildingSummaryResponse):
     complaints: list[ComplaintResponse]
     total_count: int

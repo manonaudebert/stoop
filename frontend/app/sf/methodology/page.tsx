@@ -42,7 +42,7 @@ export default function SfMethodologyPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA' }}>
 
-      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
+      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" searchUrl="/api/proxy/sf/building/search" buildingBasePath="/sf/building" idKey="mapblklot" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       {/* ── Section 1: Mission (generic, shared) ─────────────────────────── */}
       <MethodologyAbout />

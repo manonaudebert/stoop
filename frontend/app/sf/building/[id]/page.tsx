@@ -252,7 +252,7 @@ export default async function SfBuildingPage({
     return (
       <>
         <PageBeacon route="/sf/building/[id]" city="sf" building={id} />
-        <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
+        <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" searchUrl="/api/proxy/sf/building/search" buildingBasePath="/sf/building" idKey="mapblklot" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
         <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
           <BuildingHero
             address={address}
@@ -346,7 +346,7 @@ export default async function SfBuildingPage({
   return (
     <>
       <PageBeacon route="/sf/building/[id]" city="sf" building={id} />
-      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
+      <BuildingNavBar backHref="/sf/map" backLabel="← Back to map" searchUrl="/api/proxy/sf/building/search" buildingBasePath="/sf/building" idKey="mapblklot" leaderboardHref="/sf/leaderboard" aboutHref="/sf/methodology" />
 
       <main className="px-4 sm:px-6 pt-8 pb-20" style={{ maxWidth: 1260, margin: '0 auto' }}>
         <BuildingHero

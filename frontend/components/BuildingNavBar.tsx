@@ -12,6 +12,7 @@ type Props = {
   backLabel: string
   searchUrl?: string
   buildingBasePath?: string
+  idKey?: string
   leaderboardHref?: string
   aboutHref?: string
 }
@@ -21,6 +22,7 @@ export default function BuildingNavBar({
   backLabel,
   searchUrl,
   buildingBasePath = '/building',
+  idKey = 'bin',
   leaderboardHref = '/dob/leaderboard',
   aboutHref = '/methodology',
 }: Props) {
@@ -40,8 +42,8 @@ export default function BuildingNavBar({
   const isMap    = /^map$/i.test(rawLabel)
   const label    = isMap ? 'MAP' : rawLabel
 
-  function handleSelect(b: BuildingSummary) {
-    router.push(`${buildingBasePath}/${b.bin}`)
+  function handleSelect(b: BuildingSummary & Record<string, unknown>) {
+    router.push(`${buildingBasePath}/${String(b[idKey])}`)
   }
 
   return (

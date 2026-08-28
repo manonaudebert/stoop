@@ -18,6 +18,10 @@ const RISK_TIER: Record<string, { color: string }> = {
   'Not comparable':    { color: '#A8CFAC' },
 }
 
+const SF_RISK_RANK: Record<string, number> = {
+  'Very low': 1, 'Low': 2, 'Moderate': 3, 'High': 4, 'Very high': 5,
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyBuilding = any
 
@@ -166,12 +170,21 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
             </li>
           ) : (
             results.map((b, i) => {
-              const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? null
+              const locationText = [b.borough, b.zip_code].filter(Boolean).join(' · ') || b.neighborhood || ''
+              const sfRisk =
+                [b.complaints_risk_level, b.violations_risk_level]
+                  .filter(Boolean)
+                  .sort((x: string, y: string) => (SF_RISK_RANK[y] ?? 0) - (SF_RISK_RANK[x] ?? 0))[0] ?? null
+              const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? sfRisk
               const tier = RISK_TIER[tierLabel ?? '']
+              const isSf     = b.mapblklot != null
+              const noRecords = isSf && !tierLabel && (b.total_complaints ?? 0) === 0 && (b.total_violations ?? 0) === 0
+              const pillLabel = tierLabel ?? (noRecords ? 'No records' : null)
+              const pillColor = tierLabel ? (tier?.color ?? '#737373') : '#6B6B6B'
               const isActive = i === active
               return (
                 <li
-                  key={b.bin}
+                  key={b.bin ?? b.mapblklot ?? b.address}
                   id={`search-result-${i}`}
                   ref={isActive ? activeRef : null}
                   role="option"
@@ -181,13 +194,13 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
                   onMouseEnter={() => setActive(i)}
                   onClick={() => select(b)}
                 >
-                  {tierLabel && (
+                  {pillLabel && (
                     <span className="hidden sm:inline-block" style={{
                       fontFamily: 'var(--font-mono)', flexShrink: 0,
                       fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase',
-                      color: tier?.color ?? '#737373',
+                      color: pillColor,
                     }}>
-                      {tierLabel}
+                      {pillLabel}
                     </span>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -195,13 +208,13 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
                       {b.address}
                     </p>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: '#525252', marginTop: 2, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
-                      {b.borough} · {b.zip_code}
+                      {locationText}
                     </p>
                   </div>
-                  {tierLabel && (
+                  {pillLabel && (
                     <span
                       className="sm:hidden"
-                      style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: tier?.color ?? '#737373' }}
+                      style={{ flexShrink: 0, width: 7, height: 7, borderRadius: '50%', background: pillColor }}
                     />
                   )}
                 </li>

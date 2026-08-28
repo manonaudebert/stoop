@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from database import get_db
 from limiter import limiter
-from schemas import BuildingSummaryResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
+from schemas import BuildingSummaryResponse, UnifiedSearchResponse, BuildingDetailResponse, ComplaintResponse, TimelinePoint, CategoryBreakdownItem, NeighborhoodResponse
 from observability import emit_event, is_bot, is_internal
 from cache import cache_get, cache_set
 
@@ -90,7 +90,7 @@ def _search_patterns(query: str) -> list[str]:
     return [f"%{p}%" for p in patterns]
 
 
-@router.get("/search", response_model=list[BuildingSummaryResponse])
+@router.get("/search", response_model=list[UnifiedSearchResponse])
 @limiter.limit("30/minute")
 async def search_buildings(
     request: Request,
@@ -116,23 +116,60 @@ async def search_buildings(
     exact_clauses  = " OR ".join(f"bs.address ILIKE :exact_{i}" for i in range(n))
     word_clauses   = " OR ".join(f"bs.address ILIKE :word_{i}"  for i in range(n))
     prefix_clauses = " OR ".join(f"bs.address ILIKE :pre_{i}"   for i in range(n))
+    like_clauses_h   = " OR ".join(f"cs.address ILIKE :like_{i}"  for i in range(n))
+    exact_clauses_h  = " OR ".join(f"cs.address ILIKE :exact_{i}" for i in range(n))
+    word_clauses_h   = " OR ".join(f"cs.address ILIKE :word_{i}"  for i in range(n))
+    prefix_clauses_h = " OR ".join(f"cs.address ILIKE :pre_{i}"   for i in range(n))
 
     rows = await db.execute(
         text(f"""
-            SELECT bs.*
-            FROM building_summary bs
-            WHERE bs.bin = :q
-               OR {like_clauses}
-            ORDER BY
-              CASE
-                WHEN bs.bin = :q          THEN 0
-                WHEN {exact_clauses}      THEN 1
-                WHEN {word_clauses}       THEN 2
-                WHEN {prefix_clauses}     THEN 3
-                ELSE 4
-              END,
-              bs.total_complaints DESC
-            LIMIT 20
+            WITH dm AS (
+                SELECT bs.bin,
+                       CASE WHEN bs.bin = :q THEN 0 WHEN {exact_clauses} THEN 1
+                            WHEN {word_clauses} THEN 2 WHEN {prefix_clauses} THEN 3
+                            ELSE 4 END AS match_rank,
+                       bs.total_complaints AS sort_total
+                FROM building_summary bs
+                WHERE bs.bin = :q OR {like_clauses}
+            ),
+            hm AS (
+                SELECT cs.bin,
+                       CASE WHEN cs.bin = :q THEN 0 WHEN {exact_clauses_h} THEN 1
+                            WHEN {word_clauses_h} THEN 2 WHEN {prefix_clauses_h} THEN 3
+                            ELSE 4 END AS match_rank,
+                       cs.total_complaints AS sort_total
+                FROM hpd_complaints_building_summary cs
+                WHERE cs.bin = :q OR {like_clauses_h}
+            ),
+            matched AS (
+                SELECT bin, MIN(match_rank) AS match_rank, MAX(sort_total) AS sort_total
+                FROM ( SELECT bin, match_rank, sort_total FROM dm
+                       UNION ALL
+                       SELECT bin, match_rank, sort_total FROM hm ) u
+                GROUP BY bin
+                ORDER BY match_rank, sort_total DESC NULLS LAST
+                LIMIT 20
+            )
+            SELECT
+                m.bin,
+                COALESCE(d.address, h.address)     AS address,
+                COALESCE(d.borough, h.borough)     AS borough,
+                COALESCE(d.zip_code, h.zip_code)   AS zip_code,
+                COALESCE(d.nta_code, h.nta_code)   AS nta_code,
+                COALESCE(d.latitude, h.latitude)   AS latitude,
+                COALESCE(d.longitude, h.longitude) AS longitude,
+                d.risk_level            AS dob_risk_level,
+                d.total_complaints      AS dob_total,
+                d.open_complaints       AS dob_open,
+                d.priority_a_complaints AS dob_priority_a,
+                h.risk_level                AS hpd_risk_level,
+                h.total_complaints          AS hpd_total,
+                h.open_complaints           AS hpd_open,
+                h.open_emergency_complaints AS hpd_open_emergency
+            FROM matched m
+            LEFT JOIN building_summary d               ON m.bin = d.bin
+            LEFT JOIN hpd_complaints_building_summary h ON m.bin = h.bin
+            ORDER BY m.match_rank, m.sort_total DESC NULLS LAST
         """),
         {"q": q, **like_params, **exact_params, **word_params, **prefix_params},
     )
@@ -141,11 +178,43 @@ async def search_buildings(
     if not summary_rows:
         trgm_rows = await db.execute(
             text("""
-                SELECT bs.*
-                FROM building_summary bs
-                WHERE word_similarity(:q, bs.address) > 0.25
-                ORDER BY word_similarity(:q, bs.address) DESC
-                LIMIT 10
+                WITH dm AS (
+                    SELECT bs.bin, word_similarity(:q, bs.address) AS sim
+                    FROM building_summary bs
+                    WHERE word_similarity(:q, bs.address) > 0.25
+                ),
+                hm AS (
+                    SELECT cs.bin, word_similarity(:q, cs.address) AS sim
+                    FROM hpd_complaints_building_summary cs
+                    WHERE word_similarity(:q, cs.address) > 0.25
+                ),
+                matched AS (
+                    SELECT bin, MAX(sim) AS sim
+                    FROM ( SELECT bin, sim FROM dm UNION ALL SELECT bin, sim FROM hm ) u
+                    GROUP BY bin
+                    ORDER BY sim DESC
+                    LIMIT 10
+                )
+                SELECT
+                    m.bin,
+                    COALESCE(d.address, h.address)     AS address,
+                    COALESCE(d.borough, h.borough)     AS borough,
+                    COALESCE(d.zip_code, h.zip_code)   AS zip_code,
+                    COALESCE(d.nta_code, h.nta_code)   AS nta_code,
+                    COALESCE(d.latitude, h.latitude)   AS latitude,
+                    COALESCE(d.longitude, h.longitude) AS longitude,
+                    d.risk_level            AS dob_risk_level,
+                    d.total_complaints      AS dob_total,
+                    d.open_complaints       AS dob_open,
+                    d.priority_a_complaints AS dob_priority_a,
+                    h.risk_level                AS hpd_risk_level,
+                    h.total_complaints          AS hpd_total,
+                    h.open_complaints           AS hpd_open,
+                    h.open_emergency_complaints AS hpd_open_emergency
+                FROM matched m
+                LEFT JOIN building_summary d               ON m.bin = d.bin
+                LEFT JOIN hpd_complaints_building_summary h ON m.bin = h.bin
+                ORDER BY m.sim DESC
             """),
             {"q": _normalize(q)},
         )
@@ -158,7 +227,7 @@ async def search_buildings(
                    is_bot=is_bot(request.headers.get("User-Agent", "")))
         return []
 
-    results = [BuildingSummaryResponse(**dict(r._mapping)) for r in summary_rows]
+    results = [UnifiedSearchResponse(**dict(r._mapping)) for r in summary_rows]
     cache_set(cache_key, results, ttl_seconds=3600)
     emit_event(kind="search", route="/building/search", city="nyc", query=q, result_count=len(results),
                internal=is_internal(request),

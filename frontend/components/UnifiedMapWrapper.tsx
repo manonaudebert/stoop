@@ -4,13 +4,12 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
-import { reportDegraded } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import SearchBar from './SearchBar'
 import CityToggle from './CityToggle'
 import CombinedBuildingSidebar, { type UnifiedBuilding } from './CombinedBuildingSidebar'
 import type { Lens } from './Map'
-import type { BuildingSummary, HpdComplaintBuildingSummary } from '@/lib/types'
+import type { UnifiedSearchResult } from '@/lib/types'
 
 const Map = dynamic(() => import('./Map'), { ssr: false })
 
@@ -100,41 +99,24 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     router.replace(d === 'DOB' ? '/?mode=dob' : '/', { scroll: false })
   }
 
-  // Search hits the DOB building index (broad residential coverage) for the
-  // DOB half, then fetches the HPD complaint summary so the combined sidebar
-  // can render both halves. Either half may legitimately have no record.
-  async function handleSearchSelect(b: BuildingSummary) {
+  function handleSearchSelect(b: UnifiedSearchResult) {
     if (b.latitude != null && b.longitude != null) {
       setFlyTarget(prev => ({ lat: b.latitude!, lng: b.longitude!, id: (prev?.id ?? 0) + 1 }))
     }
-    const base: UnifiedBuilding = {
-      bin:            b.bin,
-      address:        b.address,
-      borough:        b.borough,
-      zip_code:       b.zip_code,
-      dob_risk_level: b.risk_level ?? null,
-      dob_total:      b.total_complaints,
-      dob_open:       b.open_complaints,
-      dob_priority_a: b.priority_a_complaints,
-    }
-    setSelected(base)
-    try {
-      const res = await fetch(`/api/proxy/hpd-complaints/building/search?q=${encodeURIComponent(b.bin)}`)
-      if (!res.ok) throw new Error(`hpd-complaints search ${res.status}`)
-      const results: HpdComplaintBuildingSummary[] = await res.json()
-      const h = results.find(r => r.bin === b.bin)
-      setSelected(prev => prev && prev.bin === b.bin ? {
-        ...prev,
-        hpd_risk_level:     h?.risk_level ?? null,
-        hpd_total:          h?.total_complaints ?? null,
-        hpd_open:           h?.open_complaints ?? null,
-        hpd_open_emergency: h?.open_emergency_complaints ?? null,
-      } : prev)
-    } catch (err) {
-      // Leaves the HPD half unresolved, which the sidebar renders as its own
-      // failure state rather than as "No HPD records".
-      reportDegraded('map sidebar hpd complaints', err)
-    }
+    setSelected({
+      bin:                b.bin,
+      address:            b.address,
+      borough:            b.borough,
+      zip_code:           b.zip_code,
+      dob_risk_level:     b.dob_risk_level,
+      dob_total:          b.dob_total,
+      dob_open:           b.dob_open,
+      dob_priority_a:     b.dob_priority_a,
+      hpd_risk_level:     b.hpd_risk_level,
+      hpd_total:          b.hpd_total,
+      hpd_open:           b.hpd_open,
+      hpd_open_emergency: b.hpd_open_emergency,
+    })
   }
 
   // Map clicks carry the full union feature: both datasets in one object.

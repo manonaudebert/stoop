@@ -1,4 +1,4 @@
-import type { BuildingSummary, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem, BuildingBrief, SfBuildingBrief } from './types'
+import type { BuildingSummary, UnifiedSearchResult, BuildingDetail, TimelinePoint, CategoryBreakdownItem, NeighborhoodData, HpdBuildingSummary, HpdBuildingDetail, ViolationClassBreakdownItem, ViolationAgeBucketItem, HpdComplaintBuildingSummary, HpdComplaintBuildingDetail, ComplaintCategoryBreakdownItem, ComplaintMinorBreakdownItem, ComplaintTypePeriodItem, ComplaintResolutionItem, SfBuildingSummary, SfBuildingDetail, SfComplaintBreakdownItem, SfViolationBreakdownItem, BuildingBrief, SfBuildingBrief } from './types'
 
 // Two ways a fetch is allowed to fail, and the difference is the point.
 //
@@ -68,7 +68,7 @@ async function get<T>(path: string, opts: GetOptions = {}): Promise<T> {
   return res.json()
 }
 
-export async function searchBuildings(q: string, signal?: AbortSignal): Promise<BuildingSummary[]> {
+export async function searchBuildings(q: string, signal?: AbortSignal): Promise<UnifiedSearchResult[]> {
   return get(`/building/search?q=${encodeURIComponent(q)}`, { signal, revalidate: 3600 })
 }
 

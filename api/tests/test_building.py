@@ -55,6 +55,24 @@ BUILDING_SUMMARY_ROW = {
     "normalized_serious_rate_percentile": 68.0,
 }
 
+UNIFIED_SEARCH_ROW = {
+    "bin": SAMPLE_BIN,
+    "address": "123 TEST ST",
+    "borough": "MANHATTAN",
+    "zip_code": "10001",
+    "nta_code": "MN2501",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "dob_risk_level": "High",
+    "dob_total": 10,
+    "dob_open": 3,
+    "dob_priority_a": 2,
+    "hpd_risk_level": "Moderate",
+    "hpd_total": 8,
+    "hpd_open": 2,
+    "hpd_open_emergency": 1,
+}
+
 COMPLAINT_ROW = {
     "id": 1,
     "complaint_number": "99001",
@@ -434,7 +452,7 @@ LEADERBOARD_ROW = {
 
 class TestSearchBuildings:
     async def test_exact_match_returns_results(self, client):
-        mock_db = make_mock_db(MockResult([MockRow(BUILDING_SUMMARY_ROW)]))
+        mock_db = make_mock_db(MockResult([MockRow(UNIFIED_SEARCH_ROW)]))
         app.dependency_overrides[get_db] = db_override(mock_db)
         try:
             resp = await client.get("/building/search?q=123+TEST+ST")
@@ -445,12 +463,14 @@ class TestSearchBuildings:
         data = resp.json()
         assert len(data) == 1
         assert data[0]["address"] == "123 TEST ST"
+        assert data[0]["dob_risk_level"] == "High"
+        assert data[0]["hpd_risk_level"] == "Moderate"
 
     async def test_fuzzy_fallback_when_ilike_returns_nothing(self, client):
         # Phase 1 (ILIKE) returns nothing; phase 2 (trigram) finds a match.
         mock_db = make_mock_db(
             MockResult([]),
-            MockResult([MockRow(BUILDING_SUMMARY_ROW)]),
+            MockResult([MockRow(UNIFIED_SEARCH_ROW)]),
         )
         app.dependency_overrides[get_db] = db_override(mock_db)
         try:
@@ -462,6 +482,8 @@ class TestSearchBuildings:
         data = resp.json()
         assert len(data) == 1
         assert data[0]["bin"] == SAMPLE_BIN
+        assert data[0]["dob_total"] == 10
+        assert data[0]["hpd_total"] == 8
 
     async def test_empty_when_both_phases_miss(self, client):
         mock_db = make_mock_db(MockResult([]), MockResult([]))
@@ -473,6 +495,27 @@ class TestSearchBuildings:
 
         assert resp.status_code == 200
         assert resp.json() == []
+
+    async def test_hpd_only_result_is_returned(self, client):
+        row = MockRow({
+            **UNIFIED_SEARCH_ROW,
+            "dob_risk_level": None,
+            "dob_total": None,
+            "dob_open": None,
+            "dob_priority_a": None,
+        })
+        mock_db = make_mock_db(MockResult([row]))
+        app.dependency_overrides[get_db] = db_override(mock_db)
+        try:
+            resp = await client.get("/building/search?q=123+TEST+ST")
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["dob_risk_level"] is None
+        assert data[0]["hpd_risk_level"] == "Moderate"
 
 
 class TestGetLeaderboardRecent:

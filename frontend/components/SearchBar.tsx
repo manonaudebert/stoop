@@ -18,9 +18,14 @@ const RISK_TIER: Record<string, { color: string }> = {
   'Not comparable':    { color: '#A8CFAC' },
 }
 
-const SF_RISK_RANK: Record<string, number> = {
-  'Very low': 1, 'Low': 2, 'Moderate': 3, 'High': 4, 'Very high': 5,
+const RISK_RANK: Record<string, number> = {
+  'Emergency': 9, 'Very high': 8, 'Hazardous': 7, 'High': 6, 'Moderate': 5,
+  'Non-hazardous': 4, 'Low': 3, 'Very low': 2, 'Resolved': 1,
+  'Insufficient data': 0, 'Not comparable': 0,
 }
+
+const mostSevere = (...levels: (string | null | undefined)[]): string | null =>
+  levels.filter(Boolean).sort((a, b) => (RISK_RANK[b as string] ?? -1) - (RISK_RANK[a as string] ?? -1))[0] ?? null
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyBuilding = any
@@ -171,11 +176,12 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
           ) : (
             results.map((b, i) => {
               const locationText = [b.borough, b.zip_code].filter(Boolean).join(' · ') || b.neighborhood || ''
-              const sfRisk =
-                [b.complaints_risk_level, b.violations_risk_level]
-                  .filter(Boolean)
-                  .sort((x: string, y: string) => (SF_RISK_RANK[y] ?? 0) - (SF_RISK_RANK[x] ?? 0))[0] ?? null
-              const tierLabel = b.risk_level ?? b.hpd_risk_tier ?? sfRisk
+              const tierLabel =
+                (b.dob_risk_level != null || b.hpd_risk_level != null)
+                  ? mostSevere(b.dob_risk_level, b.hpd_risk_level)
+                : (b.complaints_risk_level != null || b.violations_risk_level != null)
+                  ? mostSevere(b.complaints_risk_level, b.violations_risk_level)
+                  : (b.risk_level ?? b.hpd_risk_tier ?? null)
               const tier = RISK_TIER[tierLabel ?? '']
               const isSf     = b.mapblklot != null
               const noRecords = isSf && !tierLabel && (b.total_complaints ?? 0) === 0 && (b.total_violations ?? 0) === 0

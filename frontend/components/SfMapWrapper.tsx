@@ -60,6 +60,7 @@ export default function SfMapWrapper() {
   const [neighborhoodList,      setNeighborhoodList]      = useState<NhoodItem[]>([])
   const [neighborhoodSearch,    setNeighborhoodSearch]    = useState('')
   const [neighborhoodListExpanded, setNeighborhoodListExpanded] = useState(true)
+  const [loading,               setLoading]               = useState(false)
 
   const isMobile = useIsMobile()
   const { showWelcome, dismissWelcome } = useWelcomeBanner('sf_welcome_dismissed')
@@ -366,6 +367,7 @@ export default function SfMapWrapper() {
         selectedNeighborhoods={selectedNeighborhoodsArray}
         onNeighborhoodSelect={nhood => nhood && toggleNeighborhood(nhood.name)}
         onNeighborhoodListLoad={setNeighborhoodList}
+        onLoadingChange={setLoading}
         isMobile={isMobile}
       />
 
@@ -462,6 +464,21 @@ export default function SfMapWrapper() {
           )}
         </div>
       </div>
+
+      {/* First-load indicator — corner pill, centered below the nav */}
+      {loading && (
+        <div
+          className="pointer-events-none absolute left-1/2 z-20"
+          style={{ top: 86, transform: 'translateX(-50%)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 999, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: ACCENT_COLOR, animation: 'pulse-bg 1.4s ease-in-out infinite' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
+              Loading buildings…
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Desktop overlays */}
       {!isMobile && (

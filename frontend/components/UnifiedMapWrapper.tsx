@@ -61,6 +61,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   const [ntaListExpanded,  setNtaListExpanded]  = useState(true)
   const [explainerExpanded, setExplainerExpanded] = useState(false)
   const [navMenuOpen,       setNavMenuOpen]       = useState(false)
+  const [loading,           setLoading]           = useState(false)
   const closeNavMenu = useCallback(() => setNavMenuOpen(false), [])
 
   const isMobile = useIsMobile()
@@ -394,6 +395,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
         selectedNtas={selectedNtasArray}
         onNtaSelect={nta => nta && toggleNta(nta.code)}
         onNtaListLoad={setNtaList}
+        onLoadingChange={setLoading}
         clustersUrl={CLUSTERS_URL}
         lens={lens}
         isMobile={isMobile}
@@ -512,6 +514,21 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
           )}
         </div>
       </div>
+
+      {/* First-load indicator — corner pill, centered below the nav */}
+      {loading && (
+        <div
+          className="pointer-events-none absolute left-1/2 z-20"
+          style={{ top: 86, transform: 'translateX(-50%)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FFFFFF', border: '0.5px solid #6B6B6B', borderRadius: 999, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: ACCENT_COLOR, animation: 'pulse-bg 1.4s ease-in-out infinite' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#525252' }}>
+              Loading buildings…
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ───────── Desktop: color-by + sidebar on the left, legend on the right ───────── */}
       {!isMobile && (

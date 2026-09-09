@@ -124,21 +124,25 @@ type Props = {
   selectedNtas: string[]
   onNtaSelect: (nta: NtaSelection | null) => void
   onNtaListLoad: (ntas: NtaSelection[]) => void
+  onLoadingChange?: (loading: boolean) => void
   clustersUrl?: string
   isMobile?: boolean
 }
 
-export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, clustersUrl = DEFAULT_CLUSTERS_URL, isMobile = false }: Props) {
+export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, visibleTiers, showNtaBorders, selectedNtas, onNtaSelect, onNtaListLoad, onLoadingChange, clustersUrl = DEFAULT_CLUSTERS_URL, isMobile = false }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const navControlRef = useRef<mapboxgl.NavigationControl | null>(null)
   const onSelectRef = useRef(onBuildingSelect)
   const onNtaSelectRef = useRef(onNtaSelect)
   const onNtaListLoadRef = useRef(onNtaListLoad)
+  const onLoadingChangeRef = useRef(onLoadingChange)
   const clustersUrlRef = useRef(clustersUrl)
   // Monotonic token so out-of-order cluster fetches can be discarded
   const loadSeqRef = useRef(0)
   const loadAbortRef = useRef<AbortController | null>(null)
+  // The loading indicator fires only for the first fetch after mount, not for pans
+  const firstLoadDoneRef = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawDataRef = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,6 +160,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     onSelectRef.current = onBuildingSelect
     onNtaSelectRef.current = onNtaSelect
     onNtaListLoadRef.current = onNtaListLoad
+    onLoadingChangeRef.current = onLoadingChange
     clustersUrlRef.current = clustersUrl
     visibleTiersRef.current = visibleTiers
     selectedNtasRef.current = selectedNtas
@@ -239,16 +244,34 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     loadAbortRef.current = controller
     const seq = ++loadSeqRef.current
 
+    // Only the first fetch after mount shows the indicator — the blank-map wait.
+    // Pans, dataset toggles, and lens switches already have dots on screen, so
+    // they refetch silently.
+    const firstLoad = !firstLoadDoneRef.current
+    if (firstLoad) onLoadingChangeRef.current?.(true)
+
+    // Only the still-current first-load request settles the flag. A stale or
+    // aborted one returning late leaves it set: a newer request has claimed a
+    // higher seq and, since the first load never completed, still owns it.
+    const settleFirstLoad = () => {
+      if (firstLoad && seq === loadSeqRef.current) {
+        firstLoadDoneRef.current = true
+        onLoadingChangeRef.current?.(false)
+      }
+    }
+
     let geojson
     try {
       const res = await fetch(url, { signal: controller.signal })
       if (!res.ok) {
         console.error('Failed to load map data:', res.status)
+        settleFirstLoad()
         return
       }
       geojson = await res.json()
     } catch (err) {
       if ((err as Error)?.name !== 'AbortError') console.error('Failed to load map data:', err)
+      settleFirstLoad()
       return
     }
 
@@ -257,6 +280,7 @@ export default function Map({ onBuildingSelect, flyTarget, selectedBin, lens, vi
     rawDataRef.current = geojson
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
     if (src) applyTierFilter(src, geojson, new Set(visibleTiersRef.current), selectedNtasRef.current, LENS_FIELDS[lensRef.current].risk)
+    settleFirstLoad()
   }, [])
 
   // Reload building data when the clusters endpoint changes (dataset toggle)

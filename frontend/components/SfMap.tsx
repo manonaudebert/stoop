@@ -116,18 +116,22 @@ type Props = {
   selectedNeighborhoods: string[]
   onNeighborhoodSelect: (nhood: NhoodSelection | null) => void
   onNeighborhoodListLoad: (nhoods: NhoodSelection[]) => void
+  onLoadingChange?: (loading: boolean) => void
   isMobile?: boolean
 }
 
-export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, visibleTiers, showNeighborhoods, selectedNeighborhoods, onNeighborhoodSelect, onNeighborhoodListLoad, isMobile = false }: Props) {
+export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, visibleTiers, showNeighborhoods, selectedNeighborhoods, onNeighborhoodSelect, onNeighborhoodListLoad, onLoadingChange, isMobile = false }: Props) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const mapRef         = useRef<mapboxgl.Map | null>(null)
   const navControlRef  = useRef<mapboxgl.NavigationControl | null>(null)
   const onSelectRef        = useRef(onBuildingSelect)
   const onNhoodSelectRef   = useRef(onNeighborhoodSelect)
   const onNhoodListLoadRef = useRef(onNeighborhoodListLoad)
+  const onLoadingChangeRef = useRef(onLoadingChange)
   const loadSeqRef     = useRef(0)
   const loadAbortRef   = useRef<AbortController | null>(null)
+  // The loading indicator fires only for the first fetch after mount, not for pans
+  const firstLoadDoneRef = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rawDataRef         = useRef<any>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -145,6 +149,7 @@ export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, v
     onSelectRef.current        = onBuildingSelect
     onNhoodSelectRef.current   = onNeighborhoodSelect
     onNhoodListLoadRef.current = onNeighborhoodListLoad
+    onLoadingChangeRef.current = onLoadingChange
     visibleTiersRef.current    = visibleTiers
     selectedNhoodsRef.current  = selectedNeighborhoods
     showNhoodsRef.current      = showNeighborhoods
@@ -240,13 +245,30 @@ export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, v
     loadAbortRef.current = controller
     const seq = ++loadSeqRef.current
 
+    // Only the first fetch after mount shows the indicator — the blank-map wait.
+    // Pans, dataset toggles, and lens switches already have dots on screen, so
+    // they refetch silently.
+    const firstLoad = !firstLoadDoneRef.current
+    if (firstLoad) onLoadingChangeRef.current?.(true)
+
+    // Only the still-current first-load request settles the flag. A stale or
+    // aborted one returning late leaves it set: a newer request has claimed a
+    // higher seq and, since the first load never completed, still owns it.
+    const settleFirstLoad = () => {
+      if (firstLoad && seq === loadSeqRef.current) {
+        firstLoadDoneRef.current = true
+        onLoadingChangeRef.current?.(false)
+      }
+    }
+
     let geojson
     try {
       const res = await fetch(url, { signal: controller.signal })
-      if (!res.ok) return
+      if (!res.ok) { settleFirstLoad(); return }
       geojson = await res.json()
     } catch (err) {
       if ((err as Error)?.name !== 'AbortError') console.error('SF map load error:', err)
+      settleFirstLoad()
       return
     }
 
@@ -254,6 +276,7 @@ export default function SfMap({ onBuildingSelect, flyTarget, selectedId, lens, v
     rawDataRef.current = geojson
     const src = map.getSource('buildings') as mapboxgl.GeoJSONSource | undefined
     if (src) applyFilter(src, geojson, new Set(visibleTiersRef.current), selectedNhoodsRef.current, lensRef.current)
+    settleFirstLoad()
   }, [])
 
   useEffect(() => {

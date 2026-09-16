@@ -6,12 +6,13 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 DATABASE_URL      = os.environ["DATABASE_URL"]
 SOCRATA_APP_TOKEN = os.environ.get("SOCRATA_APP_TOKEN", "")
 
-# DataSF Socrata endpoints
-SF_PARCELS_API      = "https://data.sfgov.org/resource/acdm-wktn.json"
-SF_FOOTPRINTS_API   = "https://data.sfgov.org/resource/ynuv-fyni.json"
-SF_311_API          = "https://data.sfgov.org/resource/vw6y-z8j6.json"
-SF_DBI_NOV_API      = "https://data.sfgov.org/resource/nbtm-fbw5.json"
-SF_ADDRESSES_API    = "https://data.sfgov.org/resource/ramy-di5m.json"
+# DataSF Socrata endpoints. Portal moved to data.sf.gov; the old data.sfgov.org
+# host 403s any request carrying $select params rather than redirecting.
+SF_PARCELS_API      = "https://data.sf.gov/resource/acdm-wktn.json"
+SF_FOOTPRINTS_API   = "https://data.sf.gov/resource/ynuv-fyni.json"
+SF_311_API          = "https://data.sf.gov/resource/vw6y-z8j6.json"
+SF_DBI_NOV_API      = "https://data.sf.gov/resource/nbtm-fbw5.json"
+SF_ADDRESSES_API    = "https://data.sf.gov/resource/ramy-di5m.json"
 
 # 311 filter: both service-name variants (sequential, not parallel)
 SF_311_SERVICE_NAMES = ("Residential Building Request", "Residential Building")

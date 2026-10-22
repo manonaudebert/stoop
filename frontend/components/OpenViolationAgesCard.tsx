@@ -40,12 +40,10 @@ export default function OpenViolationAgesCard({ data }: { data: ViolationAgeBuck
     </div>
   )
 
-  let cursor = 0
-  const segments = data.map(({ bucket, count }) => {
+  const segments = data.map(({ bucket, count }, index) => {
     const pct = total > 0 ? (count / total) * 100 : 0
-    const seg = { bucket, count, pct, offset: cursor }
-    cursor += pct
-    return seg
+    const priorCount = data.slice(0, index).reduce((sum, item) => sum + item.count, 0)
+    return { bucket, count, pct, offset: (priorCount / total) * 100 }
   })
 
   const hoveredSeg = segments.find(s => s.bucket === hovered) ?? null

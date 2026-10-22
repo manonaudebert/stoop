@@ -27,6 +27,11 @@ type ViolationSummary = {
   rent_impairing_count: number
 }
 
+type ViolationResult = {
+  bin: string
+  value: ViolationSummary | null | 'error'
+}
+
 const RISK_LEVEL_META: Record<string, { label: string; color: string }> = {
   'Very low':  { label: 'Very low',  color: '#525252' },
   'Low':       { label: 'Low',       color: '#525252' },
@@ -70,10 +75,9 @@ type Props = {
 
 export default function HpdBuildingSidebar({ building, onClose }: Props) {
   const meta = getRiskMeta(building.risk_level ?? null)
-  const [violations, setViolations] = useState<ViolationSummary | null | 'loading' | 'error'>('loading')
+  const [violationResult, setViolationResult] = useState<ViolationResult | null>(null)
 
   useEffect(() => {
-    setViolations('loading')
     let cancelled = false
     fetch(`/api/proxy/hpd/building/search?q=${encodeURIComponent(building.bin)}`)
       .then(r => {
@@ -86,16 +90,17 @@ export default function HpdBuildingSidebar({ building, onClose }: Props) {
       .then((results: ViolationSummary[]) => {
         if (cancelled) return
         const match = results.find(r => r.bin === building.bin)
-        setViolations(match ?? null)
+        setViolationResult({ bin: building.bin, value: match ?? null })
       })
       .catch(err => {
         if (cancelled) return
         reportDegraded('sidebar hpd violations', err)
-        setViolations('error')
+        setViolationResult({ bin: building.bin, value: 'error' })
       })
     return () => { cancelled = true }
   }, [building.bin])
 
+  const violations = violationResult?.bin === building.bin ? violationResult.value : 'loading'
   const vFailed     = violations === 'error'
   const v           = typeof violations === 'string' ? null : violations
   const vLoading    = violations === 'loading'

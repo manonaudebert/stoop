@@ -14,11 +14,13 @@
 // instead is the part that is city-agnostic on its face: viewport, keyboard,
 // and a dismissible banner.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 
 // The Tailwind `sm` breakpoint. Below it the map's floating cards become
 // bottom sheets.
 const MOBILE_QUERY = '(max-width: 639.98px)'
+const NOOP_SUBSCRIBE = () => () => {}
+const DISMISSED_ON_SERVER = () => true
 
 export function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(false)
@@ -48,13 +50,13 @@ export function useEscapeKey(active: boolean, onEscape: () => void) {
 // card does not silently dismiss the other's — that was true before this hook
 // existed and is preserved rather than tidied away.
 export function useWelcomeBanner(storageKey: string) {
-  const [showWelcome, setShowWelcome] = useState(false)
-  useEffect(() => {
-    if (!localStorage.getItem(storageKey)) setShowWelcome(true)
-  }, [storageKey])
+  const [dismissed, setDismissed] = useState(false)
+  const getSnapshot = useCallback(() => localStorage.getItem(storageKey) !== null, [storageKey])
+  const dismissedInStorage = useSyncExternalStore(NOOP_SUBSCRIBE, getSnapshot, DISMISSED_ON_SERVER)
+  const showWelcome = !dismissed && !dismissedInStorage
   const dismissWelcome = useCallback(() => {
     localStorage.setItem(storageKey, '1')
-    setShowWelcome(false)
+    setDismissed(true)
   }, [storageKey])
   return { showWelcome, dismissWelcome }
 }

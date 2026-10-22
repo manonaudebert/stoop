@@ -166,7 +166,7 @@ export default function SearchBar({ onSelect, searchUrl }: Props) {
             </li>
           ) : showEmpty ? (
             <li style={{ padding: '12px 14px', fontSize: 13, color: '#525252' }}>
-              No buildings found for "{query}"
+              No buildings found for &quot;{query}&quot;
             </li>
           ) : (
             results.map((b, i) => {

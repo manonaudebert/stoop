@@ -330,7 +330,7 @@ export default async function BuildingPage({
   const backHref  = from === 'leaderboard' ? '/dob/leaderboard' : '/'
   const backLabel = from === 'leaderboard' ? '← Leaderboard' : '← Map'
 
-  let building, timeline, breakdown, neighborhood
+  let building, timeline, breakdown
   try {
     ;[building, timeline, breakdown] = await Promise.all([
       getBuilding(bin, page, status, category),
@@ -403,7 +403,7 @@ export default async function BuildingPage({
     )
   }
 
-  neighborhood = await getNeighborhood(bin)
+  const neighborhood = await getNeighborhood(bin)
 
   const totalPages = Math.ceil(building.total_count / building.page_size)
 

@@ -32,6 +32,11 @@ type ViolationSummary = {
   rent_impairing_count: number
 }
 
+type ViolationResult = {
+  bin: string
+  value: ViolationSummary | null | 'error'
+}
+
 // Marks the section whose risk currently drives the map colors, so a tenant
 // reading a green/red dot knows which of the two dimensions they're looking at.
 type Props = {
@@ -44,11 +49,10 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
   const hasHpd = building.hpd_total != null || building.hpd_risk_level != null
   const hasDob = building.dob_total != null || building.dob_risk_level != null
 
-  const [violations, setViolations] = useState<ViolationSummary | null | 'loading' | 'error'>('loading')
+  const [violationResult, setViolationResult] = useState<ViolationResult | null>(null)
 
   useEffect(() => {
-    if (!hasHpd) { setViolations(null); return }
-    setViolations('loading')
+    if (!hasHpd) return
     let cancelled = false
     fetch(`/api/proxy/hpd/building/search?q=${encodeURIComponent(building.bin)}`)
       .then(r => {
@@ -60,16 +64,19 @@ export default function CombinedBuildingSidebar({ building, onClose, activeLens 
       })
       .then((results: ViolationSummary[]) => {
         if (cancelled) return
-        setViolations(results.find(r => r.bin === building.bin) ?? null)
+        setViolationResult({ bin: building.bin, value: results.find(r => r.bin === building.bin) ?? null })
       })
       .catch(err => {
         if (cancelled) return
         reportDegraded('sidebar hpd violations', err)
-        setViolations('error')
+        setViolationResult({ bin: building.bin, value: 'error' })
       })
     return () => { cancelled = true }
   }, [building.bin, hasHpd])
 
+  const violations = !hasHpd
+    ? null
+    : violationResult?.bin === building.bin ? violationResult.value : 'loading'
   const vFailed  = violations === 'error'
   const v        = typeof violations === 'string' ? null : violations
   const vLoading = violations === 'loading'

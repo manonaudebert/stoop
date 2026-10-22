@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
 import { reportDegraded } from '@/lib/api'
 import { useRouter } from 'next/navigation'
@@ -47,6 +47,24 @@ const LENS_CONFIG: Record<Lens, { subtitle: string; explainer: string }> = {
 
 const ACCENT_COLOR = '#7F1D1D'
 
+function Checkbox({ active, color }: { active: boolean; color: string }) {
+  return (
+    <div style={{
+      width: 13, height: 13, borderRadius: 3, flexShrink: 0,
+      background: active ? color : 'transparent',
+      border: `1.5px solid ${active ? color : '#6B6B6B'}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'background 0.1s, border-color 0.1s',
+    }}>
+      {active && (
+        <svg width="7" height="5" viewBox="0 0 7 5" fill="none">
+          <path d="M1 2.5l1.8 1.8L6 1" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+    </div>
+  )
+}
+
 export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode?: Lens }) {
   const router = useRouter()
   const [lens,            setLens]            = useState<Lens>(initialMode)
@@ -83,14 +101,6 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     ]
   }, [ntaList, ntaSearch, selectedNtas])
 
-  useEffect(() => {
-    if (!showNtaBorders) { setSelectedNtas(new Set()); setNtaSearch(''); setNtaListExpanded(true) }
-  }, [showNtaBorders])
-
-  useEffect(() => {
-    if (selected) setExplainerExpanded(false)
-  }, [selected])
-
   function switchLens(d: Lens) {
     if (d === lens) return
     setLens(d)
@@ -118,6 +128,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
       dob_open:       b.open_complaints,
       dob_priority_a: b.priority_a_complaints,
     }
+    setExplainerExpanded(false)
     setSelected(base)
     try {
       const res = await fetch(`/api/proxy/hpd-complaints/building/search?q=${encodeURIComponent(b.bin)}`)
@@ -142,6 +153,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleMapSelect(raw: any) {
     if (!raw) { setSelected(null); return }
+    setExplainerExpanded(false)
     setSelected({
       bin:                raw.bin,
       address:            raw.address ?? null,
@@ -174,21 +186,14 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
     })
   }
 
-  const Checkbox = ({ active, color }: { active: boolean; color: string }) => (
-    <div style={{
-      width: 13, height: 13, borderRadius: 3, flexShrink: 0,
-      background: active ? color : 'transparent',
-      border: `1.5px solid ${active ? color : '#6B6B6B'}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      transition: 'background 0.1s, border-color 0.1s',
-    }}>
-      {active && (
-        <svg width="7" height="5" viewBox="0 0 7 5" fill="none">
-          <path d="M1 2.5l1.8 1.8L6 1" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      )}
-    </div>
-  )
+  function toggleNtaBorders() {
+    if (showNtaBorders) {
+      setSelectedNtas(new Set())
+      setNtaSearch('')
+      setNtaListExpanded(true)
+    }
+    setShowNtaBorders(!showNtaBorders)
+  }
 
   const selectedBin = selected?.bin ?? null
 
@@ -299,7 +304,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
 
       {/* NTA toggle */}
       <div
-        onClick={() => setShowNtaBorders(v => !v)}
+        onClick={toggleNtaBorders}
         style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
       >
         <Checkbox active={showNtaBorders} color="#525252" />
@@ -387,7 +392,7 @@ export default function UnifiedMapWrapper({ initialMode = 'HPD' }: { initialMode
   return (
     <div className="relative w-full h-full">
       <Map
-        onBuildingSelect={handleMapSelect as any}
+        onBuildingSelect={handleMapSelect}
         flyTarget={flyTarget}
         selectedBin={selectedBin}
         visibleTiers={visibleTiersArray}

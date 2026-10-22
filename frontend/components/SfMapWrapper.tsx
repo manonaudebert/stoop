@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useIsMobile, useEscapeKey, useWelcomeBanner } from '@/lib/mapChrome'
 import SearchBar from './SearchBar'
 import CityToggle from './CityToggle'
@@ -26,6 +26,24 @@ const LEGEND = [
 ]
 const ALL_TIERS = new Set(LEGEND.map(l => l.tier))
 const ACCENT_COLOR = '#7F1D1D'
+
+function Checkbox({ active, color }: { active: boolean; color: string }) {
+  return (
+    <div style={{
+      width: 13, height: 13, borderRadius: 3, flexShrink: 0,
+      background: active ? color : 'transparent',
+      border: `1.5px solid ${active ? color : '#6B6B6B'}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      transition: 'background 0.1s, border-color 0.1s',
+    }}>
+      {active && (
+        <svg width="7" height="5" viewBox="0 0 7 5" fill="none">
+          <path d="M1 2.5l1.8 1.8L6 1" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+    </div>
+  )
+}
 
 const LENS_CONFIG: Record<SfLens, { label: string; subtitle: string; explainer: string }> = {
   complaints: {
@@ -66,21 +84,21 @@ export default function SfMapWrapper() {
   const { showWelcome, dismissWelcome } = useWelcomeBanner('sf_welcome_dismissed')
   useEscapeKey(navMenuOpen, closeNavMenu)
 
-  useEffect(() => {
-    if (selected) setExplainerExpanded(false)
-  }, [selected])
-
-  // Reset the neighborhood filter whenever the borders are hidden
-  useEffect(() => {
-    if (!showNeighborhoods) { setSelectedNeighborhoods(new Set()); setNeighborhoodSearch(''); setNeighborhoodListExpanded(true) }
-  }, [showNeighborhoods])
-
   function toggleNeighborhood(name: string) {
     setSelectedNeighborhoods(prev => {
       const next = new Set(prev)
       if (next.has(name)) next.delete(name); else next.add(name)
       return next
     })
+  }
+
+  function toggleNeighborhoods() {
+    if (showNeighborhoods) {
+      setSelectedNeighborhoods(new Set())
+      setNeighborhoodSearch('')
+      setNeighborhoodListExpanded(true)
+    }
+    setShowNeighborhoods(!showNeighborhoods)
   }
 
   function switchLens(l: SfLens) {
@@ -102,6 +120,7 @@ export default function SfMapWrapper() {
     if (b.latitude != null && b.longitude != null) {
       setFlyTarget(prev => ({ lat: b.latitude!, lng: b.longitude!, id: (prev?.id ?? 0) + 1 }))
     }
+    setExplainerExpanded(false)
     setSelected({
       mapblklot:             b.mapblklot,
       address:               b.address,
@@ -121,6 +140,7 @@ export default function SfMapWrapper() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleMapSelect(raw: any) {
     if (!raw) { setSelected(null); return }
+    setExplainerExpanded(false)
     setSelected({
       mapblklot:             raw.mapblklot,
       address:               raw.address ?? null,
@@ -152,22 +172,6 @@ export default function SfMapWrapper() {
       ...base.filter(n => !selectedNeighborhoods.has(n.name)),
     ]
   }, [neighborhoodList, neighborhoodSearch, selectedNeighborhoods])
-
-  const Checkbox = ({ active, color }: { active: boolean; color: string }) => (
-    <div style={{
-      width: 13, height: 13, borderRadius: 3, flexShrink: 0,
-      background: active ? color : 'transparent',
-      border: `1.5px solid ${active ? color : '#6B6B6B'}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      transition: 'background 0.1s, border-color 0.1s',
-    }}>
-      {active && (
-        <svg width="7" height="5" viewBox="0 0 7 5" fill="none">
-          <path d="M1 2.5l1.8 1.8L6 1" stroke="#FFFFFF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      )}
-    </div>
-  )
 
   // ── Shared overlay content ────────────────────────────────────────────────────
 
@@ -270,7 +274,7 @@ export default function SfMapWrapper() {
 
       {/* Neighborhood border toggle */}
       <div
-        onClick={() => setShowNeighborhoods(v => !v)}
+        onClick={toggleNeighborhoods}
         style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
       >
         <Checkbox active={showNeighborhoods} color="#525252" />
